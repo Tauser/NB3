@@ -79,10 +79,17 @@ Set-Location "D:\Projetos\NoiseBot-v3\firmware\xiaozhi-esp32"
 
 ## Hardware e flash
 
-- Placa: Waveshare ESP32-S3-DEV-KIT N32R16V, porta **COM5** (CH343),
-  MAC **`90:e5:b1:cc:3d:58`**.
-- **Nunca flashear a Freenove CAM** (COM12, MAC `20:6e:f1:b2:3c:f4`): roda
-  outro firmware em produção. Antes de qualquer flash, confirmar porta e MAC.
+- Placa: Waveshare ESP32-S3-DEV-KIT N32R16V, MAC **`90:e5:b1:cc:3d:58`**.
+  Console/log na UART CH343 (em geral COM5); o USB nativo aparece como outra
+  porta (em geral COM6) quando os dois cabos estão ligados.
+- **Números de COM mudam** a cada reconexão: antes de qualquer flash,
+  identificar a placa pelo MAC (`esptool read-mac`) e abortar se não bater.
+- Gravar a **115200 baud** (`idf.py -b 115200`): a 460800 a conexão caiu no
+  meio de uma gravação e corrompeu o bootloader.
+- Freenove ESP32-S3 CAM (MAC `20:6e:f1:b2:3c:f4`) está limpa e é bancada de
+  testes; pinos de áudio validados nela: SCK 41, WS 42, SD 14.
+- ESP32-P4 (MAC `e8:f6:0a:e0:8f:42`) pode aparecer conectado: não é deste
+  projeto, não gravar.
 - **GPIO47/48 são domínio 1.8 V**: nunca recebem lógica 3.3 V.
 - Pinout em `docs/README.md#hardware`; constantes de hardware só no
   `config.h` da board (`firmware/boards/noisebot-v3/` na etapa 0).

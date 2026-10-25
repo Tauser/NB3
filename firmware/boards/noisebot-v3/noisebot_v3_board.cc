@@ -6,13 +6,45 @@
 #include "config.h"
 #include "led/single_led.h"
 
+#include <cmath>
 #include <esp_log.h>
 #include <esp_lcd_panel_vendor.h>
 #include <esp_lcd_panel_io.h>
 #include <esp_lcd_panel_ops.h>
 #include <driver/spi_common.h>
+#include <driver/i2s_std.h>
 
 #define TAG "NoiseBotV3Board"
+
+// Duplex I2S codec that honours input_gain_ (dB) like the codecs with a PGA
+// do, and reads the slot selected by the mic's L/R pin.
+class NoiseBotV3AudioCodec : public NoAudioCodecDuplex {
+public:
+    NoiseBotV3AudioCodec(int input_sample_rate, int output_sample_rate,
+                         gpio_num_t bclk, gpio_num_t ws, gpio_num_t dout, gpio_num_t din)
+        : NoAudioCodecDuplex(input_sample_rate, output_sample_rate, bclk, ws, dout, din) {
+        input_gain_ = AUDIO_INPUT_GAIN_DB;
+        // The base codec always reads the left slot; follow the mic's L/R pin.
+        i2s_std_slot_config_t slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_32BIT, I2S_SLOT_MODE_MONO);
+        slot_cfg.slot_mask = AUDIO_I2S_MIC_SLOT;
+        ESP_ERROR_CHECK(i2s_channel_reconfig_std_slot(rx_handle_, &slot_cfg));
+    }
+
+protected:
+    int Read(int16_t* dest, int samples) override {
+        samples = NoAudioCodecDuplex::Read(dest, samples);
+        if (input_gain_ == 0.0f) {
+            return samples;
+        }
+        // Read on every frame so a runtime SetInputGain() takes effect.
+        const float scale = powf(10.0f, input_gain_ / 20.0f);
+        for (int i = 0; i < samples; i++) {
+            float value = dest[i] * scale;
+            dest[i] = (value > INT16_MAX) ? INT16_MAX : (value < -INT16_MAX) ? -INT16_MAX : (int16_t)value;
+        }
+        return samples;
+    }
+};
 
 class NoiseBotV3Board : public WifiBoard {
 private:
@@ -84,9 +116,9 @@ public:
     }
 
     AudioCodec* GetAudioCodec() override {
-        static NoAudioCodecDuplex audio_codec(AUDIO_INPUT_SAMPLE_RATE, AUDIO_OUTPUT_SAMPLE_RATE,
-                                              AUDIO_I2S_GPIO_BCLK, AUDIO_I2S_GPIO_WS,
-                                              AUDIO_I2S_GPIO_DOUT, AUDIO_I2S_GPIO_DIN);
+        static NoiseBotV3AudioCodec audio_codec(AUDIO_INPUT_SAMPLE_RATE, AUDIO_OUTPUT_SAMPLE_RATE,
+                                                AUDIO_I2S_GPIO_BCLK, AUDIO_I2S_GPIO_WS,
+                                                AUDIO_I2S_GPIO_DOUT, AUDIO_I2S_GPIO_DIN);
         return &audio_codec;
     }
 

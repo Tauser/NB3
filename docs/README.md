@@ -45,10 +45,26 @@ Cuidados:
 - Boards de referência do xiaozhi usam 47/48 para LED/botão: a board NB3 não
   herda esses pinos.
 
+## Resultado da etapa 0 (2026-10-25)
+
+xiaozhi v2.5.2 com a board NB3, ativado no xiaozhi.me.
+
+- **Conversa em PT-BR:** entende bem e responde rápido. Gate de PT-BR aprovado.
+- **Wake word:** "Jarvis" (a padrão em chinês não é pronunciável para nós).
+- **Alcance do mic:** só funciona de perto. Os módulos INMP441 em mãos têm
+  piso de ruído de cerca de −40 dBFS em silêncio, uns 40 dB acima do
+  esperado para um INMP441 genuíno. Três módulos deram o mesmo nível em duas
+  placas (Waveshare e Freenove), com firmware xiaozhi e com firmware mínimo,
+  nos pinos 39, 13 e 14, com fios novos, alimentação direta, capacitor,
+  amplificador desconectado e mic vedado. Causa: lote de mic ruim. Ganho
+  digital não ajuda, porque sobe o ruído junto com a voz; fica em 0 dB.
+- **Pendente:** trocar o mic por um de outra origem (ICS-43434 ou SPH0645) e
+  medir de novo antes de mexer em ganho ou AEC.
+
 ## Riscos em aberto
 
-- **PT-BR no xiaozhi.me** — qualidade de reconhecimento e voz ainda não
-  validada (é o gate da etapa 0).
+- **Mic I2S de qualidade** — ver resultado da etapa 0; o alcance depende de
+  um mic com piso de ruído normal.
 - **Mic único sem AEC** — barge-in e wake word durante a fala do robô podem
   falhar; mitigação é half-duplex, e o CoreS3 é o upgrade se não bastar.
 - **Privacidade** — áudio e conversas trafegam pelos servidores do xiaozhi.me.

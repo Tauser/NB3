@@ -11,6 +11,15 @@
 #define AUDIO_INPUT_SAMPLE_RATE  24000
 #define AUDIO_OUTPUT_SAMPLE_RATE 24000
 
+// Mic gain in dB, applied digitally on top of the codec's fixed x16 (>> 12 of
+// the 24-bit INMP441 word); the INMP441 has no PGA to set it in hardware.
+// Kept at 0: the current INMP441 batch has a ~-40 dBFS noise floor, so any
+// gain amplifies the noise as much as the voice.
+#define AUDIO_INPUT_GAIN_DB 0.0f
+
+// I2S slot the INMP441 drives, set by its L/R pin (GND = left, VDD = right).
+#define AUDIO_I2S_MIC_SLOT I2S_STD_SLOT_LEFT
+
 #define AUDIO_I2S_GPIO_DIN  GPIO_NUM_39  // INMP441 SD
 #define AUDIO_I2S_GPIO_BCLK GPIO_NUM_40
 #define AUDIO_I2S_GPIO_WS   GPIO_NUM_41
