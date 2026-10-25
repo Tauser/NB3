@@ -144,6 +144,7 @@ idf_component_register(SRCS ${NB3_SOURCES} ${XIAOZHI_SOURCES}
                         esp_driver_spi
                         esp_driver_i2c
                         esp_driver_i2s
+                        esp_driver_touch_sens
                         esp_driver_ledc
                         esp_driver_jpeg
                         esp_driver_ppa

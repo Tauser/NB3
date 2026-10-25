@@ -28,6 +28,9 @@
 #define BUILTIN_LED_GPIO  GPIO_NUM_38    // onboard WS2812
 #define BOOT_BUTTON_GPIO  GPIO_NUM_0
 
+// Copper-tape body pad on GPIO2 = touch channel 2.
+#define BODY_TOUCH_CHANNEL 2
+
 // ST7789 2" on SPI2; RST and backlight are hardwired, reset is SWRESET.
 #define DISPLAY_SPI_HOST    SPI2_HOST
 #define DISPLAY_CS_PIN      GPIO_NUM_10
