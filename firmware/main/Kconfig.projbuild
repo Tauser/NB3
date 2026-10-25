@@ -1,0 +1,3 @@
+# xiaozhi's options (language, wake word, OTA URL, ...) stay defined upstream
+# and are pulled in as-is; NB3 options get their own menu here when needed.
+rsource "../xiaozhi-esp32/main/Kconfig.projbuild"

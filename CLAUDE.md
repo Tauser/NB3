@@ -29,6 +29,9 @@ xiaozhi-esp32 **v2.5.2** e demais dependências entram por tag fixa em
 `firmware/repos.json` + patch versionado em `firmware/patches/`, nunca fork.
 `fetch_repos.py` falha alto se um patch não aplicar. Mudança no upstream =
 editar o patch, nunca o diretório baixado. Subir tag é decisão registrada.
+`main/idf_component.yml` é cópia literal do manifesto do xiaozhi (listada em
+`mirrors` no `repos.json`); dependência só do NB3 vai em componente próprio,
+não nessa cópia.
 
 Referências de consulta (não copiar código sem pedido): `D:\Projetos\Noisebot2`
 (núcleos, face, motion_safety) e `D:\Projetos\StackChan` (integração xiaozhi,
@@ -57,9 +60,9 @@ component manager quebra na inicialização do `idf.py` com `TypeError ...
 NoneType`. A ativação do EIM para o 6.1 não põe o toolchain xtensa no PATH;
 sempre incluir `IDF_XTENSA` explicitamente.
 
-Etapa 0: o projeto compilado é o próprio xiaozhi em `firmware/xiaozhi-esp32`
-(baixado por `fetch_repos.py`), com a board de `firmware/boards/noisebot-v3`
-e os defaults de `firmware/sdkconfig.nb3.defaults`.
+O projeto é `firmware/` (não o xiaozhi baixado). O `CMakeLists.txt` dele já
+encadeia os `sdkconfig.defaults` do xiaozhi e os do NB3; não setar
+`SDKCONFIG_DEFAULTS` na invocação.
 
 ```powershell
 $venv = "C:\Espressif\tools\python\v6.1\venv\Scripts\python.exe"
@@ -67,15 +70,16 @@ $env:IDF_PATH            = "C:\esp\v6.1\esp-idf"
 $env:IDF_PYTHON_ENV_PATH = "C:\Espressif\tools\python\v6.1\venv"
 $env:IDF_TOOLS_PATH      = "C:\Espressif\tools"
 $env:ESP_IDF_VERSION     = "6.1"
+$env:ESP_ROM_ELF_DIR     = "C:\Espressif\tools\esp-rom-elfs\20241011\"
 $xtensaBin = "C:\Espressif\tools\xtensa-esp-elf\esp-15.2.0_20251204\xtensa-esp-elf\bin"
 $env:PATH  = "C:\Espressif\tools\cmake\4.0.3\bin;C:\Espressif\tools\ninja\1.12.1;$xtensaBin;$env:PATH"
-$env:SDKCONFIG_DEFAULTS  = "sdkconfig.defaults;../sdkconfig.nb3.defaults"
-Set-Location "D:\Projetos\NoiseBot-v3\firmware\xiaozhi-esp32"
+Set-Location "D:\Projetos\NoiseBot-v3\firmware"
 & $venv "C:\esp\v6.1\esp-idf\tools\idf.py" <comando>
 ```
 
-`SDKCONFIG_DEFAULTS` só vale ao gerar o `sdkconfig` (`set-target` ou
-`fullclean`); o `sdkconfig.defaults.esp32s3` entra sozinho pelo alvo.
+Mudou um default em `sdkconfig.defaults`? Apague `firmware/sdkconfig` (ou
+rode `set-target`) para ele ser regenerado; um `sdkconfig` existente vence os
+defaults. Host-tests usam o gcc do MSYS2 (`C:\msys64\ucrt64\bin`).
 
 ## Hardware e flash
 
@@ -91,8 +95,8 @@ Set-Location "D:\Projetos\NoiseBot-v3\firmware\xiaozhi-esp32"
 - ESP32-P4 (MAC `e8:f6:0a:e0:8f:42`) pode aparecer conectado: não é deste
   projeto, não gravar.
 - **GPIO47/48 são domínio 1.8 V**: nunca recebem lógica 3.3 V.
-- Pinout em `docs/README.md#hardware`; constantes de hardware só no
-  `config.h` da board (`firmware/boards/noisebot-v3/` na etapa 0).
+- Pinout em `docs/README.md#hardware`; constantes de hardware só em
+  `firmware/main/board/config.h`.
 - Servos: nenhum teste de movimento sem `motion_safety` ativo; nunca
   desabilitar limites, heartbeat ou FAULT para "testar rápido".
 

@@ -3,6 +3,9 @@
         "url": "https://github.com/78/xiaozhi-esp32.git",
         "path": "xiaozhi-esp32",
         "tag": "v2.5.2",
-        "patch": "patches/xiaozhi-esp32.patch"
+        "patch": "patches/xiaozhi-esp32.patch",
+        "mirrors": [
+            {"upstream": "main/idf_component.yml", "local": "main/idf_component.yml"}
+        ]
     }
 ]

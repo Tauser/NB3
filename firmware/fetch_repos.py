@@ -34,6 +34,19 @@ def is_clean(repo):
     return git(["status", "--porcelain"], cwd=repo).stdout.strip() == ""
 
 
+def normalized(path):
+    return path.read_bytes().replace(b"\r\n", b"\n")
+
+
+def check_mirrors(entry, repo):
+    """Files NB3 keeps as verbatim copies of upstream must match the fetched tag."""
+    for mirror in entry.get("mirrors", []):
+        upstream, local = repo / mirror["upstream"], ROOT / mirror["local"]
+        if not local.is_file() or normalized(local) != normalized(upstream):
+            fail(f"{mirror['local']} differs from {entry['path']}/{mirror['upstream']} at "
+                 f"{entry['tag']}. Copy it again (and re-check NB3 additions) after a tag change.")
+
+
 def fetch(entry):
     url, tag = entry["url"], entry["tag"]
     repo = ROOT / entry["path"]
@@ -48,6 +61,8 @@ def fetch(entry):
     elif head_tag(repo) != tag:
         fail(f"{entry['path']}: checked out at '{head_tag(repo) or 'unknown'}', expected {tag}. "
              f"Delete the directory and run again.")
+
+    check_mirrors(entry, repo)
 
     if patch is None:
         return

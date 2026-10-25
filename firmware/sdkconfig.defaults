@@ -3,6 +3,10 @@
 CONFIG_BOARD_TYPE_NOISEBOT_V3=y
 CONFIG_LANGUAGE_PT_BR=y
 
+# NB3 is not stock xiaozhi: an update offered by the OTA server would replace
+# the whole robot firmware. The OTA check still runs for activation.
+CONFIG_FIRMWARE_AUTO_UPGRADE=n
+
 # Wake word: "Jarvis" is pronounceable for PT-BR speakers; the upstream
 # default (Nihao Xiaozhi) is disabled because esp-sr can load several at once.
 CONFIG_SR_WN_WN9_NIHAOXIAOZHI_TTS=n
@@ -13,4 +17,4 @@ CONFIG_SR_WN_WN9_JARVIS_TTS=y
 CONFIG_ESPTOOLPY_OCT_FLASH=y
 CONFIG_ESPTOOLPY_FLASH_MODE_AUTO_DETECT=n
 CONFIG_ESPTOOLPY_FLASHSIZE_32MB=y
-CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions/v2/16m.csv"
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="xiaozhi-esp32/partitions/v2/16m.csv"

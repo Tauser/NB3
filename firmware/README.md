@@ -1,8 +1,7 @@
 # Firmware — NoiseBot v3
 
-Firmware ESP-IDF para a Waveshare ESP32-S3-DEV-KIT N32R16V. **Ainda não há
-código** — este documento fixa o toolchain, a estrutura e as regras antes da
-primeira linha.
+Firmware ESP-IDF para a Waveshare ESP32-S3-DEV-KIT N32R16V. O projeto é do
+NB3: o `main` liga o corpo e inicia o xiaozhi como a mente.
 
 ## Toolchain
 
@@ -18,47 +17,42 @@ Subir a tag do xiaozhi ou a versão do IDF é decisão registrada em
 Só APIs de driver novas do IDF 6: `i2s_std`, `gpio`, `ledc`, `rmt`,
 `i2c_master`, `uart`.
 
-## Etapa 0 (atual)
-
-O projeto compilado é o próprio xiaozhi v2.5.2, baixado em `xiaozhi-esp32/`
-por `fetch_repos.py`. O patch só registra a board `NOISEBOT_V3` e deixa o
-CMake buscá-la fora da árvore:
-
-```
-firmware/
-  boards/noisebot-v3/       board NB3 (config.h, config.json, board .cc)
-  patches/xiaozhi-esp32.patch
-  sdkconfig.nb3.defaults    board, PT-BR, flash octal 32 MB
-  repos.json
-  fetch_repos.py
-```
-
-No VS Code, abra `NB3.code-workspace` (raiz do repositório): ele aponta a
-extensão ESP-IDF para o IDF 6.1, a COM5 e os defaults da NB3. Rode
-`fetch_repos.py` antes, porque a pasta do firmware é a baixada. A extensão
-monta o ambiente pela instalação do EIM, que precisa incluir o alvo
-`esp32s3`.
-
-## Estrutura da etapa 1 (planejada)
+## Estrutura
 
 Estilo StackChan: o projeto é nosso e compila as fontes do xiaozhi baixadas
-por tag; a board NB3 vive neste repositório.
+por tag. Pastas marcadas com * ainda não existem.
 
 ```
 firmware/
+  CMakeLists.txt    projeto; usa os sdkconfig.defaults do xiaozhi e depois os nossos
+  sdkconfig.defaults  board, PT-BR, Jarvis, flash octal 32 MB, sem auto-update
   main/
-    main.cpp        boot mínimo: init do HAL, apps, entrega ao xiaozhi
-    board/          board customizada NB3 para o xiaozhi (pinos, áudio, display)
-    hal/            casca de hardware (servos, LEDs, toque, áudio, SD)
+    main.cpp        boot mínimo: corpo primeiro, depois Application do xiaozhi
+    CMakeLists.txt  fontes NB3 + subconjunto ESP32-S3 das fontes do xiaozhi
+    Kconfig.projbuild  inclui o Kconfig do xiaozhi (rsource), sem cópia
+    idf_component.yml  cópia literal do manifesto do xiaozhi (conferida pelo fetch)
+    board/          board NB3 para o xiaozhi (pinos, codec, display)
     core/           núcleos C17 puros — sem FreeRTOS/ESP-IDF, clock e RNG injetados
-    behavior/       modifiers (casca fina sobre os núcleos) + árbitro
-    mcp/            ferramentas MCP do dispositivo, com descrições ricas
-    apps/           modos de uso (agente de IA, avatar, setup)
-  tests/            host-tests dos núcleos (CMake + ctest) e utilitários de teste compartilhados
-  patches/          patches versionados sobre dependências externas
-  repos.json        dependências externas por tag fixa
-  fetch_repos.py    baixa dependências e aplica patches — falha alto se o patch não aplicar
+    hal/ *          casca de hardware (servos, LEDs, toque, SD)
+    behavior/ *     modifiers (casca fina sobre os núcleos) + ligação ao árbitro
+    mcp/ *          ferramentas MCP do dispositivo, com descrições ricas
+  tests/            host-tests dos núcleos (CMake + ctest) e utilitários compartilhados
+  patches/          patch versionado sobre o xiaozhi (board no Kconfig, auto-update opcional)
+  repos.json        dependências externas por tag fixa + arquivos espelhados
+  fetch_repos.py    baixa, aplica patches e confere espelhos — falha alto
 ```
+
+**Ao trocar a tag do xiaozhi:** copiar de novo `main/idf_component.yml` (o
+`fetch_repos.py` falha até isso ser feito), comparar o `main/CMakeLists.txt`
+do xiaozhi com a lista de fontes em `main/CMakeLists.txt` e regenerar o patch.
+
+**Atualização de firmware pelo servidor fica desligada**
+(`CONFIG_FIRMWARE_AUTO_UPGRADE=n`): o servidor do xiaozhi poderia oferecer o
+firmware original e apagar o NB3. A checagem de OTA continua para ativação.
+
+No VS Code, abra `NB3.code-workspace` (raiz do repositório). Rode
+`fetch_repos.py` antes. A extensão ESP-IDF monta o ambiente pela instalação
+do EIM, que precisa incluir o alvo `esp32s3`.
 
 ## Regras
 
@@ -84,16 +78,16 @@ firmware/
 - **Sem segredos no código**; credenciais só via provisioning em NVS. CI roda
   scan de segredos.
 
-## Comandos (quando houver código)
+## Comandos
 
-Invocação do `idf.py` com os caminhos do IDF 6.1: ver `CLAUDE.md`.
+Invocação do `idf.py` com os caminhos do IDF 6.1: ver `CLAUDE.md`. Tudo a
+partir de `firmware/`.
 
 ```powershell
 python fetch_repos.py
-cd xiaozhi-esp32          # etapa 0; na etapa 1 o projeto é firmware/
 idf.py set-target esp32s3
 idf.py build
-idf.py -p COM5 flash monitor
+idf.py -p COM5 -b 115200 flash monitor
 ```
 
 Host-tests:

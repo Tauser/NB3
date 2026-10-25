@@ -5,8 +5,8 @@
             "path": "."
         },
         {
-            "name": "firmware (etapa 0: xiaozhi + board NB3)",
-            "path": "firmware/xiaozhi-esp32"
+            "name": "firmware",
+            "path": "firmware"
         }
     ],
     "settings": {
@@ -14,12 +14,8 @@
         "idf.port": "COM5",
         "idf.monitorPort": "COM5",
         "idf.flashType": "UART",
-        "idf.flashBaudRate": "460800",
+        "idf.flashBaudRate": "115200",
         "idf.monitorBaudRate": "115200",
-        "idf.sdkconfigDefaults": [
-            "sdkconfig.defaults",
-            "../sdkconfig.nb3.defaults"
-        ],
         "idf.customExtraVars": {
             "IDF_TARGET": "esp32s3",
             "ESP_IDF_VERSION": "6.1"
@@ -28,11 +24,13 @@
             "board/esp32s3-builtin.cfg"
         ],
         "files.exclude": {
-            "firmware/xiaozhi-esp32": true
+            "firmware": true
         },
         "search.exclude": {
             "**/build": true,
-            "**/managed_components": true
+            "**/build-host-tests": true,
+            "**/managed_components": true,
+            "**/xiaozhi-esp32": true
         },
         "files.associations": {
             "sdkconfig*.defaults": "properties"
