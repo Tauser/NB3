@@ -6,7 +6,6 @@
 #include <esp_random.h>
 #include <esp_timer.h>
 
-#include "display/lvgl_display/lvgl_theme.h"
 
 #define TAG "FaceDisplay"
 
@@ -14,12 +13,12 @@ namespace {
 
 constexpr uint32_t kFramePeriodMs = 33;
 
-// Face layout on a 320x240 screen, below the status bar and above subtitles.
+// Face layout on the 320x240 screen, which the face owns entirely.
 constexpr int kEyeSpacing = 62;   // from face center to each eye center
-constexpr int kEyeCenterY = 100;
+constexpr int kEyeCenterY = 95;
 constexpr int kEyeWidth = 54;
 constexpr int kEyeMaxHeight = 66;
-constexpr int kMouthCenterY = 165;
+constexpr int kMouthCenterY = 170;
 
 const lv_color_t kFeatureColor = lv_color_hex(0xFFFFFF);
 const lv_color_t kBlushColor = lv_color_hex(0xFF6F91);
@@ -80,24 +79,46 @@ FaceDisplay::FaceDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handl
 }
 
 void FaceDisplay::SetupUI() {
-    SpiLcdDisplay::SetupUI();
-    SetTheme(LvglThemeManager::GetInstance().GetTheme("dark"));
+    // Skip LcdDisplay::SetupUI(): the screen layout is NB3's alone.
+    Display::SetupUI();
 
     DisplayLockGuard lock(this);
-    for (lv_obj_t* emoji : {emoji_box_, emoji_label_, emoji_image_}) {
-        if (emoji != nullptr) {
-            lv_obj_add_flag(emoji, LV_OBJ_FLAG_HIDDEN);
-        }
-    }
-
     lv_obj_t* screen = lv_screen_active();
+    lv_obj_clean(screen);
+    lv_obj_set_style_bg_color(screen, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(screen, LV_OPA_COVER, 0);
+    lv_obj_remove_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
+
     face_ = lv_obj_create(screen);
     lv_obj_remove_style_all(face_);
     lv_obj_set_size(face_, LV_PCT(100), LV_PCT(100));
     lv_obj_remove_flag(face_, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_move_background(face_);
     lv_obj_add_event_cb(face_, OnDraw, LV_EVENT_DRAW_MAIN, this);
     lv_timer_create(OnTimer, kFramePeriodMs, this);
+}
+
+void FaceDisplay::SetStatus(const char* status) {
+    ESP_LOGI(TAG, "Status: %s", status);
+}
+
+void FaceDisplay::ShowNotification(const char* notification, int) {
+    ESP_LOGI(TAG, "Notification: %s", notification);
+}
+
+void FaceDisplay::ShowNotification(const std::string& notification, int duration_ms) {
+    ShowNotification(notification.c_str(), duration_ms);
+}
+
+void FaceDisplay::SetChatMessage(const char* role, const char* content) {
+    if (content != nullptr && content[0] != '\0') {
+        ESP_LOGI(TAG, "%s: %s", role, content);
+    }
+}
+
+void FaceDisplay::SetTheme(Theme* theme) {
+    // Fonts and colors from xiaozhi assets are kept for later use; nothing
+    // on screen depends on them.
+    current_theme_ = theme;
 }
 
 void FaceDisplay::SetEmotion(const char* emotion) {
