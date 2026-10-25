@@ -15,6 +15,7 @@ extern "C" {
 typedef enum {
     NB_SOURCE_STATE = 0,  // device state (listening, speaking, ...)
     NB_SOURCE_EMOTION,    // emotion sent by the cloud
+    NB_SOURCE_COMMAND,    // explicit request from the AI through an MCP tool
     NB_SOURCE_TOUCH,      // body touch reactions
     NB_SOURCE_REFLEX,     // short local reflexes (startle, blink bursts)
     NB_SOURCE_COUNT

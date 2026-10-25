@@ -12,7 +12,7 @@ file(GLOB_RECURSE NB3_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/*.cc"
     "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
 )
-set(NB3_INCLUDE_DIRS "." "core")
+set(NB3_INCLUDE_DIRS ".")
 
 set(BOARD_TYPE "noisebot-v3")
 set(BOARD_NAME "noisebot-v3")

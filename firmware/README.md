@@ -31,16 +31,23 @@ firmware/
     CMakeLists.txt  fontes NB3 + subconjunto ESP32-S3 das fontes do xiaozhi
     Kconfig.projbuild  inclui o Kconfig do xiaozhi (rsource), sem cópia
     idf_component.yml  cópia literal do manifesto do xiaozhi (conferida pelo fetch)
-    board/          board NB3 para o xiaozhi (pinos, codec, display)
+    board/          board NB3 para o xiaozhi (pinos, codec, display) e fiação das peças
     core/           núcleos C17 puros — sem FreeRTOS/ESP-IDF, clock e RNG injetados
+    behavior/       árbitro thread-safe (prioridades num lugar só) e ganchos de estado
+    face/           face LVGL: desenha o que o árbitro resolve
+    mcp/            ferramentas MCP do dispositivo, com descrições ricas
     hal/ *          casca de hardware (servos, LEDs, toque, SD)
-    behavior/ *     modifiers (casca fina sobre os núcleos) + ligação ao árbitro
-    mcp/ *          ferramentas MCP do dispositivo, com descrições ricas
   tests/            host-tests dos núcleos (CMake + ctest) e utilitários compartilhados
   patches/          patch versionado sobre o xiaozhi (board no Kconfig, auto-update opcional)
   repos.json        dependências externas por tag fixa + arquivos espelhados
   fetch_repos.py    baixa, aplica patches e confere espelhos — falha alto
 ```
+
+**Fluxo da face:** o xiaozhi entrega a emoção por `Display::SetEmotion()` e
+o estado por `Led::OnStateChanged()`; a board NB3 fornece um display (`face/`)
+e um Led (`behavior/state_led`) que transformam isso em propostas ao árbitro.
+A ferramenta MCP `self.face.set_expression` propõe como fonte própria. A face
+consulta o árbitro a cada quadro (30 fps) e anima com `core/nb_face_anim`.
 
 **Ao trocar a tag do xiaozhi:** copiar de novo `main/idf_component.yml` (o
 `fetch_repos.py` falha até isso ser feito), comparar o `main/CMakeLists.txt`

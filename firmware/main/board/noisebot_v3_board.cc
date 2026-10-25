@@ -5,6 +5,10 @@
 #include "button.h"
 #include "config.h"
 #include "led/single_led.h"
+#include "behavior/expression_arbiter.h"
+#include "behavior/state_led.h"
+#include "face/face_display.h"
+#include "mcp/face_tools.h"
 
 #include <cmath>
 #include <esp_log.h>
@@ -49,7 +53,8 @@ protected:
 class NoiseBotV3Board : public WifiBoard {
 private:
     Button boot_button_;
-    LcdDisplay* display_ = nullptr;
+    ExpressionArbiter arbiter_{NB_EXPR_NEUTRAL};
+    FaceDisplay* display_ = nullptr;
 
     void InitializeSpi() {
         spi_bus_config_t buscfg = {};
@@ -87,9 +92,9 @@ private:
         ESP_ERROR_CHECK(esp_lcd_panel_swap_xy(panel, DISPLAY_SWAP_XY));
         ESP_ERROR_CHECK(esp_lcd_panel_mirror(panel, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y));
 
-        display_ = new SpiLcdDisplay(panel_io, panel, DISPLAY_WIDTH, DISPLAY_HEIGHT,
-                                     DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y,
-                                     DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY);
+        display_ = new FaceDisplay(panel_io, panel, DISPLAY_WIDTH, DISPLAY_HEIGHT,
+                                   DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y,
+                                   DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY, arbiter_);
     }
 
     void InitializeButtons() {
@@ -108,10 +113,12 @@ public:
         InitializeSpi();
         InitializeDisplay();
         InitializeButtons();
+        RegisterFaceTools(arbiter_);
     }
 
     Led* GetLed() override {
-        static SingleLed led(BUILTIN_LED_GPIO);
+        static SingleLed status_led(BUILTIN_LED_GPIO);
+        static StateLed led(status_led, arbiter_, *display_);
         return &led;
     }
 
