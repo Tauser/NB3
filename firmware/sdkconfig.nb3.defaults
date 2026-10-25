@@ -1,0 +1,11 @@
+# NoiseBot v3 overrides, layered after xiaozhi's sdkconfig.defaults(.esp32s3).
+
+CONFIG_BOARD_TYPE_NOISEBOT_V3=y
+CONFIG_LANGUAGE_PT_BR=y
+
+# N32R16V: 32 MB octal flash. The partition table stays inside the first
+# 16 MB so the bootloader needs no experimental 32-bit addressing.
+CONFIG_ESPTOOLPY_OCT_FLASH=y
+CONFIG_ESPTOOLPY_FLASH_MODE_AUTO_DETECT=n
+CONFIG_ESPTOOLPY_FLASHSIZE_32MB=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions/v2/16m.csv"

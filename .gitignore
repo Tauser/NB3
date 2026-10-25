@@ -1,0 +1,16 @@
+# ESP-IDF build output
+build/
+managed_components/
+sdkconfig
+sdkconfig.old
+
+# Dependencies fetched by fetch_repos.py (pinned in repos.json)
+xiaozhi-esp32/
+firmware/components/
+
+# Host tests
+build-host-tests/
+
+# Editor / tooling
+.vscode/
+.cache/
