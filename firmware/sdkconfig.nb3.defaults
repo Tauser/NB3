@@ -3,6 +3,11 @@
 CONFIG_BOARD_TYPE_NOISEBOT_V3=y
 CONFIG_LANGUAGE_PT_BR=y
 
+# Wake word: "Jarvis" is pronounceable for PT-BR speakers; the upstream
+# default (Nihao Xiaozhi) is disabled because esp-sr can load several at once.
+CONFIG_SR_WN_WN9_NIHAOXIAOZHI_TTS=n
+CONFIG_SR_WN_WN9_JARVIS_TTS=y
+
 # N32R16V: 32 MB octal flash. The partition table stays inside the first
 # 16 MB so the bootloader needs no experimental 32-bit addressing.
 CONFIG_ESPTOOLPY_OCT_FLASH=y

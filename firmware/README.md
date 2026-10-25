@@ -33,6 +33,12 @@ firmware/
   fetch_repos.py
 ```
 
+No VS Code, abra `NB3.code-workspace` (raiz do repositório): ele aponta a
+extensão ESP-IDF para o IDF 6.1, a COM5 e os defaults da NB3. Rode
+`fetch_repos.py` antes, porque a pasta do firmware é a baixada. A extensão
+monta o ambiente pela instalação do EIM, que precisa incluir o alvo
+`esp32s3`.
+
 ## Estrutura da etapa 1 (planejada)
 
 Estilo StackChan: o projeto é nosso e compila as fontes do xiaozhi baixadas
