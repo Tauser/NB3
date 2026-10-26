@@ -19,8 +19,9 @@ uint32_t NowMs() {
 
 }  // namespace
 
-TouchModifier::TouchModifier(int channel, ExpressionArbiter& arbiter, MoodModifier& mood)
-    : arbiter_(arbiter), mood_(mood) {
+TouchModifier::TouchModifier(int channel, ExpressionArbiter& arbiter, MoodModifier& mood,
+                             BehaviorModifier& behavior)
+    : arbiter_(arbiter), mood_(mood), behavior_(behavior) {
     nb_touch_config_t cfg = nb_touch_default_config();
     nb_touch_init(&touch_, &cfg);
 
@@ -87,6 +88,9 @@ void TouchModifier::OnEvent(nb_touch_event_t event) {
             nb_proposal_t happy = {NB_EXPR_HAPPY, priority::kTouch, kTapReactionMs, true};
             arbiter_.Propose(NB_SOURCE_TOUCH, happy);
             mood_.OnTap();
+            // A tap is known on release: the reaction starts and lingers.
+            behavior_.OnTouch(true);
+            behavior_.OnTouch(false);
             break;
         }
         case NB_TOUCH_HOLD: {
@@ -95,6 +99,7 @@ void TouchModifier::OnEvent(nb_touch_event_t event) {
             arbiter_.Propose(NB_SOURCE_TOUCH, loving);
             last_pet_pulse_ms_ = NowMs();
             mood_.OnPetting();
+            behavior_.OnTouch(true);
             break;
         }
         case NB_TOUCH_RELEASE: {
@@ -106,6 +111,7 @@ void TouchModifier::OnEvent(nb_touch_event_t event) {
             } else {
                 arbiter_.Withdraw(NB_SOURCE_TOUCH);
             }
+            behavior_.OnTouch(false);
             break;
         }
         default:

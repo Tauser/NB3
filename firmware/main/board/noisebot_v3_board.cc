@@ -5,6 +5,7 @@
 #include "button.h"
 #include "config.h"
 #include "led/single_led.h"
+#include "behavior/behavior_modifier.h"
 #include "behavior/expression_arbiter.h"
 #include "behavior/state_led.h"
 #include "behavior/mood_lights.h"
@@ -91,6 +92,7 @@ private:
     Button boot_button_;
     ExpressionArbiter arbiter_{NB_EXPR_NEUTRAL};
     MoodModifier mood_{arbiter_};
+    BehaviorModifier behavior_{arbiter_};
     AudioLevels audio_levels_;
     FaceDisplay* display_ = nullptr;
 
@@ -153,14 +155,14 @@ public:
         InitializeDisplay();
         InitializeButtons();
         RegisterFaceTools(arbiter_);
-        static TouchModifier touch(BODY_TOUCH_CHANNEL, arbiter_, mood_);
+        static TouchModifier touch(BODY_TOUCH_CHANNEL, arbiter_, mood_, behavior_);
         static MoodLights mood_lights(MOOD_LED_GPIO, MOOD_LED_COUNT, MOOD_LED_MAX_BRIGHTNESS,
                                       arbiter_);
     }
 
     Led* GetLed() override {
         static SingleLed status_led(BUILTIN_LED_GPIO);
-        static StateLed led(status_led, arbiter_, mood_);
+        static StateLed led(status_led, arbiter_, mood_, behavior_);
         return &led;
     }
 

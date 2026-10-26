@@ -5,6 +5,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
+#include "behavior/behavior_modifier.h"
 #include "behavior/expression_arbiter.h"
 #include "behavior/mood_modifier.h"
 #include "core/nb_touch.h"
@@ -14,7 +15,8 @@
 // mood stimuli (petting keeps warming the mood in pulses while it lasts).
 class TouchModifier {
 public:
-    TouchModifier(int channel, ExpressionArbiter& arbiter, MoodModifier& mood);
+    TouchModifier(int channel, ExpressionArbiter& arbiter, MoodModifier& mood,
+                  BehaviorModifier& behavior);
     ~TouchModifier();
 
     TouchModifier(const TouchModifier&) = delete;
@@ -27,6 +29,7 @@ private:
 
     ExpressionArbiter& arbiter_;
     MoodModifier& mood_;
+    BehaviorModifier& behavior_;
     uint32_t last_pet_pulse_ms_ = 0;
     touch_sensor_handle_t sensor_ = nullptr;
     touch_channel_handle_t channel_ = nullptr;

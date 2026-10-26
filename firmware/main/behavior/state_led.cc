@@ -32,8 +32,9 @@ bool IsConnecting(DeviceState state) {
 
 }  // namespace
 
-StateLed::StateLed(Led& status_led, ExpressionArbiter& arbiter, MoodModifier& mood)
-    : status_led_(status_led), arbiter_(arbiter), mood_(mood) {
+StateLed::StateLed(Led& status_led, ExpressionArbiter& arbiter, MoodModifier& mood,
+                   BehaviorModifier& behavior)
+    : status_led_(status_led), arbiter_(arbiter), mood_(mood), behavior_(behavior) {
     esp_timer_create_args_t args = {};
     args.callback = OnThinkTimer;
     args.arg = this;
@@ -76,9 +77,9 @@ void StateLed::OnStateChanged() {
     DeviceState state = Application::GetInstance().GetDeviceState();
     const bool entered = state != last_state_;
     last_state_ = state;
+    behavior_.OnDevice(state);
     switch (state) {
         case kDeviceStateIdle:
-            arbiter_.EnterIdle();
             arbiter_.Withdraw(NB_SOURCE_STATE);
             break;
         case kDeviceStateStarting:
