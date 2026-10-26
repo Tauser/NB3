@@ -167,9 +167,12 @@ ausência); sem microSD o robô funciona e avisa.
    alegre, com a face saindo do ciano ~8 s após a resposta.
 3. [ ] **Face V2** (D-011, [FACE.md](FACE.md)): só os estados que já
    existem.
-   - [ ] Formas: corte inferior curvo (crescente) na pose do avatar;
-     poses refeitas para feliz, carinhoso, contente, triste, irritado,
-     envergonhado, surpreso, curioso, confuso, pensando e atento.
+   - [~] Formas (`50b11c9`): campo `crescent` na pose (corte curvo por
+     baixo ou por cima, interpolável); poses refeitas sem sobrancelha para
+     atento, pensando, feliz, animado, curioso, confuso, irritado, surpreso,
+     triste e sonolento; carinhoso e envergonhado ganharam animação própria.
+     Falta ver na tela cada forma; contente (cápsula baixa do humor) ainda
+     usa o carinhoso.
    - [ ] Camada de overlay, um por vez, com os sprites das mãos do usuário.
    - [ ] Ligação: escuta → barras de áudio irregulares, pensando → pontos e
      mão no queixo, fala → balãozinho, carinho → corações e bochechas.
