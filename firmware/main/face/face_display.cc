@@ -8,6 +8,7 @@
 #include <esp_timer.h>
 
 #include "assets/lang_config.h"
+#include "core/nb_face_link.h"
 #include "display/lvgl_display/lvgl_theme.h"
 
 #define TAG "FaceDisplay"
@@ -47,25 +48,6 @@ lv_color_t Dim(lv_color_t color, float alpha) {
     return lv_color_make(static_cast<uint8_t>(color.red * alpha),
                          static_cast<uint8_t>(color.green * alpha),
                          static_cast<uint8_t>(color.blue * alpha));
-}
-
-nb_avatar_expression_t ToAvatar(nb_expression_t expression) {
-    switch (expression) {
-        case NB_EXPR_LISTENING: return NB_AVATAR_EXPR_LISTENING;
-        case NB_EXPR_THINKING: return NB_AVATAR_EXPR_THINKING;
-        case NB_EXPR_HAPPY: return NB_AVATAR_EXPR_HAPPY;
-        case NB_EXPR_EXCITED: return NB_AVATAR_EXPR_EXCITED;
-        case NB_EXPR_CURIOUS: return NB_AVATAR_EXPR_CURIOUS;
-        case NB_EXPR_CONFUSED: return NB_AVATAR_EXPR_CONFUSED;
-        case NB_EXPR_ANGRY: return NB_AVATAR_EXPR_ANGRY;
-        case NB_EXPR_SURPRISED: return NB_AVATAR_EXPR_SURPRISED;
-        case NB_EXPR_SAD: return NB_AVATAR_EXPR_SAD;
-        case NB_EXPR_SLEEPY: return NB_AVATAR_EXPR_SLEEPY;
-        case NB_EXPR_DIZZY: return NB_AVATAR_EXPR_DIZZY;
-        case NB_EXPR_LOVING: return NB_AVATAR_EXPR_HAPPY;
-        case NB_EXPR_EMBARRASSED: return NB_AVATAR_EXPR_CURIOUS;
-        default: return NB_AVATAR_EXPR_IDLE;
-    }
 }
 
 // Thin wrappers over the LVGL draw API, in screen pixels.
@@ -390,22 +372,12 @@ void FaceDisplay::OnTimer(lv_timer_t* timer) {
     static_cast<FaceDisplay*>(lv_timer_get_user_data(timer))->Tick();
 }
 
-void FaceDisplay::Request(nb_expression_t expression) {
-    nb_avatar_expression_t target = ToAvatar(expression);
-    if (target == NB_AVATAR_EXPR_SLEEPY) {
-        // Sleepy holds until something else is requested.
-        nb_avatar_core_play(&avatar_, target, NB_AVATAR_PLAY_ONCE, false);
-    } else {
-        nb_avatar_core_request(&avatar_, target);
-    }
-}
-
 void FaceDisplay::Tick() {
     nb_expression_t expression = arbiter_.Resolve();
     if (expression != shown_) {
         ESP_LOGI(TAG, "Expression: %s", nb_expression_name(expression));
         shown_ = expression;
-        Request(expression);
+        nb_face_link_show(&avatar_, expression);
     }
     const uint32_t now = NowMs();
     nb_avatar_core_tick(&avatar_, now - last_tick_ms_);

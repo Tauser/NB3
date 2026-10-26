@@ -193,6 +193,113 @@ static void test_pingpong_keeps_expression_active(void)
     NB_CHECK(state.playback == NB_AVATAR_PLAY_PINGPONG);
 }
 
+// Peak-to-peak of the frame's vertical offset over window_ms.
+static float face_y_swing(nb_avatar_core_state_t *state, uint32_t window_ms)
+{
+    nb_avatar_render_frame_t frame;
+    float lo = 1e9f;
+    float hi = -1e9f;
+    for (uint32_t elapsed = 0u; elapsed < window_ms; elapsed += 10u) {
+        nb_avatar_core_tick(state, 10u);
+        nb_avatar_core_get_frame(state, &frame);
+        lo = fminf(lo, frame.pose.face_y);
+        hi = fmaxf(hi, frame.pose.face_y);
+    }
+    return hi - lo;
+}
+
+static void tick_for(nb_avatar_core_state_t *state, uint32_t ms)
+{
+    for (uint32_t elapsed = 0u; elapsed < ms; elapsed += 20u) {
+        nb_avatar_core_tick(state, 20u);
+    }
+}
+
+static void test_hold_keeps_once_expression_and_settles_motion(void)
+{
+    nb_avatar_core_state_t state;
+    nb_avatar_render_frame_t frame;
+    nb_avatar_core_init(&state, 11u);
+    NB_CHECK(nb_avatar_core_hold(&state, NB_AVATAR_EXPR_HAPPY));
+    nb_avatar_core_tick(&state, 300u);
+    const float playing = face_y_swing(&state, 800u);
+
+    tick_for(&state, 58000u);
+    nb_avatar_core_get_frame(&state, &frame);
+    NB_CHECK(frame.expression == NB_AVATAR_EXPR_HAPPY);
+    NB_CHECK(state.holding);
+    const float held = face_y_swing(&state, 1000u);
+    NB_CHECK(held > 0.0f);
+    NB_CHECK(held < playing * 0.6f);
+}
+
+static void test_hold_same_expression_does_not_restart(void)
+{
+    nb_avatar_core_state_t state;
+    nb_avatar_core_init(&state, 12u);
+    NB_CHECK(nb_avatar_core_request(&state, NB_AVATAR_EXPR_ANGRY));
+    nb_avatar_core_tick(&state, 300u);
+    const uint32_t started = state.expression_started_ms;
+    NB_CHECK(nb_avatar_core_hold(&state, NB_AVATAR_EXPR_ANGRY));
+    NB_CHECK_EQ_INT(started, state.expression_started_ms);
+    NB_CHECK(state.holding);
+    NB_CHECK(!state.return_to_base);
+}
+
+static void test_hold_persistent_behaves_as_request(void)
+{
+    nb_avatar_core_state_t state;
+    nb_avatar_core_init(&state, 13u);
+    NB_CHECK(nb_avatar_core_hold(&state, NB_AVATAR_EXPR_LISTENING));
+    NB_CHECK(state.base_expression == NB_AVATAR_EXPR_LISTENING);
+    NB_CHECK(state.playback == NB_AVATAR_PLAY_LOOP);
+    NB_CHECK(!state.holding);
+}
+
+static void test_release_finishes_first_pass_then_returns(void)
+{
+    nb_avatar_core_state_t state;
+    nb_avatar_render_frame_t frame;
+    nb_avatar_core_init(&state, 14u);
+    NB_CHECK(nb_avatar_core_hold(&state, NB_AVATAR_EXPR_HAPPY));
+    nb_avatar_core_tick(&state, 500u);
+    const uint32_t ends = state.expression_ends_ms;
+    NB_CHECK(nb_avatar_core_release(&state, NB_AVATAR_EXPR_IDLE));
+
+    tick_for(&state, ends - state.now_ms - 40u);
+    nb_avatar_core_get_frame(&state, &frame);
+    NB_CHECK(frame.expression == NB_AVATAR_EXPR_HAPPY);
+
+    tick_for(&state, 200u);
+    nb_avatar_core_get_frame(&state, &frame);
+    NB_CHECK(frame.expression == NB_AVATAR_EXPR_IDLE);
+}
+
+static void test_release_after_pass_returns_at_once(void)
+{
+    nb_avatar_core_state_t state;
+    nb_avatar_render_frame_t frame;
+    nb_avatar_core_init(&state, 15u);
+    NB_CHECK(nb_avatar_core_hold(&state, NB_AVATAR_EXPR_SAD));
+    tick_for(&state, 10000u);
+    NB_CHECK(nb_avatar_core_release(&state, NB_AVATAR_EXPR_IDLE));
+    nb_avatar_core_get_frame(&state, &frame);
+    NB_CHECK(frame.expression == NB_AVATAR_EXPR_IDLE);
+    NB_CHECK(!state.holding);
+}
+
+static void test_release_needs_persistent_base(void)
+{
+    nb_avatar_core_state_t state;
+    nb_avatar_core_init(&state, 16u);
+    NB_CHECK(nb_avatar_core_hold(&state, NB_AVATAR_EXPR_HAPPY));
+    NB_CHECK(!nb_avatar_core_release(&state, NB_AVATAR_EXPR_SAD));
+    NB_CHECK(state.holding);
+    NB_CHECK(!nb_avatar_core_release(NULL, NB_AVATAR_EXPR_IDLE));
+    NB_CHECK(!nb_avatar_core_hold(NULL, NB_AVATAR_EXPR_HAPPY));
+    NB_CHECK(!nb_avatar_core_hold(&state, NB_AVATAR_EXPR_COUNT));
+}
+
 static void test_null_calls_are_safe(void)
 {
     nb_avatar_render_frame_t frame;
@@ -219,6 +326,12 @@ int main(void) {
     NB_RUN(test_external_blink_modulates_without_replacing_expression);
     NB_RUN(test_sleepy_holds_until_product_state_requests_idle);
     NB_RUN(test_pingpong_keeps_expression_active);
+    NB_RUN(test_hold_keeps_once_expression_and_settles_motion);
+    NB_RUN(test_hold_same_expression_does_not_restart);
+    NB_RUN(test_hold_persistent_behaves_as_request);
+    NB_RUN(test_release_finishes_first_pass_then_returns);
+    NB_RUN(test_release_after_pass_returns_at_once);
+    NB_RUN(test_release_needs_persistent_base);
     NB_RUN(test_null_calls_are_safe);
     NB_TEST_MAIN_END();
 }

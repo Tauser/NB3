@@ -45,7 +45,6 @@ private:
     static void OnTimer(lv_timer_t* timer);
     static void OnDraw(lv_event_t* event);
     void Tick();
-    void Request(nb_expression_t expression);
     void ShowBanner(nb_banner_kind_t kind, const char* text, uint32_t timeout_ms);
     void UpdateBanner();
 

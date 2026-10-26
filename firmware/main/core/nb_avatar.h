@@ -84,6 +84,7 @@ typedef struct {
     nb_avatar_playback_t playback;
     int8_t playback_direction;
     bool return_to_base;
+    bool holding;  // a once expression kept on screen after its pass ends
     uint8_t keyframe_index;
     uint32_t now_ms;
     uint32_t frame_started_ms;
@@ -119,6 +120,17 @@ bool nb_avatar_core_request(nb_avatar_core_state_t *state, nb_avatar_expression_
 
 bool nb_avatar_core_play(nb_avatar_core_state_t *state, nb_avatar_expression_t expression,
                          nb_avatar_playback_t playback, bool return_to_base);
+
+// Shows an expression for as long as the caller wants it. Persistent ones
+// behave as with request(); the others play once and then hold their final
+// pose, with their motion settling to a calmer level, until something else
+// is requested. Holding the expression already playing does not restart it.
+bool nb_avatar_core_hold(nb_avatar_core_state_t *state, nb_avatar_expression_t expression);
+
+// Ends a hold by returning to a persistent base. A once expression still in
+// its first pass finishes it before returning, so a short reaction is never
+// cut mid-gesture. Returns false if base is not persistent.
+bool nb_avatar_core_release(nb_avatar_core_state_t *state, nb_avatar_expression_t base);
 
 // Normalized gaze target in [-1, 1]; eyes and head follow with springs.
 void nb_avatar_core_set_gaze_target(nb_avatar_core_state_t *state, float normalized_x,

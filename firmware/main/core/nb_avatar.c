@@ -6,6 +6,9 @@
 
 #define NB_AVATAR_MAX_ADVANCES 64u
 #define NB_AVATAR_PI 3.14159265358979323846f
+/* Share of an expression's own motion kept while it is held: enough to stay
+ * alive, calm enough that an ANGRY shake or HAPPY bounce can last a minute. */
+#define NB_AVATAR_HOLD_MOTION 0.3f
 
 typedef struct {
     float offset;
@@ -511,13 +514,50 @@ bool nb_avatar_core_play(nb_avatar_core_state_t *state, nb_avatar_expression_t e
     state->playback = return_to_base ? NB_AVATAR_PLAY_ONCE : playback;
     state->playback_direction = 1;
     state->return_to_base = return_to_base;
+    state->holding = false;
     state->keyframe_index = 0u;
     state->frame_started_ms = state->now_ms;
     state->expression_started_ms = state->now_ms;
-    state->expression_ends_ms =
-        return_to_base ? state->now_ms + expression_duration_ms(expression) : 0u;
+    state->expression_ends_ms = state->playback == NB_AVATAR_PLAY_ONCE
+                                    ? state->now_ms + expression_duration_ms(expression)
+                                    : 0u;
     schedule_blink(state, true);
     return true;
+}
+
+bool nb_avatar_core_hold(nb_avatar_core_state_t *state, nb_avatar_expression_t expression)
+{
+    if (state == NULL || expression >= NB_AVATAR_EXPR_COUNT) {
+        return false;
+    }
+    if (s_specs[expression].persistent) {
+        return nb_avatar_core_request(state, expression);
+    }
+    if (!(state->active && state->expression == expression &&
+          state->playback == NB_AVATAR_PLAY_ONCE) &&
+        !nb_avatar_core_play(state, expression, NB_AVATAR_PLAY_ONCE, false)) {
+        return false;
+    }
+    state->return_to_base = false;
+    state->holding = true;
+    return true;
+}
+
+bool nb_avatar_core_release(nb_avatar_core_state_t *state, nb_avatar_expression_t base)
+{
+    if (state == NULL || base >= NB_AVATAR_EXPR_COUNT || !s_specs[base].persistent) {
+        return false;
+    }
+    const bool first_pass = state->active && state->playback == NB_AVATAR_PLAY_ONCE &&
+                            (state->holding || state->return_to_base) &&
+                            state->now_ms < state->expression_ends_ms;
+    if (first_pass) {
+        state->base_expression = base;
+        state->holding = false;
+        state->return_to_base = true;
+        return true;
+    }
+    return nb_avatar_core_request(state, base);
 }
 
 void nb_avatar_core_set_gaze_target(nb_avatar_core_state_t *state, float normalized_x,
@@ -704,6 +744,13 @@ void nb_avatar_core_get_frame(const nb_avatar_core_state_t *state,
                 NB_AVATAR_EASING_SMOOTH,
                 (float)remaining /
                     (float)(motion->blend_out_ms == 0u ? 1u : motion->blend_out_ms));
+        }
+        if (state->holding && state->now_ms > state->expression_ends_ms) {
+            const float settle = easing(
+                NB_AVATAR_EASING_SMOOTH,
+                (float)(state->now_ms - state->expression_ends_ms) /
+                    (float)(motion->blend_out_ms == 0u ? 1u : motion->blend_out_ms));
+            emotion_blend *= mixf(1.0f, NB_AVATAR_HOLD_MOTION, settle);
         }
     }
 #define MIX_MOTION(field_)                                                                      \
