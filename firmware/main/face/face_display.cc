@@ -371,8 +371,19 @@ void FaceDisplay::SetChatMessage(const char* role, const char* content) {
 
 void FaceDisplay::SetTheme(Theme* theme) {
     // The banner takes its text font from the theme (PT-BR accents); colors
-    // and the rest of the theme are unused.
+    // and the rest of the theme are unused. xiaozhi swaps themes when assets
+    // reload and may free the old fonts, so only a shared reference is taken
+    // here; the LVGL task adopts it in UpdateBanner() while banner_font_
+    // still keeps the previous font alive.
     current_theme_ = theme;
+    if (theme == nullptr) {
+        return;
+    }
+    auto font = static_cast<LvglTheme*>(theme)->text_font();
+    if (font != nullptr) {
+        std::lock_guard<std::mutex> lock(banner_mutex_);
+        pending_font_ = std::move(font);
+    }
 }
 
 void FaceDisplay::OnTimer(lv_timer_t* timer) {
@@ -410,8 +421,11 @@ void FaceDisplay::UpdateBanner() {
     char text[NB_BANNER_TEXT_MAX];
     bool visible;
     uint32_t revision;
+    std::shared_ptr<LvglFont> new_font;
     {
         std::lock_guard<std::mutex> lock(banner_mutex_);
+        new_font = std::move(pending_font_);
+        pending_font_.reset();
         visible = nb_banner_update(&banner_, NowMs());
         revision = banner_.revision;
         if (visible && (!banner_shown_ || revision != banner_shown_revision_)) {
@@ -419,6 +433,18 @@ void FaceDisplay::UpdateBanner() {
         } else {
             text[0] = '\0';
         }
+    }
+
+    // The label's style holds a raw lv_font_t*, so the font object must stay
+    // alive for as long as the style points at it: banner_font_ owns it, and
+    // the previous owner is released only after the style points at the new
+    // font (the old reference drops when new_font replaces it below).
+    if (new_font != nullptr && new_font != banner_font_ && new_font->font() != nullptr) {
+        const lv_font_t* font = new_font->font();
+        lv_obj_set_style_text_font(banner_label_, font, 0);
+        lv_obj_set_style_max_height(
+            banner_box_, lv_font_get_line_height(font) * kBannerMaxLines + 2 * kBannerPad, 0);
+        banner_font_ = std::move(new_font);
     }
 
     if (!visible) {
@@ -432,18 +458,6 @@ void FaceDisplay::UpdateBanner() {
         return;  // already showing this revision
     }
 
-    // Theme font first (it has the PT-BR accents); LVGL's default until the
-    // theme is set.
-    const lv_font_t* font = lv_font_get_default();
-    if (current_theme_ != nullptr) {
-        auto theme_font = static_cast<LvglTheme*>(current_theme_)->text_font();
-        if (theme_font != nullptr && theme_font->font() != nullptr) {
-            font = theme_font->font();
-        }
-    }
-    lv_obj_set_style_text_font(banner_label_, font, 0);
-    lv_obj_set_style_max_height(
-        banner_box_, lv_font_get_line_height(font) * kBannerMaxLines + 2 * kBannerPad, 0);
     lv_label_set_text(banner_label_, text);
     lv_obj_remove_flag(banner_box_, LV_OBJ_FLAG_HIDDEN);
     banner_shown_ = true;

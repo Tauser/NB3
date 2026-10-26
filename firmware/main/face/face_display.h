@@ -11,6 +11,7 @@
 #include "core/nb_avatar.h"
 #include "core/nb_banner.h"
 #include "display/lcd_display.h"
+#include "display/lvgl_display/lvgl_font.h"
 
 // The NB3 screen on the ST7789. SpiLcdDisplay is used only for the panel,
 // LVGL port and display lock; none of xiaozhi's layout is created. Every UI
@@ -64,6 +65,8 @@ private:
     std::mutex banner_mutex_;
     nb_banner_t banner_;
     std::string last_status_;  // last SetStatus text: says what a "system" message is
+    std::shared_ptr<LvglFont> pending_font_;  // from SetTheme, under banner_mutex_
+    std::shared_ptr<LvglFont> banner_font_;   // LVGL task only: the font the label points at
     lv_obj_t* banner_box_ = nullptr;
     lv_obj_t* banner_label_ = nullptr;
     uint32_t banner_shown_revision_ = 0;
