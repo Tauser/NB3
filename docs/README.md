@@ -7,7 +7,7 @@ cabe em uma.
 
 | # | Decisão | Motivo |
 |---|---|---|
-| D-001 | A mente é o **xiaozhi.me** (nuvem) | ASR, LLM, TTS, memória e persona prontos; robô sempre online e sem setup |
+| D-001 | A **conversa** é do **xiaozhi.me** (nuvem) | ASR, LLM, TTS e persona prontos; robô sempre online e sem setup. Humor, personalidade e memória do corpo ficam no dispositivo (D-010) |
 | D-002 | **Nenhum serviço local** — nada roda fora do robô e da nuvem | o robô é um aparelho: liga na tomada e funciona |
 | D-003 | Hardware base **Waveshare ESP32-S3-DEV-KIT N32R16V** + display ST7789 2", INMP441 + MAX98357, servos SCS0009, WS2812, toque, microSD | 32 MB flash e 16 MB PSRAM folgados para xiaozhi + face; GPIOs livres para UART de servos, LEDs, toque, I2C e SD; INMP441 + MAX98357 já suportados pelo xiaozhi. CoreS3 fica como upgrade opcional (AEC, touch, bateria) |
 | D-004 | **Servos de barramento com feedback** (Feetech SCS) | safety usa carga e temperatura reais, não proxy de corrente |
@@ -16,6 +16,7 @@ cabe em uma.
 | D-007 | Comportamentos como **modifiers** sobre **núcleos C puros**, com **árbitro** | composição no estilo StackChan, com lógica testável no host e um único escritor por saída |
 | D-008 | **`motion_safety` obrigatório** sob toda escrita de servo | veto absoluto: FAULT pegajoso por stall, temperatura, heartbeat ou brownout |
 | D-009 | Processo leve: roadmap de uma página, decisões de meia página, commits pequenos, CI com testes | energia vai para o robô, não para a burocracia |
+| D-010 | **Vida própria no ESP32**: humor contínuo, temperamento, estados comportamentais, reflexos e iniciativa no firmware; memória de médio e longo prazo no **microSD**, acessível pelo firmware e por MCP. O xiaozhi segue dono da conversa e dos estados operacionais | recupera a autonomia do Noise (v2) sem serviço no PC; o SD armazena, o ESP32 executa a lógica. Spec: [VIDA.md](VIDA.md) |
 
 Cada decisão nova entra nesta tabela; se precisar de mais contexto, ganha um
 arquivo `D-XXX-<nome>.md` com contexto, decisão e consequências.
@@ -67,12 +68,16 @@ xiaozhi v2.5.2 com a board NB3, ativado no xiaozhi.me.
   um mic com piso de ruído normal.
 - **Mic único sem AEC** — barge-in e wake word durante a fala do robô podem
   falhar; mitigação é half-duplex, e o CoreS3 é o upgrade se não bastar.
-- **Privacidade** — áudio e conversas trafegam pelos servidores do xiaozhi.me.
+- **Privacidade** — áudio e conversas trafegam pelos servidores do xiaozhi.me;
+  a memória local fica em claro no microSD.
+- **Integridade do microSD** — queda de energia no meio de uma escrita;
+  mitigação é escrita atômica, versão de formato e funcionar sem SD.
 - **Dependência de terceiro** — disponibilidade e limites do plano gratuito.
 
 ## Documentos
 
-- [ROADMAP.md](ROADMAP.md) — etapas 0–4, prova de sucesso e andamento de cada uma
+- [ROADMAP.md](ROADMAP.md) — etapas 0–6, prova de sucesso e andamento de cada uma
+- [VIDA.md](VIDA.md) — humor, estados comportamentais, personalidade e memória local
 
 Planejados:
 

@@ -4,7 +4,8 @@ Etapas, prova de sucesso de cada uma e onde o projeto está. Atualizado a cada
 entrega; a fonte da verdade do código é o git (`git log`), aqui fica o
 andamento em linguagem de produto.
 
-**Atualizado em:** 2026-10-26 — etapa 1 concluída.
+**Atualizado em:** 2026-10-26 — etapa 1 concluída; etapas reordenadas pela
+D-010 (vida própria e memória local antes do movimento).
 
 ## Visão geral
 
@@ -12,9 +13,11 @@ andamento em linguagem de produto.
 |---|---|---|---|
 | 0 | xiaozhi em board customizada NB3 na Waveshare N32R16V | conversa em PT-BR agrada; wake word funciona | **concluída** |
 | 1 | Firmware NB3 próprio: face, emoções, toque, LED | o robô "vive" e conversa | **concluída** |
-| 2 | Servos SCS + `motion_safety` + ferramentas MCP de movimento | olha e acena; safety corta com carga real | **núcleos prontos**; falta a parte que toca o hardware |
-| 3 | Agenda, timers e comportamentos offline como ferramentas do dispositivo | funciona sem nuvem para o que é local | não iniciada |
-| 4 | Corpo/placa carrier com acústica tratada; CoreS3 se AEC fizer falta | só se necessário | não iniciada |
+| 2 | Vida própria: humor contínuo, estados comportamentais, personalidade e memória local mínima no microSD, com MCP | humor sobrevive ao IDLE; lembra de um fato depois de reiniciar; esquece quando pedido | não iniciada |
+| 3 | Arcos, energia, circadiano e iniciativa | reage com sequência e desfecho; desacelera à noite; toma iniciativa sem exagero | não iniciada |
+| 4 | Servos SCS + `motion_safety` + ferramentas MCP de movimento (entrega própria) | olha e acena; safety corta com carga real | **núcleos prontos**; falta a parte que toca o hardware |
+| 5 | Agenda, timers e comportamentos offline como ferramentas do dispositivo | funciona sem nuvem para o que é local | não iniciada |
+| 6 | Corpo/placa carrier com acústica tratada; CoreS3 se AEC fizer falta | só se necessário | não iniciada |
 
 Legenda dos itens: **[x]** feito e validado · **[~]** feito, falta validar em
 bancada · **[ ]** a fazer.
@@ -125,7 +128,54 @@ Em aberto (não bloqueia):
 
 ---
 
-## Etapa 2 — movimento com safety — núcleos prontos
+## Etapa 2 — vida própria e memória local — não iniciada
+
+**Objetivo:** recuperar no ESP32 a autonomia do Noise sem duplicar a máquina
+de conversa do xiaozhi. Spec em [VIDA.md](VIDA.md).
+
+**Prova de sucesso:** em IDLE o robô continua contente ou irritado conforme
+o que aconteceu; voltar ao IDLE limpa ações temporárias e preserva o humor;
+um fato registrado pela conversa é lembrado depois de reiniciar e some
+quando pedido para esquecer; sem microSD o robô funciona e avisa.
+
+1. [ ] **Duração da expressão** acima das animações de uma execução: a
+   proposta vencedora do árbitro se mantém na face enquanto valer.
+2. [ ] **Humor** (`core/nb_mood_vector` ou nome final): vetor valência ×
+   ativação, decaimento ao temperamento, recuperação negativa mais lenta,
+   escolha de expressão com histerese; fonte `MOOD` no árbitro; estímulos de
+   emoção do xiaozhi, toque e conversa. Host-test.
+3. [ ] **Estados comportamentais** (IDLE, ENGAGED, REACTING, SLEEPING,
+   FAULT; modo quiet) derivados de `DeviceState` sem duplicar a conversa;
+   teste de que toda volta ao IDLE limpa o transitório e preserva o humor.
+4. [ ] **Personalidade**: temperamento, reatividade, recuperação e iniciativa
+   com default no firmware e override no SD.
+5. [ ] **microSD** (SDMMC 1-bit, GPIO 6/15/16): casca FATFS, escrita
+   atômica, versão de formato, funcionamento sem SD com aviso no banner.
+6. [ ] **Memória média e longa**: núcleo de episódios com importância que
+   decai, perfil/fatos/preferências; consolidação simples. Host-test.
+7. [ ] **MCP**: `self.mood.get`, `self.mood.stimulate`,
+   `self.memory.recall`/`remember`/`correct`/`forget`, com descrições ricas.
+8. [ ] Verificar no console do xiaozhi.me o que a memória do agente oferece
+   e registrar em VIDA.md §7.
+
+---
+
+## Etapa 3 — arcos, energia e iniciativa — não iniciada
+
+Comportamentos do NB2 recuperados como modifiers sobre o árbitro, sem portar
+os núcleos integralmente.
+
+- [ ] Arcos com desfecho: birra e perdão (taps repetidos), reconciliação
+  (humor negativo + carinho), procura com o olhar após tédio.
+- [ ] Energia e tédio; circadiano (requer fonte de hora e fuso explícito).
+- [ ] Iniciativa no IDLE dosada pela personalidade, sem somar movimento demais
+  à coreografia que o avatar já tem.
+- [ ] Padrões consolidados da memória ajustando a personalidade devagar e
+  com limites.
+
+---
+
+## Etapa 4 — movimento com safety — núcleos prontos
 
 **Objetivo:** cabeça com pan e tilt (2× Feetech SCS0009 via FE-TTLinker,
 UART 17/18), sempre sob o veto do `motion_safety`, comandada pela IA por
@@ -148,6 +198,10 @@ Entregue:
 
 A fazer:
 
+0. [ ] **Tracking sem progresso**: hoje alvos alternados a cada 500 ms com a
+   posição parada renovam a janela de tracking indefinidamente e o safety
+   fica em OK. Limitar o tempo total sem progresso real da posição, com
+   regressão no host-test. Bloqueia considerar o movimento seguro.
 1. [ ] **Casca da UART** (`hal/`): UART half-duplex nas GPIO 17/18, retiro
    do eco (`nb_scs_echo_len`), flush antes de cada envio, timeout e retentativa.
 2. [ ] **Task de motion**: única dona do barramento; lê feedback dos dois
@@ -171,7 +225,7 @@ trilho lógico) e ids conhecidos.
 
 ---
 
-## Etapa 3 — vida offline — não iniciada
+## Etapa 5 — vida offline — não iniciada
 
 **Objetivo:** o que é local funciona sem nuvem.
 
@@ -180,12 +234,11 @@ trilho lógico) e ids conhecidos.
   sozinho e avisa por som, face e LED).
 - [ ] Comportamentos autônomos no IDLE (sonolência à noite, reação a toque
   sem nuvem) e modo offline explícito quando o Wi-Fi ou o servidor caem.
-- [ ] microSD (SDMMC 1-bit, GPIO 6/15/16) para sons e dados locais, se fizer
-  sentido.
+- [ ] Sons locais no microSD (o SD em si entra na etapa 2).
 
 ---
 
-## Etapa 4 — corpo e acústica — não iniciada
+## Etapa 6 — corpo e acústica — não iniciada
 
 - [ ] Placa carrier e case com acústica tratada (mic longe do alto-falante e
   do ventilador, vedação do furo do mic).
@@ -197,6 +250,15 @@ trilho lógico) e ids conhecidos.
 
 ## Pendências transversais
 
+- [ ] **`fetch_repos.py` aceita mudança extra no upstream**: se o patch
+  reverte limpo, o script retorna sem conferir outras diferenças contra a
+  tag. Comparar com a árvore esperada (tag + patch), incluindo staged e não
+  versionados, com testes de árvore limpa, patch aplicado, patch + mudança
+  extra e patch incompatível.
+- [ ] **Falha de `xTaskCreate` silenciosa** em `touch_modifier.cc` e
+  `mood_lights.cc`: verificar `pdPASS` e registrar falha explícita.
+- [ ] **C17 explícito no build do firmware**: as fontes próprias compilam com
+  `-std=gnu23` herdado do IDF; fixar C17 nelas sem mexer no upstream.
 - [ ] **AEC com referência por software** (mic e amplificador no mesmo I2S):
   experimento para permitir interromper o robô falando por cima dele.
 - [ ] Mensagens de status que hoje só vão para o log (conexão, verificação de
