@@ -11,8 +11,10 @@
 #include "behavior/touch_modifier.h"
 #include "face/face_display.h"
 #include "mcp/face_tools.h"
+#include "core/nb_hpf.h"
 
 #include <cmath>
+#include <vector>
 #include <esp_log.h>
 #include <esp_lcd_panel_vendor.h>
 #include <esp_lcd_panel_io.h>
@@ -22,34 +24,51 @@
 
 #define TAG "NoiseBotV3Board"
 
-// Duplex I2S codec that honours input_gain_ (dB) like the codecs with a PGA
-// do, and reads the slot selected by the mic's L/R pin.
+// Duplex I2S codec for the INMP441: reads the slot selected by the mic's L/R
+// pin, high-passes the signal and honours input_gain_ (dB) like the codecs
+// with a PGA do.
 class NoiseBotV3AudioCodec : public NoAudioCodecDuplex {
 public:
     NoiseBotV3AudioCodec(int input_sample_rate, int output_sample_rate,
                          gpio_num_t bclk, gpio_num_t ws, gpio_num_t dout, gpio_num_t din)
         : NoAudioCodecDuplex(input_sample_rate, output_sample_rate, bclk, ws, dout, din) {
         input_gain_ = AUDIO_INPUT_GAIN_DB;
+        nb_hpf_init(&hpf_, static_cast<float>(input_sample_rate), AUDIO_INPUT_HPF_HZ);
         // The base codec always reads the left slot; follow the mic's L/R pin.
-        i2s_std_slot_config_t slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_32BIT, I2S_SLOT_MODE_MONO);
+        i2s_std_slot_config_t slot_cfg =
+            I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_32BIT, I2S_SLOT_MODE_MONO);
         slot_cfg.slot_mask = AUDIO_I2S_MIC_SLOT;
         ESP_ERROR_CHECK(i2s_channel_reconfig_std_slot(rx_handle_, &slot_cfg));
     }
 
 protected:
+    // Reads the raw 32-bit words instead of the base codec's int16 samples:
+    // the low band (fan/TV rumble, mic low-frequency noise) is large enough to
+    // clip the int16 conversion, so it is filtered out before saturating.
     int Read(int16_t* dest, int samples) override {
-        samples = NoAudioCodecDuplex::Read(dest, samples);
-        if (input_gain_ == 0.0f) {
-            return samples;
+        raw_.resize(samples);
+        size_t bytes_read = 0;
+        if (i2s_channel_read(rx_handle_, raw_.data(), samples * sizeof(int32_t), &bytes_read,
+                             kReadTimeoutMs) != ESP_OK) {
+            return 0;
         }
-        // Read on every frame so a runtime SetInputGain() takes effect.
+        samples = static_cast<int>(bytes_read / sizeof(int32_t));
+        // Same scaling as the base codec (24-bit word >> 12); read every frame
+        // so a runtime SetInputGain() takes effect.
         const float scale = powf(10.0f, input_gain_ / 20.0f);
         for (int i = 0; i < samples; i++) {
-            float value = dest[i] * scale;
-            dest[i] = (value > INT16_MAX) ? INT16_MAX : (value < -INT16_MAX) ? -INT16_MAX : (int16_t)value;
+            float value = nb_hpf_step(&hpf_, static_cast<float>(raw_[i] >> 12)) * scale;
+            dest[i] = value > INT16_MAX ? INT16_MAX
+                      : value < -INT16_MAX ? -INT16_MAX
+                                           : static_cast<int16_t>(value);
         }
         return samples;
     }
+
+private:
+    static constexpr uint32_t kReadTimeoutMs = 200;  // as the base codec
+    nb_hpf_t hpf_;
+    std::vector<int32_t> raw_;
 };
 
 class NoiseBotV3Board : public WifiBoard {

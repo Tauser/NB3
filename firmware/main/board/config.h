@@ -17,6 +17,10 @@
 // gain amplifies the noise as much as the voice.
 #define AUDIO_INPUT_GAIN_DB 0.0f
 
+// High-pass cutoff for the mic. Recordings show most of the noise energy
+// below 150 Hz while speech sits at 300-3400 Hz.
+#define AUDIO_INPUT_HPF_HZ 150.0f
+
 // I2S slot the INMP441 drives, set by its L/R pin (GND = left, VDD = right).
 #define AUDIO_I2S_MIC_SLOT I2S_STD_SLOT_LEFT
 
