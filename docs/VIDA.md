@@ -262,6 +262,15 @@ depende de rename:
   última geração válida, sem travar e sem promover a anterior; em bancada,
   um ciclo de N cortes de energia durante escrita termina com boot
   recuperando dados consistentes.
+- **Implementação:** `core/nb_store` (formatos, sem acesso a arquivo) e
+  `memory/store_service` (task única dona do cartão; os outros pedem e
+  esperam). Arquivos em `/sdcard/noise/`: `<registro>_a.bin` e
+  `<registro>_b.bin` para os slots, `<log>` para os quadros,
+  `personalidade.txt` para a personalidade. Cada montagem grava e relê um
+  slot `probe`, que alterna A/B entre boots. Montagem por
+  `esp_vfs_fat_sdmmc_mount`: o driver novo de SD host do IDF 6 ainda não é
+  usado pela camada de protocolo SD nem pelo FATFS. Um cartão retirado com
+  o robô ligado só é percebido na próxima operação.
 
 ### 5.3 Alcance do esquecimento
 

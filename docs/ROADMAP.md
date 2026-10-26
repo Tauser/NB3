@@ -205,8 +205,8 @@ ausência); sem microSD o robô funciona e avisa.
    os padrões de hoje; leitor de `chave = valor` tolerante (faixas seguras,
    conta o que aplicou, prendeu, rejeitou e desconheceu), formato em
    VIDA.md §4. O humor recebe o perfil pela board e o boot registra o perfil
-   em uso. 9 host-tests. Falta: ler o arquivo do microSD (item 7) e usar a
-   iniciativa (etapa 3).
+   em uso. 9 host-tests. Lido do `personalidade.txt` do microSD desde o
+   item 7. Falta usar a iniciativa (etapa 3).
 6. [x] **Hora para a memória** (`core/nb_clock`, `memory/clock_service`):
    três níveis (inválida, plausível, sincronizada pelo salto do
    `settimeofday` do xiaozhi), carimbos com `boot_id` + monotônico e hora de
@@ -217,10 +217,19 @@ ausência); sem microSD o robô funciona e avisa.
    corrigido no mesmo boot e no seguinte, fuso ±1…±14 h, tempo desligado).
    Visto em bancada: boot 1 → 2, último instante lido de volta, sincroniza
    6–10 s após o boot. Ninguém usa os carimbos ainda: a memória (item 8).
-7. [ ] **microSD** (SDMMC 1-bit, GPIO 6/15/16): task única dona do cartão,
-   dois slots com geração e CRC, log de episódios com quadros e `seq`,
-   modo degradado sem formatar (VIDA.md §5.2). Host-test de corrupção e
-   truncamento em cada byte; bancada com cortes de energia durante escrita.
+7. [~] **microSD** (`core/nb_store`, `memory/store_service`, `d8fc87c`):
+   SDMMC 1-bit nos GPIO 6/15/16, task única dona do cartão, dois slots com
+   CRC sobre cabeçalho e conteúdo, log de quadros com `seq` lido até o
+   primeiro quadro ruim e cauda rasgada truncada antes de anexar, toda
+   escrita sincronizada antes de responder, nunca formata, modo degradado
+   com aviso no banner e nova montagem a cada 30 s. 12 host-tests: cada bit
+   de cada byte do slot e cada byte do log invertidos, todos os
+   truncamentos; o slot mais novo danificado nunca vence. Visto em bancada:
+   cartão de 960 MB montado, slot de teste alternando A (geração 1) e B
+   (geração 2) entre boots. A personalidade passa a vir do
+   `personalidade.txt` do cartão quando existe. Falta ver: boot sem cartão
+   (aviso e nova montagem), arquivo de personalidade, cortes de energia
+   durante escrita (com a memória do item 8 gravando de verdade).
 8. [ ] **Memória média e longa**: episódios com importância calculada pela
    idade, perfil/fatos/preferências, viés de humor limitado, esquecimento
    que remove derivados (VIDA.md §5, §5.3). Host-test do roteiro de §8.
