@@ -11,7 +11,7 @@ andamento em linguagem de produto.
 | Etapa | Entrega | Prova de sucesso | Situação |
 |---|---|---|---|
 | 0 | xiaozhi em board customizada NB3 na Waveshare N32R16V | conversa em PT-BR agrada; wake word funciona | **concluída** |
-| 1 | Firmware NB3 próprio: face, emoções, toque, LED | o robô "vive" e conversa | **implementada**, faltam 3 validações em bancada |
+| 1 | Firmware NB3 próprio: face, emoções, toque, LED | o robô "vive" e conversa | **implementada**, falta confirmar o brilho dos LEDs |
 | 2 | Servos SCS + `motion_safety` + ferramentas MCP de movimento | olha e acena; safety corta com carga real | **núcleos prontos**; falta a parte que toca o hardware |
 | 3 | Agenda, timers e comportamentos offline como ferramentas do dispositivo | funciona sem nuvem para o que é local | não iniciada |
 | 4 | Corpo/placa carrier com acústica tratada; CoreS3 se AEC fizer falta | só se necessário | não iniciada |
@@ -86,21 +86,21 @@ a face reage à conversa, ao estado do aparelho e ao toque.
   cobrindo as 21 emoções do xiaozhi.
 - [x] Ferramenta MCP **`self.face.set_expression`** para a IA controlar a
   face por 1–60 s (`7cc0970`).
-- [~] **Banner de sistema** (`83f8624`, `203bb78`): faixa discreta embaixo
+- [x] **Banner de sistema** (`83f8624`, `203bb78`): faixa discreta embaixo
   para código de ativação, configuração do Wi-Fi, erros e avisos. Corrigido
   um travamento por fonte liberada na troca de tema; 3 boots seguidos sem
-  pânico. **Falta ver na tela.**
+  pânico. Visto na tela com os avisos de conexão do boot; ativação, Wi-Fi e
+  erros aparecem quando acontecem.
 
 ### Toque e LEDs
 
-- [~] **Toque corporal** (`core/nb_touch`, GPIO2/TOUCH2, `2f445dc`): baseline
+- [x] **Toque corporal** (`core/nb_touch`, GPIO2/TOUCH2, `2f445dc`): baseline
   calibrado no boot e com deriva lenta, histerese e debounce; tap → feliz
-  1,5 s, segurar 1,5 s → carinho enquanto segura + 2 s. **Falta testar com
-  a mão; o limiar de 3% é chute inicial.**
+  1,5 s, segurar 1,5 s → carinho enquanto segura + 2 s. Validado com a mão.
 - [~] **LEDs de humor** (`core/nb_mood`, 2× WS2812 no GPIO21, `b46d69c`): cor
   e efeito por expressão (respirar, pulsar, arco-íris no tonto), transição
-  suave, teto de brilho. Brilho reduzido para 16/255 (`61d745a`). **Falta
-  confirmar o brilho.**
+  suave, teto de brilho. Teto reduzido 60 → 16 → 6/255 (`61d745a` e o
+  commit seguinte), ainda forte a 16. **Falta confirmar o brilho em 6.**
 
 ### Qualidade
 
@@ -111,9 +111,10 @@ a face reage à conversa, ao estado do aparelho e ao toque.
 
 Para fechar a etapa:
 
-- [ ] Testar o toque (tap e segurar) e ajustar o limiar se preciso.
-- [ ] Confirmar o brilho dos LEDs.
-- [ ] Ver o banner no boot e numa mensagem com acento (fonte PT-BR).
+- [x] Testar o toque (tap e segurar).
+- [ ] Confirmar o brilho dos LEDs em 6/255.
+- [x] Ver o banner no boot.
+- [ ] Ver o banner numa mensagem de erro ou ativação (texto com acento).
 - [ ] Medir CPU/FPS da face (hoje a tela inteira é redesenhada a 30 fps;
   otimizar para só a área dos olhos se pesar).
 
