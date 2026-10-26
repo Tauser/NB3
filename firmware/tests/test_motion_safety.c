@@ -23,6 +23,16 @@ static void make_armed(nb_motion_safety_t *ms) {
     nb_motion_safety_arm(ms, 0);
 }
 
+// Same, with the feedback watchdog effectively off: for tests about heartbeat
+// or tracking that let time pass without feeding every axis.
+static void make_armed_no_feedback_watch(nb_motion_safety_t *ms) {
+    nb_motion_safety_cfg_t cfg = nb_motion_safety_default_cfg();
+    cfg.feedback_timeout_ms = 0x7FFFFFFFu;
+    nb_motion_safety_init(ms, &cfg);
+    feed_both(ms, 0);
+    nb_motion_safety_arm(ms, 0);
+}
+
 static void expect_fault(const nb_motion_safety_t *ms, nb_motion_safety_fault_t reason,
                          nb_motion_safety_axis_t axis) {
     NB_CHECK_EQ_INT(NB_MOTION_SAFETY_STATE_FAULT, nb_motion_safety_get_state(ms));
@@ -193,7 +203,7 @@ static void test_arriving_at_goal_clears_tracking_timer(void) {
 
 static void test_small_goal_steps_do_not_hide_a_stalled_servo(void) {
     nb_motion_safety_t ms;
-    make_armed(&ms);
+    make_armed_no_feedback_watch(&ms);
     nb_motion_safety_feedback_t fb = good_fb();
     fb.position = 450;
     nb_motion_safety_command(&ms, PAN, 500, 0);
@@ -208,7 +218,7 @@ static void test_small_goal_steps_do_not_hide_a_stalled_servo(void) {
 
 static void test_large_goal_jump_restarts_tracking_window(void) {
     nb_motion_safety_t ms;
-    make_armed(&ms);
+    make_armed_no_feedback_watch(&ms);
     nb_motion_safety_feedback_t fb = good_fb();
     fb.position = 450;
     nb_motion_safety_command(&ms, PAN, 500, 0);
@@ -222,7 +232,7 @@ static void test_large_goal_jump_restarts_tracking_window(void) {
 
 static void test_heartbeat_timeout_faults(void) {
     nb_motion_safety_t ms;
-    make_armed(&ms);
+    make_armed_no_feedback_watch(&ms);
     nb_motion_safety_heartbeat(&ms, 100);
     nb_motion_safety_tick(&ms, 699);
     NB_CHECK(nb_motion_safety_can_move(&ms));
@@ -232,7 +242,7 @@ static void test_heartbeat_timeout_faults(void) {
 
 static void test_heartbeat_refreshes_the_deadline(void) {
     nb_motion_safety_t ms;
-    make_armed(&ms);
+    make_armed_no_feedback_watch(&ms);
     for (uint32_t t = 100; t <= 5000; t += 100) {
         nb_motion_safety_heartbeat(&ms, t);
         nb_motion_safety_tick(&ms, t);
@@ -243,6 +253,7 @@ static void test_heartbeat_refreshes_the_deadline(void) {
 static void test_arm_counts_as_first_heartbeat(void) {
     nb_motion_safety_t ms;
     nb_motion_safety_cfg_t cfg = nb_motion_safety_default_cfg();
+    cfg.feedback_timeout_ms = 0x7FFFFFFFu;
     nb_motion_safety_init(&ms, &cfg);
     feed_both(&ms, 5000);
     NB_CHECK(nb_motion_safety_arm(&ms, 5000));
@@ -255,6 +266,7 @@ static void test_arm_counts_as_first_heartbeat(void) {
 static void test_heartbeat_timeout_across_clock_wraparound(void) {
     nb_motion_safety_t ms;
     nb_motion_safety_cfg_t cfg = nb_motion_safety_default_cfg();
+    cfg.feedback_timeout_ms = 0x7FFFFFFFu;
     nb_motion_safety_init(&ms, &cfg);
     feed_both(&ms, 0xFFFFFF00u);
     nb_motion_safety_arm(&ms, 0xFFFFFF00u);
@@ -266,7 +278,7 @@ static void test_heartbeat_timeout_across_clock_wraparound(void) {
 
 static void test_stale_now_does_not_fault_heartbeat(void) {
     nb_motion_safety_t ms;
-    make_armed(&ms);
+    make_armed_no_feedback_watch(&ms);
     nb_motion_safety_heartbeat(&ms, 8600);
     nb_motion_safety_tick(&ms, 8350);  // sampled before a slow read
     NB_CHECK(nb_motion_safety_can_move(&ms));
@@ -286,6 +298,97 @@ static void test_heartbeat_not_enforced_before_arm(void) {
     nb_motion_safety_init(&ms, &cfg);
     nb_motion_safety_tick(&ms, 100000);
     NB_CHECK_EQ_INT(NB_MOTION_SAFETY_STATE_INIT, nb_motion_safety_get_state(&ms));
+}
+
+static void test_feedback_lost_faults_per_axis_after_timeout(void) {
+    for (int axis = 0; axis < NB_MOTION_SAFETY_AXIS_COUNT; axis++) {
+        nb_motion_safety_t ms;
+        make_armed(&ms);
+        nb_motion_safety_feedback_t fb = good_fb();
+        nb_motion_safety_axis_t alive = axis == PAN ? TILT : PAN;
+        nb_motion_safety_heartbeat(&ms, 299);
+        nb_motion_safety_update(&ms, alive, &fb, 299);
+        nb_motion_safety_tick(&ms, 299);
+        NB_CHECK(nb_motion_safety_can_move(&ms));
+        nb_motion_safety_heartbeat(&ms, 300);
+        nb_motion_safety_update(&ms, alive, &fb, 300);
+        nb_motion_safety_tick(&ms, 300);
+        expect_fault(&ms, NB_MOTION_SAFETY_FAULT_FEEDBACK_LOST, (nb_motion_safety_axis_t)axis);
+    }
+}
+
+static void test_feedback_refresh_keeps_axes_alive(void) {
+    nb_motion_safety_t ms;
+    make_armed(&ms);
+    for (uint32_t t = 50; t <= 3000; t += 50) {
+        feed_both(&ms, t);
+        nb_motion_safety_heartbeat(&ms, t);
+        nb_motion_safety_tick(&ms, t);
+    }
+    NB_CHECK(nb_motion_safety_can_move(&ms));
+}
+
+static void test_feedback_timeout_not_enforced_before_arm(void) {
+    nb_motion_safety_t ms;
+    nb_motion_safety_cfg_t cfg = nb_motion_safety_default_cfg();
+    nb_motion_safety_init(&ms, &cfg);
+    feed_both(&ms, 0);
+    nb_motion_safety_tick(&ms, 100000);
+    NB_CHECK_EQ_INT(NB_MOTION_SAFETY_STATE_INIT, nb_motion_safety_get_state(&ms));
+}
+
+static void test_command_catches_stale_feedback_without_tick(void) {
+    nb_motion_safety_t ms;
+    make_armed(&ms);
+    nb_motion_safety_heartbeat(&ms, 400);
+    NB_CHECK_EQ_INT(NB_MOTION_SAFETY_CMD_REFUSED_STATE, nb_motion_safety_command(&ms, PAN, 512, 400));
+    NB_CHECK_EQ_INT(NB_MOTION_SAFETY_FAULT_FEEDBACK_LOST, nb_motion_safety_get_fault(&ms));
+}
+
+static void test_arm_refused_with_stale_feedback(void) {
+    nb_motion_safety_t ms;
+    nb_motion_safety_cfg_t cfg = nb_motion_safety_default_cfg();
+    nb_motion_safety_init(&ms, &cfg);
+    feed_both(&ms, 0);
+    NB_CHECK(!nb_motion_safety_arm(&ms, 300));
+    nb_motion_safety_feedback_t fb = good_fb();
+    nb_motion_safety_update(&ms, PAN, &fb, 300);
+    NB_CHECK(!nb_motion_safety_arm(&ms, 300));  // tilt still stale
+    nb_motion_safety_update(&ms, TILT, &fb, 300);
+    NB_CHECK(nb_motion_safety_arm(&ms, 300));
+}
+
+static void test_feedback_lost_reset_needs_fresh_feedback_on_every_axis(void) {
+    nb_motion_safety_t ms;
+    make_armed(&ms);
+    nb_motion_safety_feedback_t fb = good_fb();
+    nb_motion_safety_heartbeat(&ms, 400);
+    nb_motion_safety_tick(&ms, 400);
+    expect_fault(&ms, NB_MOTION_SAFETY_FAULT_FEEDBACK_LOST, PAN);
+    NB_CHECK(!nb_motion_safety_reset_fault(&ms, 400));
+    nb_motion_safety_update(&ms, PAN, &fb, 410);
+    NB_CHECK(!nb_motion_safety_reset_fault(&ms, 420));  // tilt still silent
+    nb_motion_safety_update(&ms, TILT, &fb, 430);
+    NB_CHECK(!nb_motion_safety_reset_fault(&ms, 711));  // pan went stale again
+    nb_motion_safety_update(&ms, PAN, &fb, 720);
+    NB_CHECK(nb_motion_safety_reset_fault(&ms, 725));
+    NB_CHECK(!nb_motion_safety_arm(&ms, 725));  // reset still demands fresh feedback
+    feed_both(&ms, 740);
+    NB_CHECK(nb_motion_safety_arm(&ms, 740));
+}
+
+static void test_feedback_timeout_across_clock_wraparound(void) {
+    nb_motion_safety_t ms;
+    nb_motion_safety_cfg_t cfg = nb_motion_safety_default_cfg();
+    nb_motion_safety_init(&ms, &cfg);
+    feed_both(&ms, 0xFFFFFF00u);
+    nb_motion_safety_arm(&ms, 0xFFFFFF00u);
+    nb_motion_safety_heartbeat(&ms, 0xFFFFFF00u + 299u);
+    nb_motion_safety_tick(&ms, 0xFFFFFF00u + 299u);  // wraps past zero
+    NB_CHECK(nb_motion_safety_can_move(&ms));
+    nb_motion_safety_heartbeat(&ms, 0xFFFFFF00u + 300u);
+    nb_motion_safety_tick(&ms, 0xFFFFFF00u + 300u);
+    NB_CHECK_EQ_INT(NB_MOTION_SAFETY_FAULT_FEEDBACK_LOST, nb_motion_safety_get_fault(&ms));
 }
 
 static void test_fault_is_sticky_and_refuses_everything(void) {
@@ -410,8 +513,7 @@ static void test_after_reset_rearm_needs_fresh_feedback_and_goals_are_dropped(vo
     NB_CHECK(!nb_motion_safety_arm(&ms, 20));  // feedback must be re-observed
     feed_both(&ms, 30);                        // position 512 vs old goal 600 is ignored
     NB_CHECK(nb_motion_safety_arm(&ms, 30));
-    nb_motion_safety_feedback_t fb = good_fb();
-    NB_CHECK(nb_motion_safety_update(&ms, PAN, &fb, 5000));
+    feed_both(&ms, 5000);
     nb_motion_safety_heartbeat(&ms, 5000);
     NB_CHECK(nb_motion_safety_can_move(&ms));
     NB_CHECK_EQ_INT(NB_MOTION_SAFETY_CMD_OK, nb_motion_safety_command(&ms, PAN, 512, 5001));
@@ -443,6 +545,11 @@ static void test_invalid_config_starts_faulted_and_cannot_be_reset(void) {
     NB_CHECK(!nb_motion_safety_init(&ms, &cfg));
     cfg = nb_motion_safety_default_cfg();
     cfg.heartbeat_timeout_ms = 0x80000000u;
+    NB_CHECK(!nb_motion_safety_init(&ms, &cfg));
+    cfg = nb_motion_safety_default_cfg();
+    cfg.feedback_timeout_ms = 0;
+    NB_CHECK(!nb_motion_safety_init(&ms, &cfg));
+    cfg.feedback_timeout_ms = 0x80000000u;
     NB_CHECK(!nb_motion_safety_init(&ms, &cfg));
     NB_CHECK(!nb_motion_safety_init(&ms, NULL));
     expect_fault(&ms, NB_MOTION_SAFETY_FAULT_CONFIG, PAN);
@@ -491,6 +598,7 @@ static void test_fault_names(void) {
     NB_CHECK_EQ_STR("stall_load", nb_motion_safety_fault_name(NB_MOTION_SAFETY_FAULT_STALL_LOAD));
     NB_CHECK_EQ_STR("stall_tracking", nb_motion_safety_fault_name(NB_MOTION_SAFETY_FAULT_STALL_TRACKING));
     NB_CHECK_EQ_STR("heartbeat", nb_motion_safety_fault_name(NB_MOTION_SAFETY_FAULT_HEARTBEAT));
+    NB_CHECK_EQ_STR("feedback_lost", nb_motion_safety_fault_name(NB_MOTION_SAFETY_FAULT_FEEDBACK_LOST));
     NB_CHECK_EQ_STR("unknown", nb_motion_safety_fault_name((nb_motion_safety_fault_t)99));
 }
 
@@ -517,6 +625,13 @@ int main(void) {
     NB_RUN(test_stale_now_does_not_fault_heartbeat);
     NB_RUN(test_command_catches_stale_heartbeat_without_tick);
     NB_RUN(test_heartbeat_not_enforced_before_arm);
+    NB_RUN(test_feedback_lost_faults_per_axis_after_timeout);
+    NB_RUN(test_feedback_refresh_keeps_axes_alive);
+    NB_RUN(test_feedback_timeout_not_enforced_before_arm);
+    NB_RUN(test_command_catches_stale_feedback_without_tick);
+    NB_RUN(test_arm_refused_with_stale_feedback);
+    NB_RUN(test_feedback_lost_reset_needs_fresh_feedback_on_every_axis);
+    NB_RUN(test_feedback_timeout_across_clock_wraparound);
     NB_RUN(test_fault_is_sticky_and_refuses_everything);
     NB_RUN(test_first_fault_reason_is_kept);
     NB_RUN(test_fault_in_init_also_latches);

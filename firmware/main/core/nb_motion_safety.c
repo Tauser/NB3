@@ -18,6 +18,11 @@ static uint16_t abs_diff(uint16_t a, uint16_t b) {
     return a > b ? (uint16_t)(a - b) : (uint16_t)(b - a);
 }
 
+static bool feedback_stale(const nb_motion_safety_t *ms, int axis, uint32_t now_ms) {
+    return !ms->feedback_seen[axis] ||
+           elapsed_ms(now_ms, ms->last_feedback_ms[axis]) >= ms->cfg.feedback_timeout_ms;
+}
+
 static void enter_fault(nb_motion_safety_t *ms, nb_motion_safety_fault_t reason,
                         nb_motion_safety_axis_t axis) {
     if (ms->state == NB_MOTION_SAFETY_STATE_FAULT) {
@@ -42,7 +47,8 @@ static bool cfg_valid(const nb_motion_safety_cfg_t *cfg) {
            cfg->track_timeout_ms > 0 && cfg->track_timeout_ms < 0x80000000u &&
            cfg->temp_critical_c > 0 && cfg->brownout_mv > 0 &&
            cfg->overvoltage_mv > cfg->brownout_mv && cfg->heartbeat_timeout_ms > 0 &&
-           cfg->heartbeat_timeout_ms < 0x80000000u;
+           cfg->heartbeat_timeout_ms < 0x80000000u && cfg->feedback_timeout_ms > 0 &&
+           cfg->feedback_timeout_ms < 0x80000000u;
 }
 
 nb_motion_safety_cfg_t nb_motion_safety_default_cfg(void) {
@@ -60,6 +66,7 @@ nb_motion_safety_cfg_t nb_motion_safety_default_cfg(void) {
     cfg.brownout_mv = 4500;
     cfg.overvoltage_mv = 6500;
     cfg.heartbeat_timeout_ms = 600;
+    cfg.feedback_timeout_ms = 300;
     return cfg;
 }
 
@@ -83,7 +90,7 @@ bool nb_motion_safety_arm(nb_motion_safety_t *ms, uint32_t now_ms) {
         return false;
     }
     for (int i = 0; i < NB_MOTION_SAFETY_AXIS_COUNT; i++) {
-        if (!ms->feedback_seen[i]) {
+        if (feedback_stale(ms, i, now_ms)) {
             return false;
         }
     }
@@ -101,6 +108,7 @@ bool nb_motion_safety_update(nb_motion_safety_t *ms, nb_motion_safety_axis_t axi
     const nb_motion_safety_cfg_t *cfg = &ms->cfg;
     int a = (int)axis;
     ms->feedback_seen[a] = true;
+    ms->last_feedback_ms[a] = now_ms;
 
     ms->cond_temp[a] = fb->temp_c >= cfg->temp_critical_c;
     bool low = fb->voltage_mv < cfg->brownout_mv;
@@ -160,6 +168,13 @@ void nb_motion_safety_tick(nb_motion_safety_t *ms, uint32_t now_ms) {
         elapsed_ms(now_ms, ms->last_heartbeat_ms) >= ms->cfg.heartbeat_timeout_ms) {
         // The heartbeat belongs to the whole motion owner, not to one servo.
         enter_fault(ms, NB_MOTION_SAFETY_FAULT_HEARTBEAT, NB_MOTION_SAFETY_AXIS_PAN);
+        return;
+    }
+    for (int i = 0; i < NB_MOTION_SAFETY_AXIS_COUNT; i++) {
+        if (feedback_stale(ms, i, now_ms)) {
+            enter_fault(ms, NB_MOTION_SAFETY_FAULT_FEEDBACK_LOST, (nb_motion_safety_axis_t)i);
+            return;
+        }
     }
 }
 
@@ -183,8 +198,8 @@ nb_motion_safety_cmd_result_t nb_motion_safety_command(nb_motion_safety_t *ms,
     if (ms == NULL || !axis_valid(axis)) {
         return NB_MOTION_SAFETY_CMD_REFUSED_INVALID;
     }
-    // A stale heartbeat is caught here too, so the veto never depends on the
-    // watchdog tick having run since the owner stalled.
+    // Stale heartbeat or feedback is caught here too, so the veto never depends
+    // on the watchdog tick having run since the owner or a servo went silent.
     nb_motion_safety_tick(ms, now_ms);
     if (ms->state != NB_MOTION_SAFETY_STATE_OK) {
         return NB_MOTION_SAFETY_CMD_REFUSED_STATE;
@@ -227,6 +242,13 @@ bool nb_motion_safety_reset_fault(nb_motion_safety_t *ms, uint32_t now_ms) {
          elapsed_ms(now_ms, ms->last_heartbeat_ms) >= ms->cfg.heartbeat_timeout_ms)) {
         return false;
     }
+    if (ms->fault == NB_MOTION_SAFETY_FAULT_FEEDBACK_LOST) {
+        for (int i = 0; i < NB_MOTION_SAFETY_AXIS_COUNT; i++) {
+            if (feedback_stale(ms, i, now_ms)) {
+                return false;
+            }
+        }
+    }
     ms->state = NB_MOTION_SAFETY_STATE_INIT;
     ms->fault = NB_MOTION_SAFETY_FAULT_NONE;
     ms->fault_axis = NB_MOTION_SAFETY_AXIS_PAN;
@@ -266,6 +288,7 @@ const char *nb_motion_safety_fault_name(nb_motion_safety_fault_t fault) {
     case NB_MOTION_SAFETY_FAULT_STALL_LOAD: return "stall_load";
     case NB_MOTION_SAFETY_FAULT_STALL_TRACKING: return "stall_tracking";
     case NB_MOTION_SAFETY_FAULT_HEARTBEAT: return "heartbeat";
+    case NB_MOTION_SAFETY_FAULT_FEEDBACK_LOST: return "feedback_lost";
     }
     return "unknown";
 }

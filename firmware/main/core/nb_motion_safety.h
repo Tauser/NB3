@@ -35,7 +35,8 @@ typedef enum {
     NB_MOTION_SAFETY_FAULT_OVER_VOLTAGE,   // bus voltage above the ceiling
     NB_MOTION_SAFETY_FAULT_STALL_LOAD,     // load at/above critical for too long
     NB_MOTION_SAFETY_FAULT_STALL_TRACKING, // position not reaching the goal in time
-    NB_MOTION_SAFETY_FAULT_HEARTBEAT       // motion owner stopped feeding the heartbeat
+    NB_MOTION_SAFETY_FAULT_HEARTBEAT,      // motion owner stopped feeding the heartbeat
+    NB_MOTION_SAFETY_FAULT_FEEDBACK_LOST   // an axis stopped reporting feedback while armed
 } nb_motion_safety_fault_t;
 
 typedef enum {
@@ -66,6 +67,7 @@ typedef struct {
     uint16_t overvoltage_mv;   // fault above
 
     uint32_t heartbeat_timeout_ms;  // armed and no heartbeat for this long = fault
+    uint32_t feedback_timeout_ms;   // armed and an axis silent for this long = fault
 } nb_motion_safety_cfg_t;
 
 // One servo's bus readings. load is the magnitude (direction bit already
@@ -89,6 +91,7 @@ typedef struct {
     // Latest observed condition per axis. They feed the reset check, so they are
     // refreshed by every feedback sample whatever the state is.
     bool feedback_seen[NB_MOTION_SAFETY_AXIS_COUNT];
+    uint32_t last_feedback_ms[NB_MOTION_SAFETY_AXIS_COUNT];
     bool cond_temp[NB_MOTION_SAFETY_AXIS_COUNT];
     bool cond_volt[NB_MOTION_SAFETY_AXIS_COUNT];
     bool cond_stall[NB_MOTION_SAFETY_AXIS_COUNT];
@@ -111,7 +114,8 @@ nb_motion_safety_cfg_t nb_motion_safety_default_cfg(void);
 bool nb_motion_safety_init(nb_motion_safety_t *ms, const nb_motion_safety_cfg_t *cfg);
 
 // INIT -> OK. Refused in FAULT, and until feedback has been seen for every axis
-// (arming blind would defeat the sensor checks). Counts as the first heartbeat.
+// (arming blind would defeat the sensor checks) or while that feedback is already
+// older than the feedback timeout. Counts as the first heartbeat.
 bool nb_motion_safety_arm(nb_motion_safety_t *ms, uint32_t now_ms);
 
 // Feeds one servo's readings. Checks temperature, voltage, sustained load and
@@ -123,7 +127,9 @@ bool nb_motion_safety_update(nb_motion_safety_t *ms, nb_motion_safety_axis_t axi
 // Motion owner liveness. Cheap; call it every motion tick.
 void nb_motion_safety_heartbeat(nb_motion_safety_t *ms, uint32_t now_ms);
 
-// Periodic watchdog (heartbeat timeout). Only enforced while armed.
+// Periodic watchdog (heartbeat and per-axis feedback timeouts). Only enforced
+// while armed: a servo that stops answering is a hazard the sensor checks cannot
+// see on their own.
 void nb_motion_safety_tick(nb_motion_safety_t *ms, uint32_t now_ms);
 
 // The veto. Must return OK before every goal-position write; an accepted goal is
@@ -144,8 +150,8 @@ void nb_motion_safety_trip(nb_motion_safety_t *ms, nb_motion_safety_fault_t reas
 
 // Leaves FAULT for INIT. Refused (false) when not faulted, or while any fault
 // condition is still observed: hot, out-of-range voltage, overloaded or
-// non-tracking feedback, a stale heartbeat when that was the reason, or a
-// configuration fault. A reset also demands fresh feedback before the next arm.
+// non-tracking feedback, a stale heartbeat or stale feedback on any axis when
+// that was the reason, or a configuration fault. A reset also demands fresh feedback before the next arm.
 bool nb_motion_safety_reset_fault(nb_motion_safety_t *ms, uint32_t now_ms);
 
 nb_motion_safety_state_t nb_motion_safety_get_state(const nb_motion_safety_t *ms);
