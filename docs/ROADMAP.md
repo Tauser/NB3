@@ -173,7 +173,7 @@ ausência); sem microSD o robô funciona e avisa.
      triste e sonolento; carinhoso e envergonhado ganharam animação própria.
      Funcionando na tela, segundo o usuário. Contente (cápsula baixa do
      humor) ainda usa o carinhoso.
-   - [~] Camada de overlay e ligação aos estados (`3e4a60e`): `core/nb_overlay`
+   - [x] Camada de overlay e ligação aos estados (`3e4a60e`): `core/nb_overlay`
      escolhe um adorno por vez (fala vence tudo) e calcula a animação; o
      codec mede o volume do mic e do alto-falante. Escuta → 7 barras
      irregulares seguindo o mic; pensando → pontos e, após 1 s, a mão do
@@ -181,7 +181,12 @@ ausência); sem microSD o robô funciona e avisa.
      some 0,5 s depois; carinho → corações e bochechas; envergonhado →
      bochechas. 11 host-tests do núcleo. A mão vem do recorte do desenho do
      usuário (`tools/design/svg_to_lvgl.py`; os vetores perdiam as linhas).
-     Falta ver na tela e calibrar o volume do mic (−45…−12 dBFS → 0…1).
+     Pensando só depois de 0,7 s de espera (`cb400a0`), para a
+     wake word não piscar três faces em um segundo. Validado em bancada:
+     escuta com barras, balão de fala, pensando na conexão demorada.
+     Pendente do mic: o pensando depois da pergunta depende do VAD local
+     voltar a "silêncio", o que o lote atual de INMP441 quase nunca faz (e
+     o servidor já começa a resposta ao detectar o fim da fala).
 4. [ ] **Estados comportamentais** (IDLE, ENGAGED, REACTING, SLEEPING,
    FAULT; modo quiet) derivados de `DeviceState` sem duplicar a conversa;
    teste de que toda volta ao IDLE limpa o transitório e preserva o humor.
