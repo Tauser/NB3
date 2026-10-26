@@ -8,6 +8,7 @@
 #include <esp_heap_caps.h>
 #include <esp_log.h>
 #include <esp_timer.h>
+#include <freertos/semphr.h>
 
 #define TAG "Memory"
 
@@ -62,11 +63,18 @@ const char* StatusName(nb_mem_status_t s) {
 
 }  // namespace
 
+struct MemoryService::Job {
+    const std::function<void(const Access&)>* fn;
+    SemaphoreHandle_t done;
+    bool ran;
+};
+
 struct MemoryService::Message {
-    enum Type : uint8_t { kCard, kPetting, kConversation } type;
+    enum Type : uint8_t { kCard, kPetting, kConversation, kQuery } type;
     bool available;
     uint32_t duration_ms;
     nb_affect_vec_t feeling;
+    Job* job;
 };
 
 MemoryService::MemoryService(StoreService& store, ClockService& clock, MoodModifier& mood)
@@ -131,6 +139,25 @@ void MemoryService::OnConversation(uint32_t duration_ms, nb_affect_vec_t feeling
     Post(msg);
 }
 
+bool MemoryService::Query(const std::function<void(const Access&)>& fn) {
+    if (task_ == nullptr) {
+        return false;
+    }
+    Job job = {&fn, xSemaphoreCreateBinary(), false};
+    if (job.done == nullptr) {
+        return false;
+    }
+    Message msg = {};
+    msg.type = Message::kQuery;
+    msg.job = &job;
+    bool ok = xQueueSend(queue_, &msg, pdMS_TO_TICKS(1000)) == pdTRUE;
+    if (ok) {
+        xSemaphoreTake(job.done, portMAX_DELAY);
+    }
+    vSemaphoreDelete(job.done);
+    return ok && job.ran;
+}
+
 // Never blocks the caller (touch, xiaozhi, store tasks).
 void MemoryService::Post(const Message& msg) {
     if (task_ == nullptr || xQueueSend(queue_, &msg, 0) != pdTRUE) {
@@ -183,6 +210,18 @@ void MemoryService::Handle(const Message& msg) {
             const float a = std::clamp(msg.feeling.arousal * 2.0f, -1.0f, 1.0f);
             nb_mem_episode_t ep = {NB_EP_CONVERSATION, v, a, 0.3f + 0.3f * ramp, 0, text};
             AddEpisode(ep);
+            break;
+        }
+        case Message::kQuery: {
+            if (loaded_) {
+                nb_clock_t clock;
+                uint64_t now = 0;
+                clock_.Snapshot(&clock, &now);
+                (*msg.job->fn)(Access{*memory_, io_, clock, now});
+                UpdateBias(clock, now);  // a forget may have taken episodes away
+                msg.job->ran = true;
+            }
+            xSemaphoreGive(msg.job->done);
             break;
         }
     }

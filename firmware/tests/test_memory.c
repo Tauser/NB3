@@ -290,7 +290,7 @@ static void test_bias_is_bounded_and_pure(void) {
         add_episode(NB_EP_AFFECTION, 1.0f, 0, "muito carinho");
     }
     nb_memory_bias(&mem, &clk, 3000, &v, &a);
-    NB_CHECK(fabsf(v - NB_MEM_BIAS_MAX) < 1e-6f);  // 10 x 0.5 x 0.1 = 0.5, capped
+    NB_CHECK(fabsf(v - NB_MEM_BIAS_MAX) < 1e-6f);  // 10 x 0.5 x 0.05 = 0.25, capped
     nb_mem_hit_t hits[8];
     for (int i = 0; i < 1000; i++) {
         recall("carinho", -1, hits, 8);  // recalling does not feel anything

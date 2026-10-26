@@ -192,7 +192,7 @@ mínimos, para o núcleo não depender de código de terceiros nos host-tests).
 Limites: 64 registros longos, 96 episódios, texto de 96 bytes, chave de 24.
 Meias-vidas: carinho 6 h, conversa 12 h, mágoa 48 h, nota pedida pela
 conversa 7 dias; a compactação apaga o que cai abaixo de 0,05. O viés é
-0,1 × Σ(importância × afeto) dos episódios de idade conhecida, preso em
+0,05 × Σ(importância × afeto) dos episódios de idade conhecida, preso em
 ±0,15. Episódios cheios: sai o que menos importa agora (o mais antigo no
 empate). Um episódio sobre um registro longo guarda só o id dele (`about`),
 nunca uma cópia do texto. Os padrões consolidados ficam para a etapa 3; até
@@ -358,6 +358,17 @@ Ferramentas do dispositivo, com descrições ricas para o LLM decidir por elas:
 
 A busca no ESP32 é simples (palavra/tag/período); a interpretação semântica
 fica com o LLM.
+
+Implementação: `mcp/memory_tools`. As ferramentas rodam na task do app do
+xiaozhi e esperam a memória responder na task dela; sem cartão a resposta
+diz que a memória está indisponível, para o LLM não inventar. `recall`
+devolve id, tipo, texto, quando (ou "data desconhecida"), há quanto tempo e,
+nos episódios, o afeto e a importância agora. `remember` aceita `profile`
+(com chave; a mesma chave substitui), `fact`, `preference` (chave opcional)
+e `note` (um episódio do tipo nota, com valência). `forget` recebe um id ou
+uma categoria, nunca os dois. `mood.stimulate` recebe valência e excitação
+de −100 a 100, empurra no máximo 0,25 e tem teto de 0,25 por janela de
+habituação.
 
 ## 7. Relação com a memória do xiaozhi.me
 

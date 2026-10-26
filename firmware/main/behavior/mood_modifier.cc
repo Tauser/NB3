@@ -21,6 +21,10 @@ constexpr nb_affect_stimulus_t kListening = {"conv:listen", 0.02f, 0.05f, 0.20f,
 constexpr nb_affect_stimulus_t kFault = {"device:fault", -0.30f, 0.30f, 0.60f, 0.0f};
 
 constexpr float kEmotionCap = 0.45f;
+// What the AI reports through MCP pushes at most this much, with its own
+// cap per window below the touch's: words matter less than a hand.
+constexpr float kConversationScale = 0.25f;
+constexpr float kConversationCap = 0.25f;
 
 struct EmotionPush {
     nb_expression_t expression;
@@ -86,6 +90,20 @@ void MoodModifier::OnPetting() { Feel(kPetting); }
 void MoodModifier::OnListening() { Feel(kListening); }
 void MoodModifier::OnFault() { Feel(kFault); }
 
+void MoodModifier::OnConversationEvent(float valence, float arousal, const std::string& reason) {
+    const nb_affect_stimulus_t s = {"mcp:stimulate", valence * kConversationScale,
+                                    arousal * kConversationScale, kConversationCap, 0.0f};
+    Feel(s);
+    std::lock_guard<std::mutex> lock(mutex_);
+    recent_ = "conversa: " + reason;
+}
+
+MoodModifier::Snapshot MoodModifier::Read() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return {affect_.mood, affect_.personality.temperament, affect_.bias, shown_, recent_,
+            recent_.empty() ? 0 : NowMs() - recent_ms_};
+}
+
 void MoodModifier::SetBias(float valence, float arousal) {
     std::lock_guard<std::mutex> lock(mutex_);
     nb_affect_set_bias(&affect_, valence, arousal);
@@ -101,6 +119,8 @@ nb_affect_vec_t MoodModifier::Deviation() {
 void MoodModifier::Feel(const nb_affect_stimulus_t& stimulus) {
     std::lock_guard<std::mutex> lock(mutex_);
     float applied = nb_affect_stimulate(&affect_, &stimulus, NowMs());
+    recent_ = stimulus.key;
+    recent_ms_ = NowMs();
     ESP_LOGI(TAG, "%s x%.2f -> v=%.2f a=%.2f", stimulus.key, applied, affect_.mood.valence,
              affect_.mood.arousal);
 }

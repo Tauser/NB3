@@ -260,8 +260,19 @@ ausência); sem microSD o robô funciona e avisa.
      com eles o viés chegou ao teto de +0,15. Falta ver: compactação no cartão, ciclo de cortes
      de energia durante escrita (pendente do item 7). A falha do dispositivo
      não vira episódio: hoje ela é erro de rede, não mágoa.
-9. [ ] **MCP**: `self.mood.get`, `self.mood.stimulate`,
+9. [~] **MCP** (`mcp/memory_tools`): `self.mood.get`, `self.mood.stimulate`,
    `self.memory.recall`/`remember`/`correct`/`forget`, com descrições ricas.
+   As ferramentas rodam na task do app e chamam a memória na task dela
+   (`MemoryService::Query`); sem cartão respondem "memória indisponível".
+   `remember` aceita perfil (com chave), fato, preferência e nota (episódio
+   com valência); `forget` aceita um id ou uma categoria (perfil, fato,
+   preferência, episódio, tudo). `mood.stimulate` empurra no máximo 0,25
+   com teto próprio de 0,25 por janela, abaixo do toque. Ganho do viés da
+   memória reduzido para 0,05 depois da bancada (3 ou 4 bons momentos já
+   levavam o viés ao teto). Visto em bancada: as 6 ferramentas registradas e
+   a memória carregando 5 episódios no boot. Falta ver: o roteiro de §8 pela
+   conversa, com reinício entre os passos, e se o LLM escolhe as ferramentas
+   certas pelas descrições.
 10. [ ] Verificar no console do xiaozhi.me o que a memória do agente oferece
    e registrar em VIDA.md §7.
 

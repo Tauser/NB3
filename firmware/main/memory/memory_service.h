@@ -2,6 +2,7 @@
 #define NB3_MEMORY_SERVICE_H
 
 #include <cstdint>
+#include <functional>
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
@@ -33,8 +34,20 @@ public:
     // How the conversation left the mood (deviation from rest).
     void OnConversation(uint32_t duration_ms, nb_affect_vec_t feeling);
 
+    // What a query sees: the memory, its io and the clock as of now.
+    struct Access {
+        nb_memory_t& memory;
+        const nb_mem_io_t& io;
+        const nb_clock_t& clock;
+        uint64_t now_ms;
+    };
+    // Runs fn on the memory task and waits for it (the MCP tools). False,
+    // with fn not run, while there is no memory: no card, or not loaded yet.
+    bool Query(const std::function<void(const Access&)>& fn);
+
 private:
     struct Message;
+    struct Job;
 
     static void TaskEntry(void* arg);
     void Run();

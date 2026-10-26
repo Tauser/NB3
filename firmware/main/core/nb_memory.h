@@ -42,7 +42,7 @@ extern "C" {
 #define NB_MEM_TOKENS 5120
 
 #define NB_MEM_BIAS_MAX 0.15f   // same limit as the mood core's bias
-#define NB_MEM_BIAS_GAIN 0.10f  // bias per unit of importance x affect
+#define NB_MEM_BIAS_GAIN 0.05f  // bias per unit of importance x affect
 #define NB_MEM_FADED 0.05f      // compaction drops episodes below this
 #define NB_MEM_COMPACT_FRAMES 32
 

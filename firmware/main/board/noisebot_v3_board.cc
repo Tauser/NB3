@@ -14,6 +14,7 @@
 #include "face/audio_levels.h"
 #include "face/face_display.h"
 #include "mcp/face_tools.h"
+#include "mcp/memory_tools.h"
 #include "memory/clock_service.h"
 #include "memory/memory_service.h"
 #include "memory/store_service.h"
@@ -196,6 +197,7 @@ public:
             }
         });
         RegisterFaceTools(arbiter_);
+        RegisterMemoryTools(memory_, mood_, behavior_);
         static TouchModifier touch(BODY_TOUCH_CHANNEL, arbiter_, mood_, behavior_, memory_);
         static MoodLights mood_lights(MOOD_LED_GPIO, MOOD_LED_COUNT, MOOD_LED_MAX_BRIGHTNESS,
                                       arbiter_);
