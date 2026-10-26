@@ -15,6 +15,7 @@
 #include "face/face_display.h"
 #include "mcp/face_tools.h"
 #include "memory/clock_service.h"
+#include "memory/store_service.h"
 #include "core/nb_hpf.h"
 #include "core/nb_personality.h"
 
@@ -89,12 +90,27 @@ private:
     std::vector<int32_t> raw_;
 };
 
+// Firmware defaults, overridden by the personality file on the microSD when
+// there is one (VIDA.md §4).
+static nb_personality_t LoadPersonality(StoreService& store) {
+    nb_personality_t personality = nb_personality_default();
+    std::string text;
+    if (!store.ReadText("personalidade.txt", &text)) {
+        ESP_LOGI(TAG, "no personality file: firmware defaults");
+        return personality;
+    }
+    const nb_personality_parse_result_t r = nb_personality_parse(text.c_str(), &personality);
+    ESP_LOGI(TAG, "personality file: %d applied, %d clamped, %d rejected, %d unknown",
+             r.applied, r.clamped, r.rejected, r.unknown);
+    return personality;
+}
+
 class NoiseBotV3Board : public WifiBoard {
 private:
     Button boot_button_;
     ExpressionArbiter arbiter_{NB_EXPR_NEUTRAL};
-    // Firmware defaults; the microSD will be able to override them (VIDA.md §4).
-    nb_personality_t personality_ = nb_personality_default();
+    StoreService store_;
+    nb_personality_t personality_ = LoadPersonality(store_);
     MoodModifier mood_{arbiter_, personality_};
     BehaviorModifier behavior_{arbiter_};
     ClockService clock_;
@@ -159,6 +175,11 @@ public:
         InitializeSpi();
         InitializeDisplay();
         InitializeButtons();
+        store_.SetListener([this](bool available) {
+            if (!available) {
+                display_->ShowNotification("Memória indisponível: sem microSD", 8000);
+            }
+        });
         RegisterFaceTools(arbiter_);
         static TouchModifier touch(BODY_TOUCH_CHANNEL, arbiter_, mood_, behavior_);
         static MoodLights mood_lights(MOOD_LED_GPIO, MOOD_LED_COUNT, MOOD_LED_MAX_BRIGHTNESS,

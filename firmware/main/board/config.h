@@ -41,6 +41,12 @@
 #define MOOD_LED_COUNT          2
 #define MOOD_LED_MAX_BRIGHTNESS 6
 
+// External microSD on SDMMC, 1-bit bus, internal pull-ups (the module may
+// add its own). Holds the memory and the personality file.
+#define SD_CLK_PIN GPIO_NUM_15
+#define SD_CMD_PIN GPIO_NUM_16
+#define SD_D0_PIN  GPIO_NUM_6
+
 // ST7789 2" on SPI2; RST and backlight are hardwired, reset is SWRESET.
 #define DISPLAY_SPI_HOST    SPI2_HOST
 #define DISPLAY_CS_PIN      GPIO_NUM_10
