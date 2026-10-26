@@ -29,13 +29,16 @@ typedef struct {
 } nb_affect_personality_t;
 
 // A stimulus. Repeats of the same key inside the habituation window count
-// less each time (delta x 0.5^n) and their applied magnitude per window is
-// capped, so "happy" on every sentence of a reply pushes once, not forever.
+// less each time (delta x habituation^n) and their applied magnitude per
+// window is capped, so "happy" on every sentence of a reply pushes once, not
+// forever. A sustained pleasure such as petting habituates more slowly than
+// a repeated message.
 typedef struct {
-    const char *key;  // "origin:tag", e.g. "xiaozhi:happy", "touch:tap"
+    const char *key;    // "origin:tag", e.g. "xiaozhi:happy", "touch:tap"
     float valence;
     float arousal;
-    float cap;        // max sum of |applied| for this key per window
+    float cap;          // max sum of |applied| for this key per window
+    float habituation;  // weight kept per repeat, (0, 1]; 0 means the default 0.5
 } nb_affect_stimulus_t;
 
 #define NB_AFFECT_HABIT_SLOTS 16

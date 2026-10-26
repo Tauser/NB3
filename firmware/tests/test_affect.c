@@ -6,7 +6,7 @@
 #define NEAR(a, b, eps) (fabsf((a) - (b)) <= (eps))
 
 static nb_affect_stimulus_t stim(const char *key, float valence, float arousal, float cap) {
-    nb_affect_stimulus_t s = {key, valence, arousal, cap};
+    nb_affect_stimulus_t s = {key, valence, arousal, cap, 0.0f};
     return s;
 }
 
@@ -64,6 +64,21 @@ static void test_repeated_stimulus_habituates_and_is_capped(void) {
     const float moved = (a.mood.valence - 0.10f) + (a.mood.arousal - 0.05f);
     NB_CHECK(moved <= 0.55f + 1e-5f);
     NB_CHECK(moved > 0.55f - 0.01f);
+}
+
+static void test_sustained_stimulus_habituates_slower(void) {
+    nb_affect_t a;
+    nb_affect_init(&a, NULL);
+    nb_affect_stimulus_t pet = stim("touch:pet", 0.1f, 0.0f, 2.0f);
+    pet.habituation = 0.8f;
+    NB_CHECK(NEAR(nb_affect_stimulate(&a, &pet, 0), 1.0f, 1e-6f));
+    NB_CHECK(NEAR(nb_affect_stimulate(&a, &pet, 4000), 0.8f, 1e-6f));
+    NB_CHECK(NEAR(nb_affect_stimulate(&a, &pet, 8000), 0.64f, 1e-5f));
+    // Out-of-range ratios fall back to the default halving.
+    nb_affect_stimulus_t odd = stim("test:odd", 0.1f, 0.0f, 2.0f);
+    odd.habituation = 1.5f;
+    nb_affect_stimulate(&a, &odd, 0);
+    NB_CHECK(NEAR(nb_affect_stimulate(&a, &odd, 10), 0.5f, 1e-6f));
 }
 
 static void test_cap_limits_a_strong_first_push(void) {
@@ -203,6 +218,7 @@ int main(void) {
     NB_RUN(test_positive_deviation_falls_to_5_percent_in_recovery);
     NB_RUN(test_negative_valence_recovers_slower);
     NB_RUN(test_repeated_stimulus_habituates_and_is_capped);
+    NB_RUN(test_sustained_stimulus_habituates_slower);
     NB_RUN(test_cap_limits_a_strong_first_push);
     NB_RUN(test_habituation_window_resets);
     NB_RUN(test_keys_habituate_independently);

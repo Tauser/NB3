@@ -9,13 +9,15 @@ namespace {
 
 constexpr uint32_t kTickPeriodMs = 200;
 
-// Every stimulus the mood receives, with its push (valence, arousal) and the
-// most it may move the mood per habituation window. Starting values, to be
-// tuned on the bench.
-constexpr nb_affect_stimulus_t kTap = {"touch:tap", 0.12f, 0.08f, 0.35f};
-constexpr nb_affect_stimulus_t kPetting = {"touch:pet", 0.20f, -0.08f, 0.70f};
-constexpr nb_affect_stimulus_t kListening = {"conv:listen", 0.02f, 0.10f, 0.20f};
-constexpr nb_affect_stimulus_t kFault = {"device:fault", -0.30f, 0.30f, 0.60f};
+// Every stimulus the mood receives: its push (valence, arousal), the most it
+// may move the mood per habituation window, and the weight kept per repeat
+// (0 = default halving). Petting is a sustained pleasure, so its pulses fade
+// slowly; being listened to only nudges alertness, never pleasure. Tuned on
+// the bench.
+constexpr nb_affect_stimulus_t kTap = {"touch:tap", 0.12f, 0.08f, 0.35f, 0.0f};
+constexpr nb_affect_stimulus_t kPetting = {"touch:pet", 0.20f, -0.08f, 0.70f, 0.8f};
+constexpr nb_affect_stimulus_t kListening = {"conv:listen", 0.02f, 0.05f, 0.20f, 0.0f};
+constexpr nb_affect_stimulus_t kFault = {"device:fault", -0.30f, 0.30f, 0.60f, 0.0f};
 
 constexpr float kEmotionCap = 0.45f;
 
@@ -65,7 +67,7 @@ MoodModifier::~MoodModifier() {
 void MoodModifier::OnEmotion(nb_expression_t expression) {
     for (const auto& push : kEmotions) {
         if (push.expression == expression) {
-            Feel({push.key, push.valence, push.arousal, kEmotionCap});
+            Feel({push.key, push.valence, push.arousal, kEmotionCap, 0.0f});
             return;
         }
     }

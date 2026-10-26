@@ -6,8 +6,9 @@
 
 // ln(20): a deviation multiplied by exp(-t / tau) reaches 5% at t = recovery.
 #define NB_AFFECT_LN20 2.9957323f
-// Past this many repeats the habituated share is negligible anyway.
-#define NB_AFFECT_MAX_REPEATS 16u
+#define NB_AFFECT_DEFAULT_HABITUATION 0.5f
+// Past this many repeats the habituated share is small; the cap ends it.
+#define NB_AFFECT_MAX_REPEATS 32u
 
 // Distance from the temperament at which the mood starts to show, and the
 // smaller one at which it goes back to neutral.
@@ -105,7 +106,10 @@ float nb_affect_stimulate(nb_affect_t *affect, const nb_affect_stimulus_t *stimu
         return 0.0f;
     }
     nb_affect_habit_t *habit = habit_for(affect, hash_key(stimulus->key), now_ms);
-    const float habituation = ldexpf(1.0f, -(int)habit->repeats);
+    const float ratio = stimulus->habituation > 0.0f && stimulus->habituation <= 1.0f
+                            ? stimulus->habituation
+                            : NB_AFFECT_DEFAULT_HABITUATION;
+    const float habituation = powf(ratio, (float)habit->repeats);
     const float gain = affect->personality.reactivity * habituation;
     const float dv = stimulus->valence * gain;
     const float da = stimulus->arousal * gain;

@@ -15,6 +15,8 @@ void StateLed::OnStateChanged() {
     status_led_.OnStateChanged();
 
     DeviceState state = Application::GetInstance().GetDeviceState();
+    const bool entered = state != last_state_;
+    last_state_ = state;
     switch (state) {
         case kDeviceStateIdle:
             arbiter_.EnterIdle();
@@ -31,12 +33,16 @@ void StateLed::OnStateChanged() {
             break;
         case kDeviceStateListening:
             ProposeState(arbiter_, NB_EXPR_LISTENING);
-            mood_.OnListening();
+            if (entered) {
+                mood_.OnListening();
+            }
             break;
         case kDeviceStateFatalError: {
             nb_proposal_t fault = {NB_EXPR_SAD, priority::kFault, 0, false};
             arbiter_.Propose(NB_SOURCE_STATE, fault);
-            mood_.OnFault();
+            if (entered) {
+                mood_.OnFault();
+            }
             break;
         }
         default:

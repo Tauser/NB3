@@ -3,12 +3,14 @@
 
 #include "behavior/expression_arbiter.h"
 #include "behavior/mood_modifier.h"
+#include "device_state.h"
 #include "led/led.h"
 
 // xiaozhi reports every device-state change through Led::OnStateChanged().
 // This Led keeps driving the real status LED and also turns the state into
 // face behavior: IDLE resets transient expressions, listening shows attention.
-// Being listened to and faults also reach the mood.
+// Entering listening and faults also reach the mood. xiaozhi reports the
+// same state many times in a row, so only a change of state counts.
 class StateLed : public Led {
 public:
     StateLed(Led& status_led, ExpressionArbiter& arbiter, MoodModifier& mood)
@@ -20,6 +22,7 @@ private:
     Led& status_led_;
     ExpressionArbiter& arbiter_;
     MoodModifier& mood_;
+    DeviceState last_state_ = kDeviceStateUnknown;
 };
 
 #endif  // NB3_STATE_LED_H

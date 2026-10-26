@@ -63,10 +63,13 @@ conversa (wake, fala longa) e a ferramenta MCP de estímulo (§6). O corpo
 
 **Habituação** — cada estímulo tem uma chave (`origem:tag`, ex.
 `xiaozhi:happy`, `touch:tap`, `mcp:elogio`). Dentro de uma janela por chave
-(ordem de 30 s), a n-ésima repetição aplica `delta × 0,5ⁿ`, e a soma dos
-módulos aplicados por chave na janela tem teto. Receber "happy" a cada frase
-da resposta empurra o humor uma vez com força e depois quase nada. A
-ferramenta MCP tem teto próprio, menor que o do toque.
+(ordem de 30 s), a n-ésima repetição aplica `delta × hⁿ`, e a soma dos
+módulos aplicados por chave na janela tem teto. O fator `h` é 0,5 por
+padrão: receber "happy" a cada frase da resposta empurra o humor uma vez com
+força e depois quase nada. Prazer contínuo habitua mais devagar (carinho:
+`h` ≈ 0,8), senão os pulsos somem enquanto o carinho ainda dura. Estados
+repetidos do xiaozhi só contam na troca de estado. A ferramenta MCP tem teto
+próprio, menor que o do toque.
 
 **Memória não é estímulo.** Episódios não somam deltas; eles deslocam o
 **alvo do decaimento** (o temperamento do momento) por um viés que é função
