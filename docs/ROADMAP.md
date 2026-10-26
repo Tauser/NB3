@@ -171,8 +171,9 @@ ausência); sem microSD o robô funciona e avisa.
      baixo ou por cima, interpolável); poses refeitas sem sobrancelha para
      atento, pensando, feliz, animado, curioso, confuso, irritado, surpreso,
      triste e sonolento; carinhoso e envergonhado ganharam animação própria.
-     Funcionando na tela, segundo o usuário. Contente (cápsula baixa do
-     humor) ainda usa o carinhoso.
+     Funcionando na tela, segundo o usuário. Contente ganhou expressão
+     própria para o humor em repouso (cápsulas baixas, LED pêssego); o
+     carinhoso fica para o toque.
    - [x] Camada de overlay e ligação aos estados (`3e4a60e`): `core/nb_overlay`
      escolhe um adorno por vez (fala vence tudo) e calcula a animação; o
      codec mede o volume do mic e do alto-falante. Escuta → 7 barras
