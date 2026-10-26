@@ -1,14 +1,27 @@
 #include "face_display.h"
 
 #include <cmath>
+#include <cstring>
 
 #include <esp_log.h>
 #include <esp_random.h>
 #include <esp_timer.h>
 
+#include "assets/lang_config.h"
+#include "display/lvgl_display/lvgl_theme.h"
+
 #define TAG "FaceDisplay"
 
 namespace {
+
+// System banner layout. It sits at the bottom edge; four lines of text is the
+// most it may grow to so the eyes stay clear for typical messages.
+constexpr int kBannerMargin = 6;
+constexpr int kBannerPad = 6;
+constexpr int kBannerRadius = 10;
+constexpr int kBannerMaxLines = 4;
+constexpr lv_opa_t kBannerOpacity = 200;  // of 255
+constexpr uint32_t kAlertNoticeMs = 6000;  // server alerts and upgrade messages
 
 constexpr uint32_t kFramePeriodMs = 33;
 constexpr float kPi = 3.14159265358979323846f;
@@ -235,6 +248,7 @@ FaceDisplay::FaceDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handl
     : SpiLcdDisplay(panel_io, panel, width, height, offset_x, offset_y, mirror_x, mirror_y,
                     swap_xy),
       arbiter_(arbiter) {
+    nb_banner_init(&banner_);
     nb_avatar_core_init(&avatar_, esp_random());
     nb_avatar_core_get_frame(&avatar_, &frame_);
 }
@@ -255,6 +269,26 @@ void FaceDisplay::SetupUI() {
     lv_obj_set_size(face_, LV_PCT(100), LV_PCT(100));
     lv_obj_remove_flag(face_, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(face_, OnDraw, LV_EVENT_DRAW_MAIN, this);
+    // Created after the face so it draws on top; hidden until a message comes.
+    banner_box_ = lv_obj_create(screen);
+    lv_obj_remove_style_all(banner_box_);
+    lv_obj_set_width(banner_box_, lv_display_get_horizontal_resolution(nullptr) - 2 * kBannerMargin);
+    lv_obj_set_height(banner_box_, LV_SIZE_CONTENT);
+    lv_obj_align(banner_box_, LV_ALIGN_BOTTOM_MID, 0, -kBannerMargin);
+    lv_obj_set_style_bg_color(banner_box_, kBackground, 0);
+    lv_obj_set_style_bg_opa(banner_box_, kBannerOpacity, 0);
+    lv_obj_set_style_radius(banner_box_, kBannerRadius, 0);
+    lv_obj_set_style_pad_all(banner_box_, kBannerPad, 0);
+    lv_obj_remove_flag(banner_box_, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_remove_flag(banner_box_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(banner_box_, LV_OBJ_FLAG_HIDDEN);
+
+    banner_label_ = lv_label_create(banner_box_);
+    lv_obj_set_width(banner_label_, LV_PCT(100));
+    lv_label_set_long_mode(banner_label_, LV_LABEL_LONG_MODE_WRAP);
+    lv_obj_set_style_text_color(banner_label_, kEyeColor, 0);
+    lv_obj_set_style_text_align(banner_label_, LV_TEXT_ALIGN_CENTER, 0);
+
     last_tick_ms_ = NowMs();
     lv_timer_create(OnTimer, kFramePeriodMs, this);
 }
@@ -272,27 +306,72 @@ void FaceDisplay::SetEmotion(const char* emotion) {
     arbiter_.Propose(NB_SOURCE_EMOTION, proposal);
 }
 
-void FaceDisplay::SetStatus(const char* status) {
-    ESP_LOGI(TAG, "Status: %s", status);
+void FaceDisplay::ShowBanner(nb_banner_kind_t kind, const char* text, uint32_t timeout_ms) {
+    std::lock_guard<std::mutex> lock(banner_mutex_);
+    nb_banner_show(&banner_, kind, text, timeout_ms, NowMs());
 }
 
-void FaceDisplay::ShowNotification(const char* notification, int) {
+// Application::Alert() calls SetStatus(title), SetEmotion, then
+// SetChatMessage("system", message), so the status text says what kind of
+// message the next system chat line is. Entering standby/listening/speaking
+// means normal operation: whatever banner was up is no longer true.
+void FaceDisplay::SetStatus(const char* status) {
+    if (status == nullptr) {
+        return;
+    }
+    ESP_LOGI(TAG, "Status: %s", status);
+    std::lock_guard<std::mutex> lock(banner_mutex_);
+    last_status_ = status;
+    if (strcmp(status, Lang::Strings::STANDBY) == 0 ||
+        strcmp(status, Lang::Strings::LISTENING) == 0 ||
+        strcmp(status, Lang::Strings::SPEAKING) == 0) {
+        nb_banner_clear(&banner_);
+    }
+}
+
+void FaceDisplay::ShowNotification(const char* notification, int duration_ms) {
+    if (notification == nullptr) {
+        return;
+    }
     ESP_LOGI(TAG, "Notification: %s", notification);
+    ShowBanner(NB_BANNER_NOTICE, notification, duration_ms > 0 ? duration_ms : 0);
 }
 
 void FaceDisplay::ShowNotification(const std::string& notification, int duration_ms) {
     ShowNotification(notification.c_str(), duration_ms);
 }
 
+// Only "system" text is a banner candidate; what the user and the assistant
+// say is conversation, not shown. A system message before the first status
+// (the boot user-agent line) is not worth the screen either.
 void FaceDisplay::SetChatMessage(const char* role, const char* content) {
-    if (content != nullptr && content[0] != '\0') {
-        ESP_LOGI(TAG, "%s: %s", role, content);
+    if (role == nullptr || content == nullptr || content[0] == '\0') {
+        return;
+    }
+    ESP_LOGI(TAG, "%s: %s", role, content);
+    if (strcmp(role, "system") != 0) {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(banner_mutex_);
+    if (last_status_.empty()) {
+        return;
+    }
+    const char* status = last_status_.c_str();
+    if (strcmp(status, Lang::Strings::ACTIVATION) == 0) {
+        nb_banner_show(&banner_, NB_BANNER_ACTIVATION, content, 0, NowMs());
+    } else if (strcmp(status, Lang::Strings::WIFI_CONFIG_MODE) == 0) {
+        nb_banner_show(&banner_, NB_BANNER_WIFI_SETUP, content, 0, NowMs());
+    } else if (strcmp(status, Lang::Strings::ERROR) == 0) {
+        nb_banner_show(&banner_, NB_BANNER_ERROR, content, 0, NowMs());
+    } else {
+        nb_banner_show(&banner_, NB_BANNER_NOTICE, content, kAlertNoticeMs, NowMs());
     }
 }
 
 void FaceDisplay::SetTheme(Theme* theme) {
-    // Fonts and colors from xiaozhi assets are kept for later use; nothing
-    // on screen depends on them.
+    // The banner takes its text font from the theme (PT-BR accents); colors
+    // and the rest of the theme are unused.
     current_theme_ = theme;
 }
 
@@ -322,6 +401,53 @@ void FaceDisplay::Tick() {
     last_tick_ms_ = now;
     nb_avatar_core_get_frame(&avatar_, &frame_);
     lv_obj_invalidate(face_);
+    UpdateBanner();
+}
+
+// Runs on the LVGL task. Takes the lock only to expire the banner and copy
+// its text out, and touches the objects only when something changed.
+void FaceDisplay::UpdateBanner() {
+    char text[NB_BANNER_TEXT_MAX];
+    bool visible;
+    uint32_t revision;
+    {
+        std::lock_guard<std::mutex> lock(banner_mutex_);
+        visible = nb_banner_update(&banner_, NowMs());
+        revision = banner_.revision;
+        if (visible && (!banner_shown_ || revision != banner_shown_revision_)) {
+            memcpy(text, banner_.text, sizeof(text));
+        } else {
+            text[0] = '\0';
+        }
+    }
+
+    if (!visible) {
+        if (banner_shown_) {
+            lv_obj_add_flag(banner_box_, LV_OBJ_FLAG_HIDDEN);
+            banner_shown_ = false;
+        }
+        return;
+    }
+    if (text[0] == '\0') {
+        return;  // already showing this revision
+    }
+
+    // Theme font first (it has the PT-BR accents); LVGL's default until the
+    // theme is set.
+    const lv_font_t* font = lv_font_get_default();
+    if (current_theme_ != nullptr) {
+        auto theme_font = static_cast<LvglTheme*>(current_theme_)->text_font();
+        if (theme_font != nullptr && theme_font->font() != nullptr) {
+            font = theme_font->font();
+        }
+    }
+    lv_obj_set_style_text_font(banner_label_, font, 0);
+    lv_obj_set_style_max_height(
+        banner_box_, lv_font_get_line_height(font) * kBannerMaxLines + 2 * kBannerPad, 0);
+    lv_label_set_text(banner_label_, text);
+    lv_obj_remove_flag(banner_box_, LV_OBJ_FLAG_HIDDEN);
+    banner_shown_ = true;
+    banner_shown_revision_ = revision;
 }
 
 void FaceDisplay::OnDraw(lv_event_t* event) {

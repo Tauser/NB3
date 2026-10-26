@@ -2,18 +2,21 @@
 #define NB3_FACE_DISPLAY_H
 
 #include <memory>
+#include <mutex>
 #include <string>
 
 #include <lvgl.h>
 
 #include "behavior/expression_arbiter.h"
 #include "core/nb_avatar.h"
+#include "core/nb_banner.h"
 #include "display/lcd_display.h"
 
 // The NB3 screen on the ST7789. SpiLcdDisplay is used only for the panel,
 // LVGL port and display lock; none of xiaozhi's layout is created. Every UI
-// call xiaozhi makes lands here: emotions become arbiter proposals, the rest
-// (status text, subtitles, notifications, previews) is not shown.
+// call xiaozhi makes lands here: emotions become arbiter proposals, system
+// messages (Wi-Fi setup, activation code, errors, notifications) go to the
+// banner, and the rest (status bar, chat subtitles, previews) is not shown.
 //
 // The face is the NB avatar (core/nb_avatar), redrawn every frame from the
 // expression the arbiter resolves.
@@ -42,6 +45,8 @@ private:
     static void OnDraw(lv_event_t* event);
     void Tick();
     void Request(nb_expression_t expression);
+    void ShowBanner(nb_banner_kind_t kind, const char* text, uint32_t timeout_ms);
+    void UpdateBanner();
 
     ExpressionArbiter& arbiter_;
 
@@ -51,6 +56,18 @@ private:
     nb_avatar_render_frame_t frame_;
     nb_expression_t shown_ = NB_EXPR_NEUTRAL;
     uint32_t last_tick_ms_ = 0;
+
+    // System banner. xiaozhi calls arrive from other tasks and only touch
+    // banner_ and last_status_ under banner_mutex_ (held for microseconds);
+    // the LVGL task copies the result out in Tick() and is the only one to
+    // touch the objects below.
+    std::mutex banner_mutex_;
+    nb_banner_t banner_;
+    std::string last_status_;  // last SetStatus text: says what a "system" message is
+    lv_obj_t* banner_box_ = nullptr;
+    lv_obj_t* banner_label_ = nullptr;
+    uint32_t banner_shown_revision_ = 0;
+    bool banner_shown_ = false;
 };
 
 #endif  // NB3_FACE_DISPLAY_H
