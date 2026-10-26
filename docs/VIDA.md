@@ -372,8 +372,11 @@ habituação.
 
 ## 7. Relação com a memória do xiaozhi.me
 
-Não verificado ainda: se a memória do agente no xiaozhi.me está ligada,
-o que ela guarda, por quanto tempo e como apagar. A memória local é a do
+Visto em bancada (2026-10-26): a memória do agente no xiaozhi.me está
+ligada. Pedido de "lembra que...", o LLM gravou nela e não chamou
+`self.memory.remember`, e depois respondeu "o que você lembra de mim" com o
+que ela guardou. Ainda não verificado: o que ela guarda, por quanto tempo,
+como apagar e se dá para desligá-la. A memória local é a do
 corpo e não depende disso; as duas podem coexistir. Verificar no console do
 agente e registrar aqui.
 

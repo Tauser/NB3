@@ -270,9 +270,15 @@ ausência); sem microSD o robô funciona e avisa.
    com teto próprio de 0,25 por janela, abaixo do toque. Ganho do viés da
    memória reduzido para 0,05 depois da bancada (3 ou 4 bons momentos já
    levavam o viés ao teto). Visto em bancada: as 6 ferramentas registradas e
-   a memória carregando 5 episódios no boot. Falta ver: o roteiro de §8 pela
-   conversa, com reinício entre os passos, e se o LLM escolhe as ferramentas
-   certas pelas descrições.
+   a memória carregando 5 episódios no boot. Roteiro de §8 pela conversa
+   (1ª rodada): `mood.get` e `recall` chamados certo; `remember` nunca foi
+   chamado (o LLM disse "está gravado" e nada chegou ao cartão) e `forget`
+   veio com um id inventado. O nome e o café respondidos vinham da memória
+   do agente no xiaozhi.me, que está ligada e compete com a nossa (item 10).
+   As descrições de `remember`, `forget` e `recall` foram reforçadas (única
+   memória do corpo, nunca dizer que gravou ou esqueceu sem a ferramenta
+   confirmar, `recall` antes de `forget`). Falta: desligar ou orientar a
+   memória do agente no console e repetir o roteiro.
 10. [ ] Verificar no console do xiaozhi.me o que a memória do agente oferece
    e registrar em VIDA.md §7.
 

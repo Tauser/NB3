@@ -146,6 +146,8 @@ void RegisterMemory(MemoryService& memory) {
     mcp.AddTool(
         "self.memory.recall",
         "Search the robot's own long-term memory, kept on its microSD card across restarts. "
+        "It is what the robot itself remembers, so prefer it over the conversation history "
+        "when asked what the robot remembers. "
         "It holds the profile of its owner (name, nickname, language, birthday...), facts and "
         "preferences it was told, notes of events, and episodes it lived (petting, "
         "conversations) with when they happened and how they felt. Call it before answering "
@@ -190,9 +192,14 @@ void RegisterMemory(MemoryService& memory) {
 
     mcp.AddTool(
         "self.memory.remember",
-        "Save something on the robot's microSD so it is remembered after restarts. Call it "
-        "when the user tells something about themselves worth keeping or asks the robot to "
-        "remember (\"lembra que...\", \"meu nome é...\"). kind: profile = who the owner is, "
+        "Save something in the robot's own memory, on its microSD card. This is the only "
+        "memory that lives in the robot's body and survives restarts; anything not saved here "
+        "is gone for the robot after it restarts, whatever else may remember the "
+        "conversation. ALWAYS call it when the user asks the robot to remember anything "
+        "(\"lembra que...\", \"guarda isso\", \"não esquece...\") or tells their name or "
+        "something about themselves worth keeping (\"meu nome é...\", \"eu gosto de...\"). "
+        "Never say it was saved unless this tool returned an id; if it returns an error, tell "
+        "the user it was not saved. kind: profile = who the owner is, "
         "with key naming the field (nome, apelido, idioma, aniversario...), and the same key "
         "replaces the old value; preference = a like or dislike, key optional (e.g. musica), "
         "same key replaces; fact = anything else true and lasting; note = an event to recall "
@@ -281,13 +288,17 @@ void RegisterMemory(MemoryService& memory) {
 
     mcp.AddTool(
         "self.memory.forget",
-        "Erase memories from the robot's microSD for good, only when the user asks to forget "
-        "(\"esquece isso\", \"apaga o que eu falei sobre...\"). Either give id (from "
-        "self.memory.recall) to erase one memory, together with the episodes about it, or "
-        "category to erase a whole kind: profile, fact, preference, episode, or all (everything "
-        "the robot remembers; only when the user clearly asks for that, and confirm with them "
-        "first). Success means no copy is left on the card; the reply says how many of each "
-        "kind went. What the cloud assistant itself kept from the conversation is not affected.",
+        "Erase memories from the robot's own memory on its microSD, for good. Call it whenever "
+        "the user asks to forget something (\"esquece isso\", \"apaga o que eu falei "
+        "sobre...\"). Ids are never guessed: ALWAYS call self.memory.recall first with words "
+        "from the request, then pass the id of each matching result here, one call per id. If "
+        "recall finds nothing, tell the user the robot had nothing saved about it. Or give "
+        "category to erase a whole kind: profile, fact, preference, episode, or all "
+        "(everything the robot remembers; only when the user clearly asks for that, and "
+        "confirm with them first). Success means no copy is left on the card; the reply says "
+        "how many of each kind went. Never say something was forgotten unless this tool "
+        "reported it. What the cloud assistant itself kept from the conversation is not "
+        "affected.",
         PropertyList({Property("id", kPropertyTypeInteger, 0, 0, INT_MAX),
                       Property("category", kPropertyTypeString, std::string(""))}),
         [&memory](const PropertyList& p) -> ReturnValue {
@@ -318,7 +329,10 @@ void RegisterMemory(MemoryService& memory) {
             ESP_LOGI(TAG, "forget id %lu / '%s': status %d", static_cast<unsigned long>(id),
                      category.c_str(), status);
             if (status == NB_MEM_NOT_FOUND) {
-                return std::string("Nothing matched: the robot did not remember that.");
+                return std::string(
+                    "Nothing matched that id: nothing was forgotten. Call self.memory.recall to "
+                    "find the right id; if it finds nothing, tell the user the robot had "
+                    "nothing saved about it.");
             }
             if (status != NB_MEM_OK) {
                 return CardError("Not confirmed: it will be finished at the next start");
