@@ -17,6 +17,7 @@ cabe em uma.
 | D-008 | **`motion_safety` obrigatório** sob toda escrita de servo | veto absoluto: FAULT pegajoso por stall, temperatura, heartbeat ou brownout |
 | D-009 | Processo leve: roadmap de uma página, decisões de meia página, commits pequenos, CI com testes | energia vai para o robô, não para a burocracia |
 | D-010 | **Vida própria no ESP32**: humor contínuo, temperamento, estados comportamentais, reflexos e iniciativa no firmware; memória de médio e longo prazo no **microSD**, acessível pelo firmware e por MCP. O xiaozhi segue dono da conversa e dos estados operacionais | recupera a autonomia do Noise (v2) sem serviço no PC; o SD armazena, o ESP32 executa a lógica. Spec: [VIDA.md](VIDA.md) |
+| D-011 | **Face V2**: olhos sólidos em formas (cápsula, crescente, meia-lua inclinada, círculo), gesto forte na entrada e permanência calma, um overlay por vez (barras de áudio, balão de fala, mãos desenhadas pelo usuário, corações, bochechas). Só os estados que já existem entram agora | a face de keyframes herdada do NB2 não distinguia humor de reação nem carinhoso de feliz; a V2 foi desenhada e animada em canvas antes do código. Spec: [FACE.md](FACE.md) |
 
 Cada decisão nova entra nesta tabela; se precisar de mais contexto, ganha um
 arquivo `D-XXX-<nome>.md` com contexto, decisão e consequências.
@@ -78,6 +79,7 @@ xiaozhi v2.5.2 com a board NB3, ativado no xiaozhi.me.
 
 - [ROADMAP.md](ROADMAP.md) — etapas 0–6, prova de sucesso e andamento de cada uma
 - [VIDA.md](VIDA.md) — humor, estados comportamentais, personalidade e memória local
+- [FACE.md](FACE.md) — face V2: formas dos olhos, overlays, gestos e o que entra agora
 
 Planejados:
 

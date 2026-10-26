@@ -165,24 +165,32 @@ ausência); sem microSD o robô funciona e avisa.
    saturar; feliz (amarelo) e carinhoso (rosa) nas conversas. Falta ver:
    carinhoso ~30 s depois de soltar; feliz ~30 s depois da última resposta
    alegre, com a face saindo do ciano ~8 s após a resposta.
-3. [ ] **Estados comportamentais** (IDLE, ENGAGED, REACTING, SLEEPING,
+3. [ ] **Face V2** (D-011, [FACE.md](FACE.md)): só os estados que já
+   existem.
+   - [ ] Formas: corte inferior curvo (crescente) na pose do avatar;
+     poses refeitas para feliz, carinhoso, contente, triste, irritado,
+     envergonhado, surpreso, curioso, confuso, pensando e atento.
+   - [ ] Camada de overlay, um por vez, com os sprites das mãos do usuário.
+   - [ ] Ligação: escuta → barras de áudio irregulares, pensando → pontos e
+     mão no queixo, fala → balãozinho, carinho → corações e bochechas.
+4. [ ] **Estados comportamentais** (IDLE, ENGAGED, REACTING, SLEEPING,
    FAULT; modo quiet) derivados de `DeviceState` sem duplicar a conversa;
    teste de que toda volta ao IDLE limpa o transitório e preserva o humor.
-4. [ ] **Personalidade**: temperamento, reatividade, recuperação e iniciativa
+5. [ ] **Personalidade**: temperamento, reatividade, recuperação e iniciativa
    com default no firmware e override no SD.
-5. [ ] **Hora para a memória**: validade por piso de build, registros sem
+6. [ ] **Hora para a memória**: validade por piso de build, registros sem
    hora com `boot_id` + monotônico, último instante visto persistido,
    relógio voltando tratado como inválido (VIDA.md §5.1). Host-test.
-6. [ ] **microSD** (SDMMC 1-bit, GPIO 6/15/16): task única dona do cartão,
+7. [ ] **microSD** (SDMMC 1-bit, GPIO 6/15/16): task única dona do cartão,
    dois slots com geração e CRC, log de episódios com quadros e `seq`,
    modo degradado sem formatar (VIDA.md §5.2). Host-test de corrupção e
    truncamento em cada byte; bancada com cortes de energia durante escrita.
-7. [ ] **Memória média e longa**: episódios com importância calculada pela
+8. [ ] **Memória média e longa**: episódios com importância calculada pela
    idade, perfil/fatos/preferências, viés de humor limitado, esquecimento
    que remove derivados (VIDA.md §5, §5.3). Host-test do roteiro de §8.
-8. [ ] **MCP**: `self.mood.get`, `self.mood.stimulate`,
+9. [ ] **MCP**: `self.mood.get`, `self.mood.stimulate`,
    `self.memory.recall`/`remember`/`correct`/`forget`, com descrições ricas.
-9. [ ] Verificar no console do xiaozhi.me o que a memória do agente oferece
+10. [ ] Verificar no console do xiaozhi.me o que a memória do agente oferece
    e registrar em VIDA.md §7.
 
 ---
