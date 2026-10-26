@@ -14,3 +14,6 @@ build-host-tests/
 # Editor / tooling
 .vscode/
 .cache/
+
+# Agent worktrees (Claude Code)
+.claude/worktrees/
