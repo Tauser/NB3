@@ -26,7 +26,7 @@ typedef struct {
 // for the conversation, reflexes and commands.
 static const anchor_t kAnchors[] = {
     {NB_EXPR_HAPPY, {0.55f, 0.35f}},
-    {NB_EXPR_LOVING, {0.55f, -0.35f}},  // warm and calm: content
+    {NB_EXPR_CONTENT, {0.55f, -0.35f}},  // warm and calm
     {NB_EXPR_SAD, {-0.55f, -0.35f}},
     {NB_EXPR_ANGRY, {-0.55f, 0.45f}},
 };

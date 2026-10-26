@@ -29,6 +29,7 @@ typedef enum {
     NB_AVATAR_EXPR_DIZZY,
     NB_AVATAR_EXPR_LOVING,
     NB_AVATAR_EXPR_EMBARRASSED,
+    NB_AVATAR_EXPR_CONTENT,
     NB_AVATAR_EXPR_COUNT,
 } nb_avatar_expression_t;
 

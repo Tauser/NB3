@@ -11,9 +11,9 @@ void RegisterFaceTools(ExpressionArbiter& arbiter) {
         "that follows the conversation. Use it when the user asks the robot to make a face "
         "(\"faz cara de bravo\", \"sorri\"), or to stress a reaction in your answer. "
         "expression must be one of: neutral, happy, excited, loving, curious, confused, "
-        "embarrassed, thinking, surprised, sad, angry, sleepy, dizzy. The expression lasts "
-        "duration_seconds even after the conversation ends; touching the robot briefly covers "
-        "it without stopping the clock. Afterwards the face goes back to following the "
+        "embarrassed, content, thinking, surprised, sad, angry, sleepy, dizzy. The expression "
+        "lasts duration_seconds even after the conversation ends; touching the robot briefly "
+        "covers it without stopping the clock. Afterwards the face goes back to following the "
         "conversation on its own; there is no need to reset it.",
         PropertyList({Property("expression", kPropertyTypeString),
                       Property("duration_seconds", kPropertyTypeInteger, 5, 1, 60)}),
@@ -23,7 +23,7 @@ void RegisterFaceTools(ExpressionArbiter& arbiter) {
             if (name != nb_expression_name(expression)) {
                 return std::string("Unknown expression '") + name +
                        "'. Use one of: neutral, happy, excited, loving, curious, confused, "
-                       "embarrassed, thinking, surprised, sad, angry, sleepy, dizzy.";
+                       "embarrassed, content, thinking, surprised, sad, angry, sleepy, dizzy.";
             }
             const int seconds = properties["duration_seconds"].value<int>();
             // Not transient: the AI asked for a duration, so the face keeps it

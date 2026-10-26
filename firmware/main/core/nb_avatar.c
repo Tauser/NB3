@@ -240,6 +240,14 @@ static const nb_avatar_keyframe_t s_embarrassed[] = {
           400, 900, NB_AVATAR_EASING_SMOOTH),
 };
 
+static const nb_avatar_keyframe_t s_content[] = {
+    /* The mood at rest after warmth: lower, relaxed capsules. */
+    FRAME(POSE(CAP(-222, -4, 170, 300), CAP(222, -4, 170, 300), 1.0f, 0, -6, 0, 0, 0), 320, 600,
+          NB_AVATAR_EASING_SMOOTH),
+    FRAME(POSE(CAP(-222, -2, 168, 285), CAP(222, -2, 168, 285), 1.0f, 0, -6, 0, 0, 0), 400, 800,
+          NB_AVATAR_EASING_SMOOTH),
+};
+
 #define OSC(offset_, amp_, freq_, phase_) {(offset_), (amp_), (freq_), (phase_)}
 #define MOTION(fx_, fy_, ex_, ey_, scale_, blend_in_, blend_out_)                              \
     {fx_, fy_, ex_, ey_, scale_, (blend_in_), (blend_out_)}
@@ -294,6 +302,9 @@ static const nb_avatar_spec_t s_specs[NB_AVATAR_EXPR_COUNT] = {
          BLINK(true, 1800, 2800, 5200, 95, 145),
          MOTION(OSC(0, 1.5f, .8f, 0), OSC(0, 2, .9f, 0), OSC(0, 2.5f, .7f, 0),
                 OSC(0, 1, .6f, 0), OSC(1, .003f, .9f, 0), 220, 320), false),
+    SPEC("CONTENT", s_content, NB_AVATAR_PLAY_ONCE, BLINK(true, 2600, 3400, 6400, 140, 200),
+         MOTION(OSC(0, 0, 0, 0), OSC(0, 2.5f, .9f, 0), OSC(0, 0, 0, 0), OSC(0, 0, 0, 0),
+                OSC(1, .003f, .8f, 0), 300, 400), false),
 };
 
 static const nb_avatar_attention_t s_idle_attention[] = {

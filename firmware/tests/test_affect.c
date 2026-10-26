@@ -163,7 +163,7 @@ static nb_expression_t resolve_at(float valence, float arousal) {
 
 static void test_regions_map_to_expressions(void) {
     NB_CHECK_EQ_INT(NB_EXPR_HAPPY, resolve_at(0.6f, 0.4f));
-    NB_CHECK_EQ_INT(NB_EXPR_LOVING, resolve_at(0.6f, -0.4f));
+    NB_CHECK_EQ_INT(NB_EXPR_CONTENT, resolve_at(0.6f, -0.4f));
     NB_CHECK_EQ_INT(NB_EXPR_SAD, resolve_at(-0.6f, -0.4f));
     NB_CHECK_EQ_INT(NB_EXPR_ANGRY, resolve_at(-0.6f, 0.5f));
     NB_CHECK_EQ_INT(NB_EXPR_NEUTRAL, resolve_at(0.2f, 0.1f));
@@ -190,11 +190,11 @@ static void test_hysteresis_between_regions(void) {
     a.mood.valence = 0.6f;
     a.mood.arousal = 0.4f;
     NB_CHECK_EQ_INT(NB_EXPR_HAPPY, nb_affect_resolve(&a));
-    // Just past the HAPPY/LOVING midline: not enough to switch.
+    // Just past the HAPPY/CONTENT midline: not enough to switch.
     a.mood.arousal = -0.02f;
     NB_CHECK_EQ_INT(NB_EXPR_HAPPY, nb_affect_resolve(&a));
     a.mood.arousal = -0.3f;
-    NB_CHECK_EQ_INT(NB_EXPR_LOVING, nb_affect_resolve(&a));
+    NB_CHECK_EQ_INT(NB_EXPR_CONTENT, nb_affect_resolve(&a));
 }
 
 static void test_invalid_input_is_ignored(void) {

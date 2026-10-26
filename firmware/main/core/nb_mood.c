@@ -27,6 +27,7 @@ static const mood_style_t kStyles[NB_EXPR_COUNT] = {
     [NB_EXPR_DIZZY] = {255, 255, 255, 1500, 255, true},       // hue cycle
     [NB_EXPR_LOVING] = {255, 40, 120, 1800, 110, false},      // pink breathing
     [NB_EXPR_EMBARRASSED] = {255, 90, 110, 2600, 150, false}, // rose
+    [NB_EXPR_CONTENT] = {255, 120, 90, 4200, 90, false},      // peach, slow breathing
 };
 
 static const mood_style_t *style_of(nb_expression_t expression) {

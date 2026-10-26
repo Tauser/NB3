@@ -23,6 +23,7 @@ typedef enum {
     NB_EXPR_DIZZY,
     NB_EXPR_LOVING,
     NB_EXPR_EMBARRASSED,
+    NB_EXPR_CONTENT,  // the mood at rest after warmth: calm, not the face of being petted
     NB_EXPR_COUNT
 } nb_expression_t;
 

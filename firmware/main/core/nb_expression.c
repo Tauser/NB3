@@ -35,6 +35,7 @@ static const emotion_entry_t kEmotionTable[] = {
     {"loving", NB_EXPR_LOVING},
     {"kissy", NB_EXPR_LOVING},
     {"embarrassed", NB_EXPR_EMBARRASSED},
+    {"content", NB_EXPR_CONTENT},
 };
 
 static const char *const kNames[NB_EXPR_COUNT] = {
@@ -45,6 +46,7 @@ static const char *const kNames[NB_EXPR_COUNT] = {
     [NB_EXPR_SURPRISED] = "surprised", [NB_EXPR_SAD] = "sad",
     [NB_EXPR_SLEEPY] = "sleepy",       [NB_EXPR_DIZZY] = "dizzy",
     [NB_EXPR_LOVING] = "loving",       [NB_EXPR_EMBARRASSED] = "embarrassed",
+    [NB_EXPR_CONTENT] = "content",
 };
 
 nb_expression_t nb_expression_from_emotion(const char *emotion) {
