@@ -198,6 +198,14 @@ empate). Um episódio sobre um registro longo guarda só o id dele (`about`),
 nunca uma cópia do texto. Os padrões consolidados ficam para a etapa 3; até
 lá, o episódio que sai na compactação não vira contagem.
 
+Casca: `memory/memory_service`, task única dona da memória; os outros só
+avisam o que aconteceu (fila sem bloqueio). Arquivos `memoria_a.bin`,
+`memoria_b.bin` e `episodios.log` em `/sdcard/noise/`. Carinho de 3 s ou
+mais vira episódio de carinho (importância 0,3 a 0,7 com a duração, até
+30 s); conversa de 5 s ou mais, de sair do repouso até voltar a ele, vira
+episódio de conversa com o desvio que deixou no humor (×2, preso em ±1) e
+importância de 0,3 a 0,6 com a duração (até 2 min).
+
 No cartão: um snapshot JSON (`schema`, `next_id`, `forgetting` quando há
 esquecimento pendente, `records`) nos dois slots e um quadro por episódio no
 log (`{"schema":1,"episode":{...}}`). Um snapshot com CRC certo mas que esta

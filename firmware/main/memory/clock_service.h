@@ -11,8 +11,7 @@
 // Wall-clock trust for the memory (core/nb_clock, docs/VIDA.md §5.1). Samples
 // the system clock once a second to catch xiaozhi's sync, keeps a boot
 // counter and the latest synced time in NVS, and stamps records so their age
-// stays right when the time arrives or is corrected. The microSD memory will
-// use it; today it only reports what it knows.
+// stays right when the time arrives or is corrected.
 class ClockService {
 public:
     ClockService();
@@ -27,6 +26,9 @@ public:
     bool Rebase(nb_stamp_t* stamp);
     // False when the age is unknown (no synced time on either end).
     bool AgeSeconds(const nb_stamp_t& stamp, int64_t* age_s);
+    // A copy of the clock and the monotonic time it was taken at, for a core
+    // that works on many stamps at once (the memory).
+    void Snapshot(nb_clock_t* clock, uint64_t* now_ms);
 
 private:
     static void OnTimer(void* arg);

@@ -247,10 +247,18 @@ ausência); sem microSD o robô funciona e avisa.
      memória, 6 de JSON) com cartão simulado que perde energia em qualquer
      escrita: roteiro de §8, corte em cada escrita do esquecimento e do boot
      que o conclui, cauda rasgada do log, registros malformados.
-   - [ ] 8b, casca: `memory/memory_service` sobre o `StoreService`,
-     episódios vindos do toque, da conversa e da falha, viés entrando no
-     humor, compactação e gravação agrupada; em bancada, reiniciar e lembrar
-     e o ciclo de cortes de energia pendente do item 7.
+   - [~] 8b, casca: `memory/memory_service`, task única dona da memória,
+     sobre o `StoreService`; carrega quando o cartão aparece e desliga quando
+     ele some. Carinho de 3 s ou mais e conversa de 5 s ou mais (de sair do
+     repouso até voltar) viram episódios; a conversa leva o desvio que deixou
+     no humor. Viés a cada minuto e logo após a sincronização do relógio;
+     reancoragem dos carimbos deste boot; compactação a cada 32 quadros;
+     gravação agrupada a cada 5 min. Visto em bancada: conversa de 89 s virou
+     episódio (v +0,63, importância 0,52), viés +0,033 no humor; depois de
+     reiniciar, o episódio voltou do log e o viés voltou após a sincronização.
+     Falta ver: episódio de carinho, compactação no cartão, ciclo de cortes
+     de energia durante escrita (pendente do item 7). A falha do dispositivo
+     não vira episódio: hoje ela é erro de rede, não mágoa.
 9. [ ] **MCP**: `self.mood.get`, `self.mood.stimulate`,
    `self.memory.recall`/`remember`/`correct`/`forget`, com descrições ricas.
 10. [ ] Verificar no console do xiaozhi.me o que a memória do agente oferece

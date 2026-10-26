@@ -33,8 +33,9 @@ bool IsConnecting(DeviceState state) {
 }  // namespace
 
 StateLed::StateLed(Led& status_led, ExpressionArbiter& arbiter, MoodModifier& mood,
-                   BehaviorModifier& behavior)
-    : status_led_(status_led), arbiter_(arbiter), mood_(mood), behavior_(behavior) {
+                   BehaviorModifier& behavior, MemoryService& memory)
+    : status_led_(status_led), arbiter_(arbiter), mood_(mood), behavior_(behavior),
+      memory_(memory) {
     esp_timer_create_args_t args = {};
     args.callback = OnThinkTimer;
     args.arg = this;
@@ -78,6 +79,17 @@ void StateLed::OnStateChanged() {
     const bool entered = state != last_state_;
     last_state_ = state;
     behavior_.OnDevice(state);
+    if (entered) {
+        const uint32_t now = static_cast<uint32_t>(esp_timer_get_time() / 1000);
+        if (state == kDeviceStateListening || state == kDeviceStateSpeaking) {
+            if (conversation_start_ms_ == 0) {
+                conversation_start_ms_ = now != 0 ? now : 1;
+            }
+        } else if (conversation_start_ms_ != 0) {
+            memory_.OnConversation(now - conversation_start_ms_, mood_.Deviation());
+            conversation_start_ms_ = 0;
+        }
+    }
     switch (state) {
         case kDeviceStateIdle:
             arbiter_.Withdraw(NB_SOURCE_STATE);

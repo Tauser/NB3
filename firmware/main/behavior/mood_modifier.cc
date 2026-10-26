@@ -86,6 +86,18 @@ void MoodModifier::OnPetting() { Feel(kPetting); }
 void MoodModifier::OnListening() { Feel(kListening); }
 void MoodModifier::OnFault() { Feel(kFault); }
 
+void MoodModifier::SetBias(float valence, float arousal) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    nb_affect_set_bias(&affect_, valence, arousal);
+}
+
+nb_affect_vec_t MoodModifier::Deviation() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    const nb_affect_vec_t& rest = affect_.personality.temperament;
+    return {affect_.mood.valence - rest.valence - affect_.bias.valence,
+            affect_.mood.arousal - rest.arousal - affect_.bias.arousal};
+}
+
 void MoodModifier::Feel(const nb_affect_stimulus_t& stimulus) {
     std::lock_guard<std::mutex> lock(mutex_);
     float applied = nb_affect_stimulate(&affect_, &stimulus, NowMs());

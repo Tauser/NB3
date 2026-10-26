@@ -15,6 +15,7 @@
 #include "face/face_display.h"
 #include "mcp/face_tools.h"
 #include "memory/clock_service.h"
+#include "memory/memory_service.h"
 #include "memory/store_service.h"
 #include "core/nb_hpf.h"
 #include "core/nb_personality.h"
@@ -114,6 +115,7 @@ private:
     MoodModifier mood_{arbiter_, personality_};
     BehaviorModifier behavior_{arbiter_};
     ClockService clock_;
+    MemoryService memory_{store_, clock_, mood_};
     AudioLevels audio_levels_;
     FaceDisplay* display_ = nullptr;
     static constexpr uint32_t kMissingReminderMs = 5 * 60 * 1000;
@@ -181,6 +183,7 @@ public:
         // Without a card: warn at boot, again at the first retry (the boot
         // notices tend to cover the first one), then every few minutes.
         store_.SetListener([this](bool available) {
+            memory_.OnCard(available);
             if (available) {
                 missing_notices_ = 0;
                 return;
@@ -193,14 +196,14 @@ public:
             }
         });
         RegisterFaceTools(arbiter_);
-        static TouchModifier touch(BODY_TOUCH_CHANNEL, arbiter_, mood_, behavior_);
+        static TouchModifier touch(BODY_TOUCH_CHANNEL, arbiter_, mood_, behavior_, memory_);
         static MoodLights mood_lights(MOOD_LED_GPIO, MOOD_LED_COUNT, MOOD_LED_MAX_BRIGHTNESS,
                                       arbiter_);
     }
 
     Led* GetLed() override {
         static SingleLed status_led(BUILTIN_LED_GPIO);
-        static StateLed led(status_led, arbiter_, mood_, behavior_);
+        static StateLed led(status_led, arbiter_, mood_, behavior_, memory_);
         return &led;
     }
 

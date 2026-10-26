@@ -9,6 +9,7 @@
 #include "behavior/expression_arbiter.h"
 #include "behavior/mood_modifier.h"
 #include "device_state.h"
+#include "memory/memory_service.h"
 #include "led/led.h"
 
 // xiaozhi reports every device-state change through Led::OnStateChanged().
@@ -20,11 +21,12 @@
 // goes straight on, instead of flashing three faces in a second.
 // Entering listening and faults also reach the mood. While listening, xiaozhi
 // reports the state again on every voice-activity change, so only a change
-// of state counts for the mood.
+// of state counts for the mood. A conversation, from leaving idle to coming
+// back to it, becomes an episode of the memory with what it did to the mood.
 class StateLed : public Led {
 public:
     StateLed(Led& status_led, ExpressionArbiter& arbiter, MoodModifier& mood,
-             BehaviorModifier& behavior);
+             BehaviorModifier& behavior, MemoryService& memory);
     ~StateLed();
 
     StateLed(const StateLed&) = delete;
@@ -40,6 +42,8 @@ private:
     ExpressionArbiter& arbiter_;
     MoodModifier& mood_;
     BehaviorModifier& behavior_;
+    MemoryService& memory_;
+    uint32_t conversation_start_ms_ = 0;  // 0 = not in a conversation
     DeviceState last_state_ = kDeviceStateUnknown;
     std::atomic<bool> heard_voice_{false};  // the person spoke in this listening turn
     esp_timer_handle_t think_timer_ = nullptr;

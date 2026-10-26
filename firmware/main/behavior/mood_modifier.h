@@ -30,6 +30,12 @@ public:
     void OnListening();
     void OnFault();
 
+    // Shift of the resting point from the memory's recent episodes.
+    void SetBias(float valence, float arousal);
+    // How far the mood is from where it would rest now (temperament + bias):
+    // what recent events did to it.
+    nb_affect_vec_t Deviation();
+
 private:
     static void TaskEntry(void* arg);
     void Run();

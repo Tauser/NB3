@@ -20,8 +20,8 @@ uint32_t NowMs() {
 }  // namespace
 
 TouchModifier::TouchModifier(int channel, ExpressionArbiter& arbiter, MoodModifier& mood,
-                             BehaviorModifier& behavior)
-    : arbiter_(arbiter), mood_(mood), behavior_(behavior) {
+                             BehaviorModifier& behavior, MemoryService& memory)
+    : arbiter_(arbiter), mood_(mood), behavior_(behavior), memory_(memory) {
     nb_touch_config_t cfg = nb_touch_default_config();
     nb_touch_init(&touch_, &cfg);
 
@@ -98,6 +98,7 @@ void TouchModifier::OnEvent(nb_touch_event_t event) {
             nb_proposal_t loving = {NB_EXPR_LOVING, priority::kTouch, 0, true};
             arbiter_.Propose(NB_SOURCE_TOUCH, loving);
             last_pet_pulse_ms_ = NowMs();
+            pet_start_ms_ = last_pet_pulse_ms_;
             mood_.OnPetting();
             behavior_.OnTouch(true);
             break;
@@ -108,6 +109,7 @@ void TouchModifier::OnEvent(nb_touch_event_t event) {
             if (touch_.hold_sent) {
                 nb_proposal_t afterglow = {NB_EXPR_LOVING, priority::kTouch, kPetAfterglowMs, true};
                 arbiter_.Propose(NB_SOURCE_TOUCH, afterglow);
+                memory_.OnPetting(NowMs() - pet_start_ms_);
             } else {
                 arbiter_.Withdraw(NB_SOURCE_TOUCH);
             }

@@ -117,6 +117,12 @@ bool ClockService::Rebase(nb_stamp_t* stamp) {
     return nb_clock_rebase(&clock_, stamp);
 }
 
+void ClockService::Snapshot(nb_clock_t* clock, uint64_t* now_ms) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    *clock = clock_;
+    *now_ms = MonoMs();
+}
+
 bool ClockService::AgeSeconds(const nb_stamp_t& stamp, int64_t* age_s) {
     std::lock_guard<std::mutex> lock(mutex_);
     return nb_clock_age_s(&clock_, &stamp, MonoMs(), age_s);
