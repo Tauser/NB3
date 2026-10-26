@@ -32,7 +32,7 @@ static void test_positive_deviation_falls_to_5_percent_in_recovery(void) {
     nb_affect_init(&a, NULL);
     nb_affect_stimulus_t s = stim("test:up", 0.5f, 0.5f, 2.0f);
     NB_CHECK(NEAR(nb_affect_stimulate(&a, &s, 0), 1.0f, 1e-6f));
-    tick_for(&a, 60000u);
+    tick_for(&a, a.personality.recovery_ms);
     NB_CHECK(NEAR(a.mood.valence - 0.10f, 0.025f, 0.002f));
     NB_CHECK(NEAR(a.mood.arousal - 0.05f, 0.025f, 0.002f));
 }
@@ -42,11 +42,11 @@ static void test_negative_valence_recovers_slower(void) {
     nb_affect_init(&a, NULL);
     nb_affect_stimulus_t s = stim("test:down", -0.6f, 0.0f, 2.0f);
     nb_affect_stimulate(&a, &s, 0);
-    tick_for(&a, 60000u);
+    tick_for(&a, a.personality.recovery_ms);
     // Still clearly below the temperament after one recovery period...
     NB_CHECK(a.mood.valence < 0.10f - 0.05f);
     // ...and back near it after a few more.
-    tick_for(&a, 180000u);
+    tick_for(&a, 3u * a.personality.recovery_ms);
     NB_CHECK(NEAR(a.mood.valence, 0.10f, 0.01f));
 }
 
@@ -146,7 +146,7 @@ static void test_bias_moves_rest_point_without_accumulating(void) {
     }
     NB_CHECK(NEAR(a.bias.valence, NB_AFFECT_BIAS_LIMIT, 1e-6f));
     NB_CHECK(NEAR(a.bias.arousal, -NB_AFFECT_BIAS_LIMIT, 1e-6f));
-    tick_for(&a, 300000u);
+    tick_for(&a, 3u * a.personality.recovery_ms);
     NB_CHECK(NEAR(a.mood.valence, 0.10f + NB_AFFECT_BIAS_LIMIT, 0.005f));
     NB_CHECK(NEAR(a.mood.arousal, 0.05f - NB_AFFECT_BIAS_LIMIT, 0.005f));
     // The bias alone stays inside the neutral region.
@@ -172,15 +172,15 @@ static void test_regions_map_to_expressions(void) {
 static void test_hysteresis_keeps_expression_on_the_border(void) {
     nb_affect_t a;
     nb_affect_init(&a, NULL);
-    // 0.26 from the temperament: too little to show from neutral...
-    a.mood.valence = 0.10f + 0.26f;
+    // 0.21 from the temperament: too little to show from neutral...
+    a.mood.valence = 0.10f + 0.21f;
     NB_CHECK_EQ_INT(NB_EXPR_NEUTRAL, nb_affect_resolve(&a));
-    // ...but once shown it stays until the mood is back under 0.22.
+    // ...but once shown it stays until the mood is back under 0.18.
     a.mood.valence = 0.10f + 0.35f;
     NB_CHECK_EQ_INT(NB_EXPR_HAPPY, nb_affect_resolve(&a));
-    a.mood.valence = 0.10f + 0.26f;
+    a.mood.valence = 0.10f + 0.21f;
     NB_CHECK_EQ_INT(NB_EXPR_HAPPY, nb_affect_resolve(&a));
-    a.mood.valence = 0.10f + 0.20f;
+    a.mood.valence = 0.10f + 0.16f;
     NB_CHECK_EQ_INT(NB_EXPR_NEUTRAL, nb_affect_resolve(&a));
 }
 

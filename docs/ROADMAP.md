@@ -150,16 +150,19 @@ ausência); sem microSD o robô funciona e avisa.
    meio encobriu e o bravo voltou; tap completa o gesto e carinho mantém a
    face; LEDs acompanharam a face.
 2. [~] **Humor** (`core/nb_affect`, `behavior/mood_modifier`, `0c46685`):
-   vetor valência × ativação em RAM, volta ao temperamento (+0,10, +0,05)
-   em ~60 s, valência negativa 2× mais lenta, habituação por chave
-   (0,5ⁿ, teto por janela de 30 s), expressão com histerese entre feliz,
-   carinhoso, triste e bravo; fonte `MOOD` (prioridade 3, não transitória)
-   no árbitro. Estímulos: emoção da conversa, tap, pulsos de carinho a cada
-   4 s, escuta e falha, com os valores numa tabela só. 14 host-tests do
-   núcleo + teste no árbitro. Falta ver em bancada (log `Mood:`): carinho
-   longo deixa o robô carinhoso em espera e isso passa sozinho; várias
-   respostas alegres seguidas deixam feliz em espera; a mesma emoção
-   repetida a cada frase não satura. Os valores da tabela são iniciais.
+   vetor valência × ativação em RAM, volta ao temperamento (+0,10, +0,05),
+   valência negativa 2× mais lenta, habituação por chave (fator próprio,
+   0,5 por padrão; teto por janela de 30 s), expressão com histerese entre
+   feliz, carinhoso, triste e bravo; fonte `MOOD` (prioridade 3, não
+   transitória) no árbitro, abaixo da escuta. Estímulos: emoção da
+   conversa, tap, pulsos de carinho a cada 4 s, entrada em escuta e falha,
+   numa tabela só. Calibração em bancada (`110c0c7` e seguinte): carinho
+   com habituação 0,8 → 0,7 e teto maior, escuta só na entrada e mais
+   fraca, recuperação 60 → 120 s e limiares 0,25/0,18 para o humor ficar
+   ~30 s. Visto: habituação da emoção (1,00 → 0,50 → nova janela) sem
+   saturar. Falta ver: carinhoso ~30 s em espera depois de soltar; feliz
+   ~30 s depois da última resposta alegre, com a conversa já em espera (nos
+   dois logs a conversa contínua nunca voltou a "Em espera").
 3. [ ] **Estados comportamentais** (IDLE, ENGAGED, REACTING, SLEEPING,
    FAULT; modo quiet) derivados de `DeviceState` sem duplicar a conversa;
    teste de que toda volta ao IDLE limpa o transitório e preserva o humor.

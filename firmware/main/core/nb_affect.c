@@ -12,8 +12,8 @@
 
 // Distance from the temperament at which the mood starts to show, and the
 // smaller one at which it goes back to neutral.
-#define NB_AFFECT_SHOW_DISTANCE 0.30f
-#define NB_AFFECT_HIDE_DISTANCE 0.22f
+#define NB_AFFECT_SHOW_DISTANCE 0.25f
+#define NB_AFFECT_HIDE_DISTANCE 0.18f
 // A new region must be this much closer than the current one to take over.
 #define NB_AFFECT_SWITCH_MARGIN 0.08f
 
@@ -52,7 +52,7 @@ static uint32_t hash_key(const char *key) {
 }
 
 nb_affect_personality_t nb_affect_default_personality(void) {
-    nb_affect_personality_t p = {{0.10f, 0.05f}, 1.0f, 60000u, 2.0f};
+    nb_affect_personality_t p = {{0.10f, 0.05f}, 1.0f, 120000u, 2.0f};
     return p;
 }
 

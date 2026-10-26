@@ -15,7 +15,8 @@ constexpr uint32_t kTickPeriodMs = 200;
 // slowly; being listened to only nudges alertness, never pleasure. Tuned on
 // the bench.
 constexpr nb_affect_stimulus_t kTap = {"touch:tap", 0.12f, 0.08f, 0.35f, 0.0f};
-constexpr nb_affect_stimulus_t kPetting = {"touch:pet", 0.20f, -0.08f, 0.70f, 0.8f};
+// Petting: ~15 s of it keeps the robot loving for ~30 s after release.
+constexpr nb_affect_stimulus_t kPetting = {"touch:pet", 0.18f, -0.07f, 1.00f, 0.7f};
 constexpr nb_affect_stimulus_t kListening = {"conv:listen", 0.02f, 0.05f, 0.20f, 0.0f};
 constexpr nb_affect_stimulus_t kFault = {"device:fault", -0.30f, 0.30f, 0.60f, 0.0f};
 

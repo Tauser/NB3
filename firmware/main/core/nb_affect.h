@@ -63,7 +63,8 @@ typedef struct {
 } nb_affect_t;
 
 // Temperament (+0.10, +0.05): at peace, slightly warm and awake. Deviations
-// fall to 5% in 60 s; negative valence takes twice as long.
+// fall to 5% in 120 s, so a mood stays on the face for about half a minute
+// after what caused it; negative valence takes twice as long.
 nb_affect_personality_t nb_affect_default_personality(void);
 
 // personality NULL uses the default.

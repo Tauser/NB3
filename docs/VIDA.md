@@ -50,6 +50,12 @@ Lógica numérica do `emotion_core` do NB2, sem o renderer antigo:
   mais devagar (no NB2, constante 2× maior) — mágoa passa devagar;
 - ativação recebe um offset circadiano quando a fonte de hora existir.
 
+A recuperação padrão do NB3 é **120 s** até 5% (o NB2 usava 60 s). O NB2
+misturava faces continuamente e mostrava desvios pequenos; aqui o humor só
+aparece acima de um limiar, e com 60 s ele ficava visível uns 10 s. Com 120 s
+e limiares de 0,25 (aparece) e 0,18 (some), algumas respostas alegres ou um
+carinho de ~15 s deixam a expressão uns 30 s depois do que a causou.
+
 **O humor atual vive em RAM e reinicia no boot**, no temperamento. Ele não é
 restaurado do SD: uma irritação antiga nunca volta como se nenhum tempo
 tivesse passado. O que atravessa o reinício são os episódios (§5), que
