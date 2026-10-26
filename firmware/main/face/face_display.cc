@@ -7,6 +7,7 @@
 #include <esp_random.h>
 #include <esp_timer.h>
 
+#include "application.h"
 #include "assets/lang_config.h"
 #include "core/nb_face_link.h"
 #include "display/lvgl_display/lvgl_theme.h"
@@ -35,6 +36,30 @@ constexpr float kDesignScale = 0.30f;
 const lv_color_t kEyeColor = lv_color_hex(0xFFFFFF);
 const lv_color_t kEdgeColor = lv_color_hex(0x7A7A7A);  // eye color at 48%: soft rim
 const lv_color_t kBackground = lv_color_black();
+// The only colours on the screen besides white (docs/FACE.md).
+const lv_color_t kCheekColor = lv_color_hex(0xE8907A);  // salmon pills
+const lv_color_t kHeartColor = lv_color_hex(0xFF7AAE);
+
+// Overlay placement, in screen pixels from the face centre, taken from the
+// face V2 mocks (a 320x240 screen centred at 160,120).
+constexpr float kBarsLeft = -35.5f;   // first bar's left edge
+constexpr float kBarsStep = 11.0f;
+constexpr float kBarsCentreY = 82.0f;
+constexpr float kBarsMaxHeight = 32.0f;
+constexpr float kThinkDots[3][2] = {{102, -76}, {117, -85}, {132, -94}};
+constexpr float kHandLeft = -32.0f;   // hand image top-left, once in place
+constexpr float kHandTop = 47.0f;
+constexpr float kBubbleCentre[2] = {108.0f, -80.0f};
+constexpr float kHeartsY = -60.0f;    // where a heart starts rising
+constexpr float kHeartsRise = 36.0f;
+}  // namespace
+
+// Generated from the user's hand drawing by tools/design/svg_to_lvgl.py.
+extern "C" {
+LV_IMAGE_DECLARE(nb_hand_think_image);
+}
+
+namespace {
 
 uint32_t NowMs() {
     return static_cast<uint32_t>(esp_timer_get_time() / 1000);
@@ -208,6 +233,98 @@ struct Painter {
         }
     }
 
+    void Heart(float x, float y, float size, lv_color_t color) const {
+        const int r = static_cast<int>(fmaxf(2.0f, roundf(size * 0.28f)));
+        Circle(x - size * 0.24f, y - size * 0.1f, r, color);
+        Circle(x + size * 0.24f, y - size * 0.1f, r, color);
+        Triangle(x - size * 0.5f, y, x + size * 0.5f, y, x, y + size * 0.55f, color);
+    }
+
+    // A small salmon pill under the outer corner of an eye, tilted.
+    void Cheek(const nb_avatar_eye_pose_t& eye, const nb_avatar_pose_t& pose, float side) const {
+        const float scale = kDesignScale * pose.face_scale;
+        const float x = cx + (pose.face_x + eye.x) * scale + side * (eye.width * scale * 0.5f - 2.0f);
+        const float y = cy + (pose.face_y + eye.y) * scale + eye.height * scale * 0.3f;
+        Line(x - 11.0f, y - 3.0f, x + 11.0f, y + 3.0f, 9.0f, kCheekColor);
+    }
+
+    void HandImage(float left, float top, float opacity, float angle) const {
+        lv_draw_image_dsc_t dsc;
+        lv_draw_image_dsc_init(&dsc);
+        dsc.src = &nb_hand_think_image;
+        dsc.opa = static_cast<lv_opa_t>(Clamp(opacity, 0.0f, 1.0f) * 255.0f);
+        dsc.rotation = static_cast<int32_t>(lroundf(angle * 10.0f));
+        dsc.pivot.x = nb_hand_think_image.header.w / 5;  // the knuckles on the chin
+        dsc.pivot.y = nb_hand_think_image.header.h * 3 / 10;
+        const int x = static_cast<int>(lroundf(left));
+        const int y = static_cast<int>(lroundf(top));
+        lv_area_t area = {x, y, x + static_cast<int>(nb_hand_think_image.header.w) - 1,
+                          y + static_cast<int>(nb_hand_think_image.header.h) - 1};
+        lv_draw_image(layer, &dsc, &area);
+    }
+
+    // The face V2 overlay, one at a time (docs/FACE.md). Fades are dims
+    // toward the black background.
+    void Overlay(const nb_overlay_frame_t& o, const nb_avatar_pose_t& pose) const {
+        switch (o.kind) {
+            case NB_OVERLAY_LISTEN:
+                for (int i = 0; i < NB_OVERLAY_BARS; ++i) {
+                    const float h = fmaxf(4.0f, kBarsMaxHeight * o.bars[i]);
+                    RoundRect(static_cast<int>(lroundf(cx + kBarsLeft + i * kBarsStep)),
+                              static_cast<int>(lroundf(cy + kBarsCentreY - h * 0.5f)), 5,
+                              static_cast<int>(lroundf(h)), 2, kEyeColor);
+                }
+                break;
+            case NB_OVERLAY_THINK:
+                for (int i = 0; i < 3; ++i) {
+                    Circle(cx + kThinkDots[i][0], cy + kThinkDots[i][1], 4,
+                           Dim(kEyeColor, o.dots[i]));
+                }
+                if (o.hand > 0.01f) {
+                    HandImage(cx + kHandLeft, cy + kHandTop + (1.0f - o.hand) * 20.0f, o.hand,
+                              o.hand_angle);
+                }
+                break;
+            case NB_OVERLAY_SPEECH: {
+                const float s = o.bubble;
+                if (s < 0.02f) {
+                    break;
+                }
+                const float bx = cx + kBubbleCentre[0];
+                const float by = cy + kBubbleCentre[1];
+                const int w = static_cast<int>(lroundf(72.0f * s));
+                const int h = static_cast<int>(lroundf(44.0f * s));
+                RoundRect(static_cast<int>(lroundf(bx - w * 0.5f)),
+                          static_cast<int>(lroundf(by - h * 0.5f)), w, h,
+                          static_cast<int>(lroundf(16.0f * s)), kEyeColor);
+                // Tail pointing down-left toward the face.
+                Triangle(bx - 24.0f * s, by + 18.0f * s, bx - 34.0f * s, by + 36.0f * s,
+                         bx - 6.0f * s, by + 20.0f * s, kEyeColor);
+                for (int i = 0; i < 3; ++i) {
+                    Circle(bx + (i - 1) * 16.0f * s, by - o.dots[i] * 5.0f * s,
+                           static_cast<int>(fmaxf(1.0f, roundf(5.0f * s))), kBackground);
+                }
+                break;
+            }
+            case NB_OVERLAY_AFFECTION:
+                for (int i = 0; i < 2; ++i) {
+                    const float p = o.hearts[i];
+                    const float fade = p < 0.15f ? p / 0.15f : (p > 0.8f ? (1.0f - p) / 0.2f : 1.0f);
+                    Heart(cx + (i == 0 ? -8.0f : 10.0f), cy + kHeartsY - kHeartsRise * p,
+                          18.0f + 6.0f * p, Dim(kHeartColor, Clamp(fade, 0.0f, 1.0f)));
+                }
+                Cheek(pose.left_eye, pose, -1.0f);
+                Cheek(pose.right_eye, pose, 1.0f);
+                break;
+            case NB_OVERLAY_CHEEKS:
+                Cheek(pose.left_eye, pose, -1.0f);
+                Cheek(pose.right_eye, pose, 1.0f);
+                break;
+            default:
+                break;
+        }
+    }
+
     // Spinning rings over each eye plus a small zigzag, for DIZZY.
     void Dizzy(const nb_avatar_eye_pose_t& eye, const nb_avatar_pose_t& pose, int side,
                uint32_t now_ms) const {
@@ -252,11 +369,13 @@ struct Painter {
 FaceDisplay::FaceDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handle_t panel,
                          int width, int height, int offset_x, int offset_y, bool mirror_x,
                          bool mirror_y, bool swap_xy, ExpressionArbiter& arbiter,
-                         MoodModifier& mood)
+                         MoodModifier& mood, const AudioLevels& levels)
     : SpiLcdDisplay(panel_io, panel, width, height, offset_x, offset_y, mirror_x, mirror_y,
                     swap_xy),
       arbiter_(arbiter),
-      mood_(mood) {
+      mood_(mood),
+      levels_(levels) {
+    nb_overlay_init(&overlay_);
     nb_banner_init(&banner_);
     nb_avatar_core_init(&avatar_, esp_random());
     nb_avatar_core_get_frame(&avatar_, &frame_);
@@ -412,6 +531,9 @@ void FaceDisplay::Tick() {
     nb_avatar_core_tick(&avatar_, now - last_tick_ms_);
     last_tick_ms_ = now;
     nb_avatar_core_get_frame(&avatar_, &frame_);
+    const bool speaking = Application::GetInstance().GetDeviceState() == kDeviceStateSpeaking;
+    const float level = speaking ? levels_.Speaker(now) : levels_.Mic(now);
+    nb_overlay_update(&overlay_, expression, speaking, level, now, &overlay_frame_);
     lv_obj_invalidate(face_);
     UpdateBanner();
 }
@@ -477,6 +599,7 @@ void FaceDisplay::OnDraw(lv_event_t* event) {
                              (area.y1 + area.y2 + 1) * 0.5f};
     painter.Eye(frame.pose.left_eye, frame.pose, frame.blink_scale);
     painter.Eye(frame.pose.right_eye, frame.pose, frame.blink_scale);
+    painter.Overlay(self->overlay_frame_, frame.pose);
     if (frame.dizzy_overlay) {
         painter.Dizzy(frame.pose.left_eye, frame.pose, -1, frame.animation_ms);
         painter.Dizzy(frame.pose.right_eye, frame.pose, 1, frame.animation_ms);

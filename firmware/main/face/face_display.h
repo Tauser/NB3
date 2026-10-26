@@ -9,6 +9,8 @@
 
 #include "behavior/expression_arbiter.h"
 #include "behavior/mood_modifier.h"
+#include "core/nb_overlay.h"
+#include "face/audio_levels.h"
 #include "core/nb_avatar.h"
 #include "core/nb_banner.h"
 #include "display/lcd_display.h"
@@ -21,12 +23,14 @@
 // banner, and the rest (status bar, chat subtitles, previews) is not shown.
 //
 // The face is the NB avatar (core/nb_avatar), redrawn every frame from the
-// expression the arbiter resolves.
+// expression the arbiter resolves, with at most one overlay on top
+// (core/nb_overlay: listening bars, thought dots and hand, speech bubble,
+// hearts, cheeks).
 class FaceDisplay : public SpiLcdDisplay {
 public:
     FaceDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handle_t panel, int width,
                 int height, int offset_x, int offset_y, bool mirror_x, bool mirror_y, bool swap_xy,
-                ExpressionArbiter& arbiter, MoodModifier& mood);
+                ExpressionArbiter& arbiter, MoodModifier& mood, const AudioLevels& levels);
 
     void SetupUI() override;
     void SetEmotion(const char* emotion) override;
@@ -51,6 +55,7 @@ private:
 
     ExpressionArbiter& arbiter_;
     MoodModifier& mood_;
+    const AudioLevels& levels_;
 
     // Owned by the LVGL task.
     lv_obj_t* face_ = nullptr;
@@ -58,6 +63,8 @@ private:
     nb_avatar_render_frame_t frame_;
     nb_expression_t shown_ = NB_EXPR_NEUTRAL;
     uint32_t last_tick_ms_ = 0;
+    nb_overlay_t overlay_;
+    nb_overlay_frame_t overlay_frame_ = {};
 
     // System banner. xiaozhi calls arrive from other tasks and only touch
     // banner_ and last_status_ under banner_mutex_ (held for microseconds);

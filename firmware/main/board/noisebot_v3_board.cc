@@ -10,6 +10,7 @@
 #include "behavior/mood_lights.h"
 #include "behavior/mood_modifier.h"
 #include "behavior/touch_modifier.h"
+#include "face/audio_levels.h"
 #include "face/face_display.h"
 #include "mcp/face_tools.h"
 #include "core/nb_hpf.h"
@@ -17,6 +18,7 @@
 #include <cmath>
 #include <vector>
 #include <esp_log.h>
+#include <esp_timer.h>
 #include <esp_lcd_panel_vendor.h>
 #include <esp_lcd_panel_io.h>
 #include <esp_lcd_panel_ops.h>
@@ -27,12 +29,15 @@
 
 // Duplex I2S codec for the INMP441: reads the slot selected by the mic's L/R
 // pin, high-passes the signal and honours input_gain_ (dB) like the codecs
-// with a PGA do.
+// with a PGA do. It also reports how loud the mic and the speaker are, for
+// the face's listening bars and speech bubble.
 class NoiseBotV3AudioCodec : public NoAudioCodecDuplex {
 public:
     NoiseBotV3AudioCodec(int input_sample_rate, int output_sample_rate,
-                         gpio_num_t bclk, gpio_num_t ws, gpio_num_t dout, gpio_num_t din)
-        : NoAudioCodecDuplex(input_sample_rate, output_sample_rate, bclk, ws, dout, din) {
+                         gpio_num_t bclk, gpio_num_t ws, gpio_num_t dout, gpio_num_t din,
+                         AudioLevels& levels)
+        : NoAudioCodecDuplex(input_sample_rate, output_sample_rate, bclk, ws, dout, din),
+          levels_(levels) {
         input_gain_ = AUDIO_INPUT_GAIN_DB;
         nb_hpf_init(&hpf_, static_cast<float>(input_sample_rate), AUDIO_INPUT_HPF_HZ);
         // The base codec always reads the left slot; follow the mic's L/R pin.
@@ -63,11 +68,20 @@ protected:
                       : value < -INT16_MAX ? -INT16_MAX
                                            : static_cast<int16_t>(value);
         }
+        levels_.SetMic(AudioLevels::FromSamples(dest, samples), NowMs());
         return samples;
     }
 
+    int Write(const int16_t* data, int samples) override {
+        levels_.SetSpeaker(AudioLevels::FromSamples(data, samples), NowMs());
+        return NoAudioCodecDuplex::Write(data, samples);
+    }
+
 private:
+    static uint32_t NowMs() { return static_cast<uint32_t>(esp_timer_get_time() / 1000); }
+
     static constexpr uint32_t kReadTimeoutMs = 200;  // as the base codec
+    AudioLevels& levels_;
     nb_hpf_t hpf_;
     std::vector<int32_t> raw_;
 };
@@ -77,6 +91,7 @@ private:
     Button boot_button_;
     ExpressionArbiter arbiter_{NB_EXPR_NEUTRAL};
     MoodModifier mood_{arbiter_};
+    AudioLevels audio_levels_;
     FaceDisplay* display_ = nullptr;
 
     void InitializeSpi() {
@@ -118,7 +133,7 @@ private:
         display_ = new FaceDisplay(panel_io, panel, DISPLAY_WIDTH, DISPLAY_HEIGHT,
                                    DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y,
                                    DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY, arbiter_,
-                                   mood_);
+                                   mood_, audio_levels_);
     }
 
     void InitializeButtons() {
@@ -152,7 +167,8 @@ public:
     AudioCodec* GetAudioCodec() override {
         static NoiseBotV3AudioCodec audio_codec(AUDIO_INPUT_SAMPLE_RATE, AUDIO_OUTPUT_SAMPLE_RATE,
                                                 AUDIO_I2S_GPIO_BCLK, AUDIO_I2S_GPIO_WS,
-                                                AUDIO_I2S_GPIO_DOUT, AUDIO_I2S_GPIO_DIN);
+                                                AUDIO_I2S_GPIO_DOUT, AUDIO_I2S_GPIO_DIN,
+                                                audio_levels_);
         return &audio_codec;
     }
 
