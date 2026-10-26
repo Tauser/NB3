@@ -10,6 +10,9 @@ namespace {
 // or after the last voice-activity change, then the face relaxes to the mood
 // while the microphone stays open.
 constexpr uint32_t kListeningAttentionMs = 8000;
+// Thinking after the person stops talking; if no reply comes in this long,
+// the face relaxes to the mood.
+constexpr uint32_t kWaitingForReplyMs = 20000;
 
 void ProposeState(ExpressionArbiter& arbiter, nb_expression_t expression, uint32_t ttl_ms = 0) {
     nb_proposal_t proposal = {expression, priority::kState, ttl_ms, true};
@@ -38,14 +41,26 @@ void StateLed::OnStateChanged() {
         case kDeviceStateWifiConfiguring:
             ProposeState(arbiter_, NB_EXPR_CONFUSED);
             break;
-        case kDeviceStateListening:
-            // Called again on every voice-activity change while listening,
-            // which renews the attention.
-            ProposeState(arbiter_, NB_EXPR_LISTENING, kListeningAttentionMs);
+        case kDeviceStateListening: {
+            // Called again on every voice-activity change while listening.
+            // xiaozhi has no state for waiting on the reply: it keeps
+            // listening until the reply starts. So once the person has
+            // spoken and gone quiet, the face shows it is thinking.
+            const bool voice = Application::GetInstance().GetAudioService().IsVoiceDetected();
             if (entered) {
+                heard_voice_ = false;
                 mood_.OnListening();
             }
+            if (voice) {
+                heard_voice_ = true;
+            }
+            if (heard_voice_ && !voice) {
+                ProposeState(arbiter_, NB_EXPR_THINKING, kWaitingForReplyMs);
+            } else {
+                ProposeState(arbiter_, NB_EXPR_LISTENING, kListeningAttentionMs);
+            }
             break;
+        }
         case kDeviceStateFatalError: {
             nb_proposal_t fault = {NB_EXPR_SAD, priority::kFault, 0, false};
             arbiter_.Propose(NB_SOURCE_STATE, fault);

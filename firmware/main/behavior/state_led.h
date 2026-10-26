@@ -8,7 +8,8 @@
 
 // xiaozhi reports every device-state change through Led::OnStateChanged().
 // This Led keeps driving the real status LED and also turns the state into
-// face behavior: IDLE resets transient expressions, listening shows attention.
+// face behavior: IDLE resets transient expressions, listening shows attention
+// and, once the person has spoken and gone quiet, thinking until the reply.
 // Entering listening and faults also reach the mood. While listening, xiaozhi
 // reports the state again on every voice-activity change, so only a change
 // of state counts for the mood.
@@ -24,6 +25,7 @@ private:
     ExpressionArbiter& arbiter_;
     MoodModifier& mood_;
     DeviceState last_state_ = kDeviceStateUnknown;
+    bool heard_voice_ = false;  // the person spoke in this listening turn
 };
 
 #endif  // NB3_STATE_LED_H
