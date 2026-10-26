@@ -236,9 +236,21 @@ ausência); sem microSD o robô funciona e avisa.
    tentativa dos 30 s e o probe passou; a personalidade do cartão só vale
    no próximo boot. Falta ver: cortes de energia durante escrita (com a
    memória do item 8 gravando de verdade).
-8. [ ] **Memória média e longa**: episódios com importância calculada pela
+8. [~] **Memória média e longa**: episódios com importância calculada pela
    idade, perfil/fatos/preferências, viés de humor limitado, esquecimento
    que remove derivados (VIDA.md §5, §5.3). Host-test do roteiro de §8.
+   - [x] 8a, núcleo (`core/nb_memory`, `core/nb_json`): perfil com chave,
+     fatos sem repetição, preferências, episódios com meia-vida por tipo,
+     viés de humor puro e limitado, busca sem caixa nem acento, compactação,
+     reancoragem na sincronização, esquecimento em três escritas com marca
+     pendente, snapshot ilegível trava as escritas. 20 host-tests (14 de
+     memória, 6 de JSON) com cartão simulado que perde energia em qualquer
+     escrita: roteiro de §8, corte em cada escrita do esquecimento e do boot
+     que o conclui, cauda rasgada do log, registros malformados.
+   - [ ] 8b, casca: `memory/memory_service` sobre o `StoreService`,
+     episódios vindos do toque, da conversa e da falha, viés entrando no
+     humor, compactação e gravação agrupada; em bancada, reiniciar e lembrar
+     e o ciclo de cortes de energia pendente do item 7.
 9. [ ] **MCP**: `self.mood.get`, `self.mood.stimulate`,
    `self.memory.recall`/`remember`/`correct`/`forget`, com descrições ricas.
 10. [ ] Verificar no console do xiaozhi.me o que a memória do agente oferece
@@ -267,8 +279,10 @@ os núcleos integralmente.
   iniciativa.
 - [ ] Iniciativa no IDLE dosada pela personalidade, sem somar movimento demais
   à coreografia que o avatar já tem.
-- [ ] Padrões consolidados da memória ajustando a personalidade devagar e
-  com limites.
+- [ ] Padrões consolidados da memória (contagens por tipo e horário dos
+  episódios que saem na compactação) e, sobre eles, a personalidade
+  ajustando devagar e com limites. Hoje um episódio apagado na compactação
+  some sem virar contagem.
 
 ---
 

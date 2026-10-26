@@ -35,6 +35,9 @@ nb_host_test(test_affect ${CORE_DIR}/nb_affect.c ${CORE_DIR}/nb_expression.c)
 nb_host_test(test_overlay ${CORE_DIR}/nb_overlay.c)
 nb_host_test(test_clock ${CORE_DIR}/nb_clock.c)
 nb_host_test(test_store ${CORE_DIR}/nb_store.c)
+nb_host_test(test_json ${CORE_DIR}/nb_json.c)
+nb_host_test(test_memory ${CORE_DIR}/nb_memory.c ${CORE_DIR}/nb_json.c ${CORE_DIR}/nb_clock.c
+             ${CORE_DIR}/nb_store.c)
 nb_host_test(test_personality ${CORE_DIR}/nb_personality.c ${CORE_DIR}/nb_affect.c
              ${CORE_DIR}/nb_expression.c)
 nb_host_test(test_behavior ${CORE_DIR}/nb_behavior.c ${CORE_DIR}/nb_arbiter.c

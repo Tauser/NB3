@@ -187,6 +187,23 @@ FATFS sobre SDMMC 1-bit (GPIO 6/15/16). A casca é uma task única dona do
 cartão; os demais enfileiram. **Sem SD o robô funciona** só com memória curta
 e avisa pelo banner.
 
+Implementação: `core/nb_memory`, sobre `core/nb_json` (leitor e escritor
+mínimos, para o núcleo não depender de código de terceiros nos host-tests).
+Limites: 64 registros longos, 96 episódios, texto de 96 bytes, chave de 24.
+Meias-vidas: carinho 6 h, conversa 12 h, mágoa 48 h, nota pedida pela
+conversa 7 dias; a compactação apaga o que cai abaixo de 0,05. O viés é
+0,1 × Σ(importância × afeto) dos episódios de idade conhecida, preso em
+±0,15. Episódios cheios: sai o que menos importa agora (o mais antigo no
+empate). Um episódio sobre um registro longo guarda só o id dele (`about`),
+nunca uma cópia do texto. Os padrões consolidados ficam para a etapa 3; até
+lá, o episódio que sai na compactação não vira contagem.
+
+No cartão: um snapshot JSON (`schema`, `next_id`, `forgetting` quando há
+esquecimento pendente, `records`) nos dois slots e um quadro por episódio no
+log (`{"schema":1,"episode":{...}}`). Um snapshot com CRC certo mas que esta
+versão não sabe ler (esquema mais novo, por exemplo) trava a memória contra
+escrita: nada o empurra para fora dos slots.
+
 ### 5.1 Hora
 
 - **Fonte:** o xiaozhi acerta o relógio do sistema (`settimeofday`) com o
@@ -305,8 +322,14 @@ depende de rename:
 - **Testes obrigatórios:** corte entre o primeiro e o segundo slot, entre o
   segundo slot e a compactação e durante a compactação; em todos, o boot
   seguinte não mostra o dado e termina sem marca pendente.
-- `correct(id)` substitui o conteúdo e regrava os derivados textuais que o
-  copiam; contagens não mudam.
+- `correct(id)` substitui o conteúdo e grava os dois slots, para um slot
+  novo danificado não trazer a versão antiga de volta; contagens não mudam.
+  Não há derivados textuais a regravar: episódios apontam para o registro
+  pelo id.
+- **Como o esquecimento grava:** (1) snapshot sem o dado e com a marca,
+  (2) log zerado, (3) snapshot limpo, que cai sobre o slot antigo. A marca
+  só sai da RAM depois de (3). O boot que encontra a marca filtra esses ids
+  e repete os três passos antes de atender consultas.
 - Limite declarado: setores liberados do FAT e o nivelamento de desgaste do
   cartão podem reter bytes antigos fisicamente. O esquecimento é dos
   arquivos, não um apagamento forense. O que a nuvem do xiaozhi guardou da
