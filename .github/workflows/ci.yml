@@ -1,0 +1,62 @@
+# NoiseBot v3 CI. No path filters: every push and PR runs every job, so a
+# reorganized directory can never silently stop being checked.
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  host-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build host tests (-Wall -Wextra -Werror -pedantic)
+        run: |
+          cmake -S firmware/tests -B build-host-tests
+          cmake --build build-host-tests
+      - name: Run host tests
+        run: ctest --test-dir build-host-tests --output-on-failure
+
+  firmware:
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:v6.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch xiaozhi at its tag and apply the patch
+        shell: bash
+        run: |
+          git config --global --add safe.directory '*'
+          . "$IDF_PATH/export.sh"
+          cd firmware
+          python fetch_repos.py
+      - name: Build firmware (NB3 sources with -Werror)
+        shell: bash
+        run: |
+          . "$IDF_PATH/export.sh"
+          export ESP_IDF_VERSION=6.1
+          cd firmware
+          idf.py set-target esp32s3
+          idf.py build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: noisebot-v3-firmware
+          path: |
+            firmware/build/noisebot-v3.bin
+            firmware/build/generated_assets.bin
+            firmware/build/bootloader/bootloader.bin
+            firmware/build/partition_table/partition-table.bin
+            firmware/build/ota_data_initial.bin
+            firmware/build/flash_args
+          retention-days: 14
+
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python tools/scan_secrets.py

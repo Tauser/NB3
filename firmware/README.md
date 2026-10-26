@@ -99,6 +99,11 @@ idf.py build
 idf.py -p COM5 -b 115200 flash monitor
 ```
 
+CI (`.github/workflows/ci.yml`, todo push e PR, sem filtro de caminho):
+host-tests com `-Werror -pedantic`, build do firmware no container
+`espressif/idf:v6.1` (inclui `fetch_repos.py`, ou seja, patch e espelhos
+conferidos) e `tools/scan_secrets.py` sobre os arquivos versionados.
+
 Host-tests:
 
 ```powershell
