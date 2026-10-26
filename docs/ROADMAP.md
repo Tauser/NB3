@@ -188,17 +188,18 @@ ausência); sem microSD o robô funciona e avisa.
      Pendente do mic: o pensando depois da pergunta depende do VAD local
      voltar a "silêncio", o que o lote atual de INMP441 quase nunca faz (e
      o servidor já começa a resposta ao detectar o fim da fala).
-4. [~] **Estados comportamentais** (`core/nb_behavior`,
+4. [x] **Estados comportamentais** (`core/nb_behavior`,
    `behavior/behavior_modifier`, `930e4b3`): IDLE, ENGAGED (conversa),
    REACTING (toque, até 2 s depois de soltar), SLEEPING (só a partir do
    IDLE; qualquer interação acorda) e FAULT (pegajoso até recuperar), mais o
    modo quieto, que sobrevive a toda transição. Lê o `DeviceState` sem
    duplicar a conversa; a conversa vence o toque. O `BehaviorModifier` é o
    único que chama `EnterIdle`. 10 host-tests, incluindo o invariante: em
-   cada caminho de volta ao IDLE o transitório sai e o humor fica. Boot
-   visto no log (idle → engaged → idle). Falta ver em bancada toque e
-   conversa; sono e modo quieto ainda não têm quem os acione (energia na
-   etapa 3, MCP no item 9).
+   cada caminho de volta ao IDLE o transitório sai e o humor fica.
+   Validado em bancada pelo log: carinho e tap (reacting → idle 2,1 s após
+   soltar), conversa inteira em engaged → idle. Toque durante a conversa
+   só no host-test. Sono e modo quieto ainda não têm quem os acione
+   (energia na etapa 3, MCP no item 9).
 5. [ ] **Personalidade**: temperamento, reatividade, recuperação e iniciativa
    com default no firmware e override no SD.
 6. [ ] **Hora para a memória**: validade por piso de build, registros sem
