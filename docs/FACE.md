@@ -59,6 +59,12 @@ aviso.
 Esperam a etapa 3 (energia e reflexos): sonolento, dormindo, tonto,
 risadinha, combinado e oi.
 
+Também na etapa 3, como **iniciativa no repouso**: de vez em quando, sem
+interação há alguns minutos e em espera, o robô "pensa sozinho" por uns
+5 s (olhar no canto, pontinhos e mão no queixo) e volta ao humor. A
+frequência vem do parâmetro de iniciativa da personalidade; nunca durante
+conversa, toque ou sono, e um toque ou a wake word interrompem na hora.
+
 ## Implementação
 
 1. **Formas** no avatar: corte inferior curvo (crescente) como peça nova da

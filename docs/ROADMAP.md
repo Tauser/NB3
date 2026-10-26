@@ -212,6 +212,9 @@ os núcleos integralmente.
 - [ ] Arcos com desfecho: birra e perdão (taps repetidos), reconciliação
   (humor negativo + carinho), procura com o olhar após tédio.
 - [ ] Energia e tédio; circadiano (requer fonte de hora e fuso explícito).
+- [ ] "Pensar sozinho" no repouso: sem interação há alguns minutos, o
+  pensando aparece ~5 s ao acaso e some (FACE.md); primeiro gesto da
+  iniciativa.
 - [ ] Iniciativa no IDLE dosada pela personalidade, sem somar movimento demais
   à coreografia que o avatar já tem.
 - [ ] Padrões consolidados da memória ajustando a personalidade devagar e
