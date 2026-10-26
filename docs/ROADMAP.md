@@ -256,7 +256,8 @@ ausência); sem microSD o robô funciona e avisa.
      gravação agrupada a cada 5 min. Visto em bancada: conversa de 89 s virou
      episódio (v +0,63, importância 0,52), viés +0,033 no humor; depois de
      reiniciar, o episódio voltou do log e o viés voltou após a sincronização.
-     Falta ver: episódio de carinho, compactação no cartão, ciclo de cortes
+     Carinhos de 23 s e 46 s viraram episódios (importância 0,61 e 0,70);
+     com eles o viés chegou ao teto de +0,15. Falta ver: compactação no cartão, ciclo de cortes
      de energia durante escrita (pendente do item 7). A falha do dispositivo
      não vira episódio: hoje ela é erro de rede, não mágoa.
 9. [ ] **MCP**: `self.mood.get`, `self.mood.stimulate`,
