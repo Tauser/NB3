@@ -148,13 +148,18 @@ ausência); sem microSD o robô funciona e avisa.
    espera, e toque e falha o encobrem sem parar o relógio. Validado em
    bancada: "cara de bravo por 30 s" durou 30 s com o robô em espera; tap no
    meio encobriu e o bravo voltou; tap completa o gesto e carinho mantém a
-   face. Não conferido: LEDs junto da face (diferença esperada de ~0,4 s no
-   fim do tap, porque a proposta dura 1,5 s e o gesto ~1,9 s).
-2. [ ] **Humor** (`core/nb_mood_vector` ou nome final): vetor valência ×
-   ativação em RAM, decaimento ao temperamento, recuperação negativa mais
-   lenta, habituação por chave de estímulo, escolha de expressão com
-   histerese; fonte `MOOD` (prioridade 3, não transitória) no árbitro.
-   Host-test, incluindo estímulo repetido sem acumular (VIDA.md §3).
+   face; LEDs acompanharam a face.
+2. [~] **Humor** (`core/nb_affect`, `behavior/mood_modifier`, `0c46685`):
+   vetor valência × ativação em RAM, volta ao temperamento (+0,10, +0,05)
+   em ~60 s, valência negativa 2× mais lenta, habituação por chave
+   (0,5ⁿ, teto por janela de 30 s), expressão com histerese entre feliz,
+   carinhoso, triste e bravo; fonte `MOOD` (prioridade 3, não transitória)
+   no árbitro. Estímulos: emoção da conversa, tap, pulsos de carinho a cada
+   4 s, escuta e falha, com os valores numa tabela só. 14 host-tests do
+   núcleo + teste no árbitro. Falta ver em bancada (log `Mood:`): carinho
+   longo deixa o robô carinhoso em espera e isso passa sozinho; várias
+   respostas alegres seguidas deixam feliz em espera; a mesma emoção
+   repetida a cada frase não satura. Os valores da tabela são iniciais.
 3. [ ] **Estados comportamentais** (IDLE, ENGAGED, REACTING, SLEEPING,
    FAULT; modo quiet) derivados de `DeviceState` sem duplicar a conversa;
    teste de que toda volta ao IDLE limpa o transitório e preserva o humor.
