@@ -14,6 +14,7 @@
 #include "face/audio_levels.h"
 #include "face/face_display.h"
 #include "mcp/face_tools.h"
+#include "memory/clock_service.h"
 #include "core/nb_hpf.h"
 #include "core/nb_personality.h"
 
@@ -96,6 +97,7 @@ private:
     nb_personality_t personality_ = nb_personality_default();
     MoodModifier mood_{arbiter_, personality_};
     BehaviorModifier behavior_{arbiter_};
+    ClockService clock_;
     AudioLevels audio_levels_;
     FaceDisplay* display_ = nullptr;
 

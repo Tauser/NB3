@@ -207,9 +207,16 @@ ausência); sem microSD o robô funciona e avisa.
    VIDA.md §4. O humor recebe o perfil pela board e o boot registra o perfil
    em uso. 9 host-tests. Falta: ler o arquivo do microSD (item 7) e usar a
    iniciativa (etapa 3).
-6. [ ] **Hora para a memória**: validade por piso de build, registros sem
-   hora com `boot_id` + monotônico, último instante visto persistido,
-   relógio voltando tratado como inválido (VIDA.md §5.1). Host-test.
+6. [x] **Hora para a memória** (`core/nb_clock`, `memory/clock_service`):
+   três níveis (inválida, plausível, sincronizada pelo salto do
+   `settimeofday` do xiaozhi), carimbos com `boot_id` + monotônico e hora de
+   parede só quando sincronizada, recálculo dos carimbos do boot na
+   sincronização ou correção, idade nunca negativa, último instante visto
+   no NVS. 10 host-tests com os casos obrigatórios de VIDA.md §5.1 (abaixo
+   do piso, plausível após reset, sincronização no meio do boot, futuro
+   corrigido no mesmo boot e no seguinte, fuso ±1…±14 h, tempo desligado).
+   Visto em bancada: boot 1 → 2, último instante lido de volta, sincroniza
+   6–10 s após o boot. Ninguém usa os carimbos ainda: a memória (item 8).
 7. [ ] **microSD** (SDMMC 1-bit, GPIO 6/15/16): task única dona do cartão,
    dois slots com geração e CRC, log de episódios com quadros e `seq`,
    modo degradado sem formatar (VIDA.md §5.2). Host-test de corrupção e

@@ -220,6 +220,14 @@ e avisa pelo banner.
   episódios de idade desconhecida **não entram no viés de humor**, e a
   consolidação espera hora válida. A idade nunca é negativa (clamp em 0).
 
+Implementação: `core/nb_clock` (níveis, carimbos, recálculo, idade) e
+`memory/clock_service` (amostra a cada 1 s; `boot_id` e último instante
+visto no NVS até o microSD existir; o instante é gravado na sincronização e
+a cada 10 min). Limite conhecido: depois de um reset por software, se o
+relógio guardado já estiver a menos de 2 s da hora certa, a sincronização
+não produz salto e o boot fica em **plausível**; os registros desse boot
+ficam sem hora de parede até a próxima correção.
+
 O circadiano usa a mesma fonte, mas fica para a etapa 3.
 
 ### 5.2 Gravação interrompida
