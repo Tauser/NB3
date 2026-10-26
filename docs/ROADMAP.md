@@ -165,15 +165,15 @@ ausência); sem microSD o robô funciona e avisa.
    saturar; feliz (amarelo) e carinhoso (rosa) nas conversas. Falta ver:
    carinhoso ~30 s depois de soltar; feliz ~30 s depois da última resposta
    alegre, com a face saindo do ciano ~8 s após a resposta.
-3. [ ] **Face V2** (D-011, [FACE.md](FACE.md)): só os estados que já
+3. [x] **Face V2** (D-011, [FACE.md](FACE.md)): só os estados que já
    existem.
    - [x] Formas (`50b11c9`): campo `crescent` na pose (corte curvo por
      baixo ou por cima, interpolável); poses refeitas sem sobrancelha para
      atento, pensando, feliz, animado, curioso, confuso, irritado, surpreso,
      triste e sonolento; carinhoso e envergonhado ganharam animação própria.
      Funcionando na tela, segundo o usuário. Contente ganhou expressão
-     própria para o humor em repouso (cápsulas baixas, LED pêssego); o
-     carinhoso fica para o toque.
+     própria para o humor em repouso (cápsulas baixas, LED pêssego,
+     `37f90d3`), confirmada na tela; o carinhoso fica para o toque.
    - [x] Camada de overlay e ligação aos estados (`3e4a60e`): `core/nb_overlay`
      escolhe um adorno por vez (fala vence tudo) e calcula a animação; o
      codec mede o volume do mic e do alto-falante. Escuta → 7 barras
