@@ -106,7 +106,12 @@ encobrem; ao terminarem, ele reaparece se ainda estiver no prazo, que continua
 correndo por baixo.
 
 Os estados operacionais vencem o humor: durante a escuta a face mostra
-escuta. Como `MOOD` não é transitória, `EnterIdle()` não a remove; ao voltar
+escuta. Mas a escuta é **atenção com prazo**: o xiaozhi deixa o microfone
+aberto até ~1 min depois de responder (mediana de 4,7 s quando a pessoa
+fala, máximo de 68 s esperando), e uma face presa em escuta escondia o
+humor. A proposta de escuta dura ~8 s depois de entrar em escuta ou da
+última mudança de atividade de voz (o ATTENTIVE do NB2 tinha 8–15 s); depois
+a face relaxa para o humor com o microfone ainda aberto. Como `MOOD` não é transitória, `EnterIdle()` não a remove; ao voltar
 ao IDLE as demais propostas caem e a face mostra o humor. A proposta tem TTL
 0 e só é reenviada quando a expressão escolhida muda. Perto do temperamento
 ela resolve para NEUTRAL, então o comportamento em paz é o atual.

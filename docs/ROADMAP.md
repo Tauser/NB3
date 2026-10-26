@@ -159,10 +159,12 @@ ausência); sem microSD o robô funciona e avisa.
    numa tabela só. Calibração em bancada (`110c0c7` e seguinte): carinho
    com habituação 0,8 → 0,7 e teto maior, escuta só na entrada e mais
    fraca, recuperação 60 → 120 s e limiares 0,25/0,18 para o humor ficar
-   ~30 s. Visto: habituação da emoção (1,00 → 0,50 → nova janela) sem
-   saturar. Falta ver: carinhoso ~30 s em espera depois de soltar; feliz
-   ~30 s depois da última resposta alegre, com a conversa já em espera (nos
-   dois logs a conversa contínua nunca voltou a "Em espera").
+   ~30 s. Escuta com prazo de 8 s, renovado pela atividade de voz: depois
+   da resposta o xiaozhi fica até ~1 min em escuta e a face ciano escondia
+   o humor. Visto: habituação da emoção (1,00 → 0,50 → nova janela) sem
+   saturar; feliz (amarelo) e carinhoso (rosa) nas conversas. Falta ver:
+   carinhoso ~30 s depois de soltar; feliz ~30 s depois da última resposta
+   alegre, com a face saindo do ciano ~8 s após a resposta.
 3. [ ] **Estados comportamentais** (IDLE, ENGAGED, REACTING, SLEEPING,
    FAULT; modo quiet) derivados de `DeviceState` sem duplicar a conversa;
    teste de que toda volta ao IDLE limpa o transitório e preserva o humor.

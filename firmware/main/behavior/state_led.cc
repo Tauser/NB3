@@ -4,8 +4,15 @@
 
 namespace {
 
-void ProposeState(ExpressionArbiter& arbiter, nb_expression_t expression) {
-    nb_proposal_t proposal = {expression, priority::kState, 0, true};
+// The listening face is attention, not a state to hold: xiaozhi keeps the
+// microphone open for up to a minute after a reply, and a face stuck on
+// listening would hide the mood. It lasts this long after entering listening
+// or after the last voice-activity change, then the face relaxes to the mood
+// while the microphone stays open.
+constexpr uint32_t kListeningAttentionMs = 8000;
+
+void ProposeState(ExpressionArbiter& arbiter, nb_expression_t expression, uint32_t ttl_ms = 0) {
+    nb_proposal_t proposal = {expression, priority::kState, ttl_ms, true};
     arbiter.Propose(NB_SOURCE_STATE, proposal);
 }
 
@@ -32,7 +39,9 @@ void StateLed::OnStateChanged() {
             ProposeState(arbiter_, NB_EXPR_CONFUSED);
             break;
         case kDeviceStateListening:
-            ProposeState(arbiter_, NB_EXPR_LISTENING);
+            // Called again on every voice-activity change while listening,
+            // which renews the attention.
+            ProposeState(arbiter_, NB_EXPR_LISTENING, kListeningAttentionMs);
             if (entered) {
                 mood_.OnListening();
             }

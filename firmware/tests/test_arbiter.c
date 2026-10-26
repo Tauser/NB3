@@ -123,6 +123,22 @@ static void test_mood_shows_at_rest_and_survives_idle(void) {
     NB_CHECK_EQ_INT(NB_EXPR_ANGRY, nb_arbiter_resolve(&a, 600000));
 }
 
+// Listening is attention with a deadline; once it lapses the mood shows
+// while the device is still listening, and voice activity renews it.
+static void test_listening_attention_lapses_into_mood(void) {
+    nb_arbiter_t a;
+    nb_arbiter_init(&a, NB_EXPR_NEUTRAL);
+    nb_proposal_t mood = proposal(NB_EXPR_HAPPY, 3, 0, false);
+    nb_proposal_t listening = proposal(NB_EXPR_LISTENING, 5, 8000, true);
+    NB_CHECK(nb_arbiter_propose(&a, NB_SOURCE_MOOD, &mood, 0));
+    NB_CHECK(nb_arbiter_propose(&a, NB_SOURCE_STATE, &listening, 0));
+    NB_CHECK_EQ_INT(NB_EXPR_LISTENING, nb_arbiter_resolve(&a, 7999));
+    NB_CHECK_EQ_INT(NB_EXPR_HAPPY, nb_arbiter_resolve(&a, 8000));
+    NB_CHECK(nb_arbiter_propose(&a, NB_SOURCE_STATE, &listening, 20000));
+    NB_CHECK_EQ_INT(NB_EXPR_LISTENING, nb_arbiter_resolve(&a, 27000));
+    NB_CHECK_EQ_INT(NB_EXPR_HAPPY, nb_arbiter_resolve(&a, 28000));
+}
+
 static void test_withdraw_removes_only_that_source(void) {
     nb_arbiter_t a;
     nb_arbiter_init(&a, NB_EXPR_NEUTRAL);
@@ -157,6 +173,7 @@ int main(void) {
     NB_RUN(test_idle_with_only_transient_returns_baseline);
     NB_RUN(test_timed_command_survives_idle_and_resumes_after_touch);
     NB_RUN(test_mood_shows_at_rest_and_survives_idle);
+    NB_RUN(test_listening_attention_lapses_into_mood);
     NB_RUN(test_withdraw_removes_only_that_source);
     NB_RUN(test_invalid_input_is_rejected);
     NB_TEST_MAIN_END();

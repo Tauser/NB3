@@ -9,8 +9,9 @@
 // xiaozhi reports every device-state change through Led::OnStateChanged().
 // This Led keeps driving the real status LED and also turns the state into
 // face behavior: IDLE resets transient expressions, listening shows attention.
-// Entering listening and faults also reach the mood. xiaozhi reports the
-// same state many times in a row, so only a change of state counts.
+// Entering listening and faults also reach the mood. While listening, xiaozhi
+// reports the state again on every voice-activity change, so only a change
+// of state counts for the mood.
 class StateLed : public Led {
 public:
     StateLed(Led& status_led, ExpressionArbiter& arbiter, MoodModifier& mood)
