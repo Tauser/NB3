@@ -49,7 +49,9 @@ e um Led (`behavior/state_led`) que transformam isso em propostas ao árbitro.
 A ferramenta MCP `self.face.set_expression` propõe como fonte própria. A face
 consulta o árbitro a cada quadro (30 fps) e desenha o avatar de
 `core/nb_avatar` (portado do NB2: olhos em cápsula, 12 animações, piscar e
-coreografia do IDLE).
+coreografia do IDLE). `core/nb_face_link` traduz a expressão vencedora em
+animação: ela fica na tela enquanto vencer, e a volta ao IDLE deixa um
+gesto curto terminar.
 
 **Ao trocar a tag do xiaozhi:** copiar de novo `main/idf_component.yml` (o
 `fetch_repos.py` falha até isso ser feito), comparar o `main/CMakeLists.txt`

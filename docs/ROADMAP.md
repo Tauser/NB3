@@ -139,8 +139,13 @@ o roteiro de aceitação de VIDA.md §8 passa (registrar → reiniciar →
 recordar → corrigir → reiniciar → conferir → esquecer → reiniciar →
 ausência); sem microSD o robô funciona e avisa.
 
-1. [ ] **Duração da expressão** acima das animações de uma execução: a
-   proposta vencedora do árbitro se mantém na face enquanto valer.
+1. [~] **Duração da expressão** acima das animações de uma execução
+   (`39568c7`): a expressão vencedora fica na pose final com movimento mais
+   calmo enquanto valer; ao voltar ao IDLE, um gesto ainda na primeira
+   passada termina antes. `core/nb_face_link` liga árbitro e avatar, com
+   host-test conjunto. Falta ver em bancada: `self.face.set_expression`
+   HAPPY por 30 s fica na tela; tap ainda completa o gesto; carinho mantém
+   a face durante o toque.
 2. [ ] **Humor** (`core/nb_mood_vector` ou nome final): vetor valência ×
    ativação em RAM, decaimento ao temperamento, recuperação negativa mais
    lenta, habituação por chave de estímulo, escolha de expressão com
