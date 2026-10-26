@@ -231,7 +231,8 @@ ausência); sem microSD o robô funciona e avisa.
    reatividade 0.60 e recuperação 300 s). Sem cartão: erro logado, nova
    tentativa a cada 30 s; o aviso no boot era coberto pelo "Procurando
    redes Wi-Fi", então ele repete na primeira tentativa e depois a cada
-   5 min. Falta ver: o aviso repetido na tela, o cartão montando ao ser
+   5 min; na tela ele aparece rápido e os avisos do xiaozhi o cobrem, o que
+   ficou aceito assim. Falta ver: o cartão montando ao ser
    inserido com o robô ligado, cortes de energia durante escrita (com a
    memória do item 8 gravando de verdade).
 8. [ ] **Memória média e longa**: episódios com importância calculada pela
