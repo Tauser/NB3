@@ -34,7 +34,7 @@ firmware/
     board/          board NB3 para o xiaozhi (pinos, codec, display) e fiação das peças
     core/           núcleos C17 puros — sem FreeRTOS/ESP-IDF, clock e RNG injetados
     behavior/       árbitro thread-safe (prioridades num lugar só) e ganchos de estado
-    face/           face LVGL: desenha o que o árbitro resolve
+    face/           tela do NB3 (LVGL): desenha o avatar que o árbitro escolhe
     mcp/            ferramentas MCP do dispositivo, com descrições ricas
     hal/ *          casca de hardware (servos, LEDs, toque, SD)
   tests/            host-tests dos núcleos (CMake + ctest) e utilitários compartilhados
@@ -47,7 +47,9 @@ firmware/
 o estado por `Led::OnStateChanged()`; a board NB3 fornece um display (`face/`)
 e um Led (`behavior/state_led`) que transformam isso em propostas ao árbitro.
 A ferramenta MCP `self.face.set_expression` propõe como fonte própria. A face
-consulta o árbitro a cada quadro (30 fps) e anima com `core/nb_face_anim`.
+consulta o árbitro a cada quadro (30 fps) e desenha o avatar de
+`core/nb_avatar` (portado do NB2: olhos em cápsula, 12 animações, piscar e
+coreografia do IDLE).
 
 **Ao trocar a tag do xiaozhi:** copiar de novo `main/idf_component.yml` (o
 `fetch_repos.py` falha até isso ser feito), comparar o `main/CMakeLists.txt`

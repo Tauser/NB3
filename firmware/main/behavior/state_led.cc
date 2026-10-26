@@ -15,8 +15,6 @@ void StateLed::OnStateChanged() {
     status_led_.OnStateChanged();
 
     DeviceState state = Application::GetInstance().GetDeviceState();
-    face_.SetSpeaking(state == kDeviceStateSpeaking);
-
     switch (state) {
         case kDeviceStateIdle:
             arbiter_.EnterIdle();
@@ -31,13 +29,16 @@ void StateLed::OnStateChanged() {
         case kDeviceStateWifiConfiguring:
             ProposeState(arbiter_, NB_EXPR_CONFUSED);
             break;
+        case kDeviceStateListening:
+            ProposeState(arbiter_, NB_EXPR_LISTENING);
+            break;
         case kDeviceStateFatalError: {
             nb_proposal_t fault = {NB_EXPR_SAD, priority::kFault, 0, false};
             arbiter_.Propose(NB_SOURCE_STATE, fault);
             break;
         }
         default:
-            // Listening and speaking follow the conversation's emotion.
+            // Speaking follows the conversation's emotion.
             arbiter_.Withdraw(NB_SOURCE_STATE);
             break;
     }

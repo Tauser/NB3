@@ -120,7 +120,7 @@ public:
 
     Led* GetLed() override {
         static SingleLed status_led(BUILTIN_LED_GPIO);
-        static StateLed led(status_led, arbiter_, *display_);
+        static StateLed led(status_led, arbiter_);
         return &led;
     }
 

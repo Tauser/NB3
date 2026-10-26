@@ -1,18 +1,22 @@
 #ifndef NB3_FACE_DISPLAY_H
 #define NB3_FACE_DISPLAY_H
 
-#include <atomic>
+#include <memory>
+#include <string>
 
 #include <lvgl.h>
 
 #include "behavior/expression_arbiter.h"
-#include "core/nb_face_anim.h"
+#include "core/nb_avatar.h"
 #include "display/lcd_display.h"
 
 // The NB3 screen on the ST7789. SpiLcdDisplay is used only for the panel,
 // LVGL port and display lock; none of xiaozhi's layout is created. Every UI
 // call xiaozhi makes lands here: emotions become arbiter proposals, the rest
 // (status text, subtitles, notifications, previews) is not shown.
+//
+// The face is the NB avatar (core/nb_avatar), redrawn every frame from the
+// expression the arbiter resolves.
 class FaceDisplay : public SpiLcdDisplay {
 public:
     FaceDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handle_t panel, int width,
@@ -33,23 +37,20 @@ public:
     void SetHideSubtitle(bool) override {}
     void SetTheme(Theme* theme) override;
 
-    // Called from the device-state hook; read on the LVGL task.
-    void SetSpeaking(bool speaking) { speaking_ = speaking; }
-
 private:
     static void OnTimer(lv_timer_t* timer);
     static void OnDraw(lv_event_t* event);
     void Tick();
-    void Draw(lv_layer_t* layer, const lv_area_t& area);
+    void Request(nb_expression_t expression);
 
     ExpressionArbiter& arbiter_;
-    std::atomic<bool> speaking_{false};
 
     // Owned by the LVGL task.
     lv_obj_t* face_ = nullptr;
-    nb_face_anim_t anim_;
-    nb_face_params_t pose_;
+    nb_avatar_core_state_t avatar_;
+    nb_avatar_render_frame_t frame_;
     nb_expression_t shown_ = NB_EXPR_NEUTRAL;
+    uint32_t last_tick_ms_ = 0;
 };
 
 #endif  // NB3_FACE_DISPLAY_H

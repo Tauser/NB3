@@ -1,0 +1,224 @@
+#include <math.h>
+
+#include "nb_avatar.h"
+#include "nb_test.h"
+
+static void test_idle_uses_reference_silhouette(void)
+{
+    nb_avatar_core_state_t state;
+    nb_avatar_render_frame_t frame;
+    nb_avatar_core_init(&state, 1u);
+    nb_avatar_core_get_frame(&state, &frame);
+
+    NB_CHECK(frame.enabled);
+    NB_CHECK(frame.expression == NB_AVATAR_EXPR_IDLE);
+    NB_CHECK(frame.pose.left_eye.width == 155.0f);
+    NB_CHECK(frame.pose.left_eye.height == 360.0f);
+    NB_CHECK(frame.pose.left_eye.x == -225.0f);
+    NB_CHECK(frame.pose.right_eye.x == 225.0f);
+}
+
+static void test_catalog_resolves_all_twelve_expressions(void)
+{
+    nb_avatar_core_state_t state;
+    nb_avatar_render_frame_t frame;
+    nb_avatar_core_init(&state, 2u);
+    for (int id = NB_AVATAR_EXPR_IDLE; id < NB_AVATAR_EXPR_COUNT; ++id) {
+        NB_CHECK(nb_avatar_core_request(&state, (nb_avatar_expression_t)id));
+        nb_avatar_core_tick(&state, 50u);
+        nb_avatar_core_get_frame(&state, &frame);
+        NB_CHECK(frame.enabled);
+        NB_CHECK(frame.expression == (nb_avatar_expression_t)id);
+        NB_CHECK(isfinite(frame.pose.left_eye.width));
+        NB_CHECK(frame.pose.left_eye.width > 0.0f);
+        NB_CHECK(nb_avatar_core_expression_name((nb_avatar_expression_t)id)[0] != '\0');
+    }
+    NB_CHECK(!nb_avatar_core_request(&state, NB_AVATAR_EXPR_COUNT));
+}
+
+static void test_persistent_expressions_loop(void)
+{
+    const nb_avatar_expression_t ids[] = {
+        NB_AVATAR_EXPR_IDLE,
+        NB_AVATAR_EXPR_LISTENING,
+        NB_AVATAR_EXPR_THINKING,
+    };
+    for (size_t i = 0; i < sizeof(ids) / sizeof(ids[0]); ++i) {
+        nb_avatar_core_state_t state;
+        nb_avatar_render_frame_t frame;
+        nb_avatar_core_init(&state, 3u);
+        NB_CHECK(nb_avatar_core_request(&state, ids[i]));
+        for (uint32_t elapsed = 0; elapsed < 30000u; elapsed += 37u) {
+            nb_avatar_core_tick(&state, 37u);
+        }
+        nb_avatar_core_get_frame(&state, &frame);
+        NB_CHECK(frame.expression == ids[i]);
+        NB_CHECK(frame.pose.left_eye.width > 0.0f);
+    }
+}
+
+static void test_once_expression_returns_to_current_base(void)
+{
+    nb_avatar_core_state_t state;
+    nb_avatar_render_frame_t frame;
+    nb_avatar_core_init(&state, 4u);
+    NB_CHECK(nb_avatar_core_request(&state, NB_AVATAR_EXPR_LISTENING));
+    nb_avatar_core_tick(&state, 700u);
+    NB_CHECK(nb_avatar_core_request(&state, NB_AVATAR_EXPR_SURPRISED));
+    for (uint32_t elapsed = 0; elapsed < 8000u; elapsed += 20u) {
+        nb_avatar_core_tick(&state, 20u);
+    }
+    nb_avatar_core_get_frame(&state, &frame);
+    NB_CHECK(frame.expression == NB_AVATAR_EXPR_LISTENING);
+}
+
+static void test_gaze_target_moves_face_in_both_axes(void)
+{
+    nb_avatar_core_state_t state;
+    nb_avatar_render_frame_t frame;
+    nb_avatar_core_init(&state, 5u);
+    nb_avatar_core_set_gaze_target(&state, 1.0f, 1.0f, true);
+    for (uint32_t elapsed = 0u; elapsed < 1200u; elapsed += 20u) {
+        nb_avatar_core_tick(&state, 20u);
+    }
+    nb_avatar_core_get_frame(&state, &frame);
+    const float right_center_x = (frame.pose.left_eye.x + frame.pose.right_eye.x) * 0.5f;
+    const float down_center_y = (frame.pose.left_eye.y + frame.pose.right_eye.y) * 0.5f;
+    NB_CHECK(right_center_x > 45.0f);
+    NB_CHECK(down_center_y > 30.0f);
+
+    nb_avatar_core_set_gaze_target(&state, -1.0f, -1.0f, true);
+    for (uint32_t elapsed = 0u; elapsed < 1600u; elapsed += 20u) {
+        nb_avatar_core_tick(&state, 20u);
+    }
+    nb_avatar_core_get_frame(&state, &frame);
+    const float left_center_x = (frame.pose.left_eye.x + frame.pose.right_eye.x) * 0.5f;
+    const float up_center_y = (frame.pose.left_eye.y + frame.pose.right_eye.y) * 0.5f;
+    NB_CHECK(left_center_x < -45.0f);
+    NB_CHECK(up_center_y < -30.0f);
+}
+
+static void test_idle_keeps_visible_2_5d_attention(void)
+{
+    nb_avatar_core_state_t state;
+    nb_avatar_render_frame_t early;
+    nb_avatar_render_frame_t up;
+    nb_avatar_render_frame_t side;
+    nb_avatar_render_frame_t down;
+    nb_avatar_core_init(&state, 6u);
+    for (uint32_t elapsed = 0u; elapsed < 1000u; elapsed += 20u) {
+        nb_avatar_core_tick(&state, 20u);
+    }
+    nb_avatar_core_get_frame(&state, &early);
+    for (uint32_t elapsed = 1000u; elapsed < 5000u; elapsed += 20u) {
+        nb_avatar_core_tick(&state, 20u);
+    }
+    nb_avatar_core_get_frame(&state, &up);
+
+    for (uint32_t elapsed = 5000u; elapsed < 12000u; elapsed += 20u) {
+        nb_avatar_core_tick(&state, 20u);
+    }
+    nb_avatar_core_get_frame(&state, &down);
+
+    for (uint32_t elapsed = 12000u; elapsed < 18000u; elapsed += 20u) {
+        nb_avatar_core_tick(&state, 20u);
+    }
+    nb_avatar_core_get_frame(&state, &side);
+
+    const float early_center_y = (early.pose.left_eye.y + early.pose.right_eye.y) * 0.5f;
+    const float up_center_y = (up.pose.left_eye.y + up.pose.right_eye.y) * 0.5f;
+    const float down_center_y = (down.pose.left_eye.y + down.pose.right_eye.y) * 0.5f;
+    NB_CHECK(up_center_y < early_center_y - 75.0f);
+    NB_CHECK(down_center_y > early_center_y + 75.0f);
+    NB_CHECK(fabsf(side.pose.left_eye.width - side.pose.right_eye.width) > 18.0f);
+    NB_CHECK(fabsf((down.pose.left_eye.x + down.pose.right_eye.x) * 0.5f) < 5.0f);
+    /* 2.5D pitch: besides moving in Y, the face comes closer, the eyes
+     * compress slightly and tilt in opposite directions. */
+    NB_CHECK(down.pose.left_eye.height < early.pose.left_eye.height * 0.94f);
+    NB_CHECK(down.pose.face_scale > early.pose.face_scale * 1.04f);
+    NB_CHECK(down.pose.left_eye.angle * down.pose.right_eye.angle < 0.0f);
+}
+
+static void test_external_blink_modulates_without_replacing_expression(void)
+{
+    nb_avatar_core_state_t state;
+    nb_avatar_render_frame_t frame;
+    nb_avatar_core_init(&state, 7u);
+    NB_CHECK(nb_avatar_core_request(&state, NB_AVATAR_EXPR_LISTENING));
+    nb_avatar_core_set_blink_override(&state, 0.35f, true);
+    nb_avatar_core_get_frame(&state, &frame);
+    NB_CHECK(frame.expression == NB_AVATAR_EXPR_LISTENING);
+    NB_CHECK(fabsf(frame.blink_scale - 0.35f) < 0.0001f);
+    nb_avatar_core_set_blink_override(&state, 0.0f, false);
+    nb_avatar_core_get_frame(&state, &frame);
+    NB_CHECK(fabsf(frame.blink_scale - 1.0f) < 0.0001f);
+}
+
+static void test_sleepy_holds_until_product_state_requests_idle(void)
+{
+    nb_avatar_core_state_t state;
+    nb_avatar_render_frame_t frame;
+    nb_avatar_core_init(&state, 8u);
+    NB_CHECK(nb_avatar_core_request(&state, NB_AVATAR_EXPR_LISTENING));
+    NB_CHECK(nb_avatar_core_play(&state, NB_AVATAR_EXPR_SLEEPY, NB_AVATAR_PLAY_ONCE, false));
+    for (uint32_t elapsed = 0u; elapsed < 8000u; elapsed += 20u) {
+        nb_avatar_core_tick(&state, 20u);
+    }
+    nb_avatar_core_get_frame(&state, &frame);
+    NB_CHECK(frame.expression == NB_AVATAR_EXPR_SLEEPY);
+    NB_CHECK(nb_avatar_core_is_once_active(&state));
+
+    NB_CHECK(nb_avatar_core_request(&state, NB_AVATAR_EXPR_IDLE));
+    nb_avatar_core_get_frame(&state, &frame);
+    NB_CHECK(frame.expression == NB_AVATAR_EXPR_IDLE);
+    NB_CHECK(!nb_avatar_core_is_once_active(&state));
+}
+
+static void test_pingpong_keeps_expression_active(void)
+{
+    nb_avatar_core_state_t state;
+    nb_avatar_render_frame_t frame;
+    bool reversed = false;
+    nb_avatar_core_init(&state, 6u);
+    NB_CHECK(nb_avatar_core_play(&state, NB_AVATAR_EXPR_CURIOUS, NB_AVATAR_PLAY_PINGPONG, false));
+    for (uint32_t elapsed = 0u; elapsed < 10000u; elapsed += 20u) {
+        nb_avatar_core_tick(&state, 20u);
+        if (state.playback_direction < 0) {
+            reversed = true;
+        }
+    }
+    nb_avatar_core_get_frame(&state, &frame);
+    NB_CHECK(reversed);
+    NB_CHECK(frame.expression == NB_AVATAR_EXPR_CURIOUS);
+    NB_CHECK(state.playback == NB_AVATAR_PLAY_PINGPONG);
+}
+
+static void test_null_calls_are_safe(void)
+{
+    nb_avatar_render_frame_t frame;
+    nb_avatar_core_init(NULL, 0u);
+    nb_avatar_core_tick(NULL, 10u);
+    NB_CHECK(!nb_avatar_core_request(NULL, NB_AVATAR_EXPR_IDLE));
+    NB_CHECK(!nb_avatar_core_play(NULL, NB_AVATAR_EXPR_IDLE, NB_AVATAR_PLAY_LOOP, false));
+    NB_CHECK(!nb_avatar_core_play(NULL, NB_AVATAR_EXPR_IDLE,
+                               (nb_avatar_playback_t)(NB_AVATAR_PLAY_PINGPONG + 1), false));
+    nb_avatar_core_set_gaze_target(NULL, 1.0f, 1.0f, true);
+    nb_avatar_core_set_blink_override(NULL, 0.0f, true);
+    nb_avatar_core_get_frame(NULL, &frame);
+    NB_CHECK(!frame.enabled);
+    nb_avatar_core_get_frame(NULL, NULL);
+}
+
+int main(void) {
+    NB_RUN(test_idle_uses_reference_silhouette);
+    NB_RUN(test_catalog_resolves_all_twelve_expressions);
+    NB_RUN(test_persistent_expressions_loop);
+    NB_RUN(test_once_expression_returns_to_current_base);
+    NB_RUN(test_gaze_target_moves_face_in_both_axes);
+    NB_RUN(test_idle_keeps_visible_2_5d_attention);
+    NB_RUN(test_external_blink_modulates_without_replacing_expression);
+    NB_RUN(test_sleepy_holds_until_product_state_requests_idle);
+    NB_RUN(test_pingpong_keeps_expression_active);
+    NB_RUN(test_null_calls_are_safe);
+    NB_TEST_MAIN_END();
+}

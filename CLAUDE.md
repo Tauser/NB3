@@ -33,8 +33,11 @@ editar o patch, nunca o diretório baixado. Subir tag é decisão registrada.
 `mirrors` no `repos.json`); dependência só do NB3 vai em componente próprio,
 não nessa cópia.
 
-Referências de consulta (não copiar código sem pedido): `D:\Projetos\Noisebot2`
-(núcleos, face, motion_safety) e `D:\Projetos\StackChan` (integração xiaozhi,
+`D:\Projetos\Noisebot2` é **fonte**: núcleos, face/avatar, motion_safety e o
+que mais fizer sentido podem ser portados. Ao portar, adaptar às regras daqui
+(C17 puro + casca fina, APIs do IDF 6, LVGL em vez de LovyanGFX, comentários
+sem histórico nem referências a fases/RFCs do NB2) e trazer os host-tests
+junto. `D:\Projetos\StackChan` é referência de consulta (integração xiaozhi,
 modifiers, servos SCS, MCP).
 
 ## Ambiente (Windows, ESP-IDF 6.1)
