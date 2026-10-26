@@ -106,4 +106,5 @@ defaults. Host-tests usam o gcc do MSYS2 (`C:\msys64\ucrt64\bin`).
 ## Processo
 
 Commits pequenos e frequentes, sem fases burocráticas. Decisão nova entra na
-tabela de `docs/README.md`.
+tabela de `docs/README.md`. A cada entrega, atualizar `docs/ROADMAP.md`
+(situação da etapa, itens feitos com o commit, o que falta validar).

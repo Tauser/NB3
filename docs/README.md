@@ -70,8 +70,12 @@ xiaozhi v2.5.2 com a board NB3, ativado no xiaozhi.me.
 - **Privacidade** — áudio e conversas trafegam pelos servidores do xiaozhi.me.
 - **Dependência de terceiro** — disponibilidade e limites do plano gratuito.
 
-## Documentos planejados
+## Documentos
 
-- `ROADMAP.md` — etapas 0–4 com prova de sucesso de cada uma
+- [ROADMAP.md](ROADMAP.md) — etapas 0–4, prova de sucesso e andamento de cada uma
+
+Planejados:
+
+
 - `HARDWARE.md` — pinout detalhado, energia e cabeamento dos servos
 - `SAFETY.md` — máquina de estados do `motion_safety` e limiares

@@ -5,8 +5,8 @@ movimento, toque, LEDs, reflexos) sobre uma mente de IA em nuvem. Liga na
 tomada, conecta no WiFi e conversa — **nenhum serviço, server ou LLM rodando
 fora do robô e da nuvem**.
 
-> **Status:** projeto iniciado. Ainda não há código; este repositório registra
-> a visão, as decisões e a estrutura planejada.
+> **Status:** etapa 0 concluída, etapa 1 implementada, núcleos da etapa 2
+> prontos. Ver [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Princípios
 
@@ -68,6 +68,9 @@ docs/       decisões, hardware e roadmap (ver docs/README.md)
 ```
 
 ## Roadmap
+
+Andamento detalhado de cada etapa, com o que foi entregue e o que falta:
+[docs/ROADMAP.md](docs/ROADMAP.md).
 
 | Etapa | Entrega | Prova de sucesso |
 |---|---|---|
