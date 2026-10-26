@@ -18,6 +18,7 @@ typedef enum {
     NB_SOURCE_COMMAND,    // explicit request from the AI through an MCP tool
     NB_SOURCE_TOUCH,      // body touch reactions
     NB_SOURCE_REFLEX,     // short local reflexes (startle, blink bursts)
+    NB_SOURCE_MOOD,       // the robot's own mood, shown when nothing else is
     NB_SOURCE_COUNT
 } nb_source_t;
 

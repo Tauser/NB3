@@ -105,6 +105,24 @@ static void test_timed_command_survives_idle_and_resumes_after_touch(void) {
     NB_CHECK_EQ_INT(NB_EXPR_NEUTRAL, nb_arbiter_resolve(&a, 30000));
 }
 
+// The mood: lowest priority, not transient, no expiry.
+static void test_mood_shows_at_rest_and_survives_idle(void) {
+    nb_arbiter_t a;
+    nb_arbiter_init(&a, NB_EXPR_NEUTRAL);
+    nb_proposal_t mood = proposal(NB_EXPR_ANGRY, 3, 0, false);
+    nb_proposal_t listening = proposal(NB_EXPR_LISTENING, 5, 0, true);
+    nb_proposal_t emotion = proposal(NB_EXPR_HAPPY, 20, 0, true);
+    NB_CHECK(nb_arbiter_propose(&a, NB_SOURCE_MOOD, &mood, 0));
+    NB_CHECK(nb_arbiter_propose(&a, NB_SOURCE_STATE, &listening, 1));
+    NB_CHECK_EQ_INT(NB_EXPR_LISTENING, nb_arbiter_resolve(&a, 2));
+    NB_CHECK(nb_arbiter_propose(&a, NB_SOURCE_EMOTION, &emotion, 3));
+    NB_CHECK_EQ_INT(NB_EXPR_HAPPY, nb_arbiter_resolve(&a, 4));
+
+    nb_arbiter_enter_idle(&a);
+    nb_arbiter_withdraw(&a, NB_SOURCE_STATE);
+    NB_CHECK_EQ_INT(NB_EXPR_ANGRY, nb_arbiter_resolve(&a, 600000));
+}
+
 static void test_withdraw_removes_only_that_source(void) {
     nb_arbiter_t a;
     nb_arbiter_init(&a, NB_EXPR_NEUTRAL);
@@ -138,6 +156,7 @@ int main(void) {
     NB_RUN(test_idle_clears_transient_and_keeps_persistent);
     NB_RUN(test_idle_with_only_transient_returns_baseline);
     NB_RUN(test_timed_command_survives_idle_and_resumes_after_touch);
+    NB_RUN(test_mood_shows_at_rest_and_survives_idle);
     NB_RUN(test_withdraw_removes_only_that_source);
     NB_RUN(test_invalid_input_is_rejected);
     NB_TEST_MAIN_END();

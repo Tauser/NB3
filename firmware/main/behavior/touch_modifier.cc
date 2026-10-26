@@ -11,6 +11,7 @@ constexpr uint32_t kSamplePeriodMs = 20;
 constexpr uint32_t kSettleMs = 200;           // pad must be untouched while settling
 constexpr uint32_t kTapReactionMs = 1500;
 constexpr uint32_t kPetAfterglowMs = 2000;
+constexpr uint32_t kPetPulseMs = 4000;  // petting warms the mood again this often
 
 uint32_t NowMs() {
     return static_cast<uint32_t>(esp_timer_get_time() / 1000);
@@ -18,7 +19,8 @@ uint32_t NowMs() {
 
 }  // namespace
 
-TouchModifier::TouchModifier(int channel, ExpressionArbiter& arbiter) : arbiter_(arbiter) {
+TouchModifier::TouchModifier(int channel, ExpressionArbiter& arbiter, MoodModifier& mood)
+    : arbiter_(arbiter), mood_(mood) {
     nb_touch_config_t cfg = nb_touch_default_config();
     nb_touch_init(&touch_, &cfg);
 
@@ -68,6 +70,11 @@ void TouchModifier::Run() {
             if (event != NB_TOUCH_NONE) {
                 OnEvent(event);
             }
+            const uint32_t now = NowMs();
+            if (touch_.hold_sent && touch_.touched && now - last_pet_pulse_ms_ >= kPetPulseMs) {
+                last_pet_pulse_ms_ = now;
+                mood_.OnPetting();
+            }
         }
         vTaskDelay(pdMS_TO_TICKS(kSamplePeriodMs));
     }
@@ -79,12 +86,15 @@ void TouchModifier::OnEvent(nb_touch_event_t event) {
             ESP_LOGI(TAG, "Tap");
             nb_proposal_t happy = {NB_EXPR_HAPPY, priority::kTouch, kTapReactionMs, true};
             arbiter_.Propose(NB_SOURCE_TOUCH, happy);
+            mood_.OnTap();
             break;
         }
         case NB_TOUCH_HOLD: {
             ESP_LOGI(TAG, "Petting");
             nb_proposal_t loving = {NB_EXPR_LOVING, priority::kTouch, 0, true};
             arbiter_.Propose(NB_SOURCE_TOUCH, loving);
+            last_pet_pulse_ms_ = NowMs();
+            mood_.OnPetting();
             break;
         }
         case NB_TOUCH_RELEASE: {

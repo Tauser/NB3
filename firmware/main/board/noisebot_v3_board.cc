@@ -8,6 +8,7 @@
 #include "behavior/expression_arbiter.h"
 #include "behavior/state_led.h"
 #include "behavior/mood_lights.h"
+#include "behavior/mood_modifier.h"
 #include "behavior/touch_modifier.h"
 #include "face/face_display.h"
 #include "mcp/face_tools.h"
@@ -75,6 +76,7 @@ class NoiseBotV3Board : public WifiBoard {
 private:
     Button boot_button_;
     ExpressionArbiter arbiter_{NB_EXPR_NEUTRAL};
+    MoodModifier mood_{arbiter_};
     FaceDisplay* display_ = nullptr;
 
     void InitializeSpi() {
@@ -115,7 +117,8 @@ private:
 
         display_ = new FaceDisplay(panel_io, panel, DISPLAY_WIDTH, DISPLAY_HEIGHT,
                                    DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y,
-                                   DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY, arbiter_);
+                                   DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY, arbiter_,
+                                   mood_);
     }
 
     void InitializeButtons() {
@@ -135,14 +138,14 @@ public:
         InitializeDisplay();
         InitializeButtons();
         RegisterFaceTools(arbiter_);
-        static TouchModifier touch(BODY_TOUCH_CHANNEL, arbiter_);
+        static TouchModifier touch(BODY_TOUCH_CHANNEL, arbiter_, mood_);
         static MoodLights mood_lights(MOOD_LED_GPIO, MOOD_LED_COUNT, MOOD_LED_MAX_BRIGHTNESS,
                                       arbiter_);
     }
 
     Led* GetLed() override {
         static SingleLed status_led(BUILTIN_LED_GPIO);
-        static StateLed led(status_led, arbiter_);
+        static StateLed led(status_led, arbiter_, mood_);
         return &led;
     }
 

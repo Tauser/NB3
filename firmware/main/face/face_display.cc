@@ -226,10 +226,12 @@ struct Painter {
 
 FaceDisplay::FaceDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handle_t panel,
                          int width, int height, int offset_x, int offset_y, bool mirror_x,
-                         bool mirror_y, bool swap_xy, ExpressionArbiter& arbiter)
+                         bool mirror_y, bool swap_xy, ExpressionArbiter& arbiter,
+                         MoodModifier& mood)
     : SpiLcdDisplay(panel_io, panel, width, height, offset_x, offset_y, mirror_x, mirror_y,
                     swap_xy),
-      arbiter_(arbiter) {
+      arbiter_(arbiter),
+      mood_(mood) {
     nb_banner_init(&banner_);
     nb_avatar_core_init(&avatar_, esp_random());
     nb_avatar_core_get_frame(&avatar_, &frame_);
@@ -276,7 +278,8 @@ void FaceDisplay::SetupUI() {
 }
 
 void FaceDisplay::SetEmotion(const char* emotion) {
-    // The emoji is never drawn: the emotion becomes a proposal like any other.
+    // The emoji is never drawn: the emotion becomes a proposal like any other,
+    // and a push on the mood.
     // xiaozhi sends "neutral" on most state changes to mean "no emotion", so
     // it withdraws the proposal instead of masking the state's expression.
     nb_expression_t expression = nb_expression_from_emotion(emotion);
@@ -286,6 +289,7 @@ void FaceDisplay::SetEmotion(const char* emotion) {
     }
     nb_proposal_t proposal = {expression, priority::kEmotion, 0, true};
     arbiter_.Propose(NB_SOURCE_EMOTION, proposal);
+    mood_.OnEmotion(expression);
 }
 
 void FaceDisplay::ShowBanner(nb_banner_kind_t kind, const char* text, uint32_t timeout_ms) {

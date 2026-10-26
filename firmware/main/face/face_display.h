@@ -8,6 +8,7 @@
 #include <lvgl.h>
 
 #include "behavior/expression_arbiter.h"
+#include "behavior/mood_modifier.h"
 #include "core/nb_avatar.h"
 #include "core/nb_banner.h"
 #include "display/lcd_display.h"
@@ -25,7 +26,7 @@ class FaceDisplay : public SpiLcdDisplay {
 public:
     FaceDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handle_t panel, int width,
                 int height, int offset_x, int offset_y, bool mirror_x, bool mirror_y, bool swap_xy,
-                ExpressionArbiter& arbiter);
+                ExpressionArbiter& arbiter, MoodModifier& mood);
 
     void SetupUI() override;
     void SetEmotion(const char* emotion) override;
@@ -49,6 +50,7 @@ private:
     void UpdateBanner();
 
     ExpressionArbiter& arbiter_;
+    MoodModifier& mood_;
 
     // Owned by the LVGL task.
     lv_obj_t* face_ = nullptr;
