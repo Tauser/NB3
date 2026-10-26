@@ -135,27 +135,35 @@ de conversa do xiaozhi. Spec em [VIDA.md](VIDA.md).
 
 **Prova de sucesso:** em IDLE o robô continua contente ou irritado conforme
 o que aconteceu; voltar ao IDLE limpa ações temporárias e preserva o humor;
-um fato registrado pela conversa é lembrado depois de reiniciar e some
-quando pedido para esquecer; sem microSD o robô funciona e avisa.
+o roteiro de aceitação de VIDA.md §8 passa (registrar → reiniciar →
+recordar → corrigir → reiniciar → conferir → esquecer → reiniciar →
+ausência); sem microSD o robô funciona e avisa.
 
 1. [ ] **Duração da expressão** acima das animações de uma execução: a
    proposta vencedora do árbitro se mantém na face enquanto valer.
 2. [ ] **Humor** (`core/nb_mood_vector` ou nome final): vetor valência ×
-   ativação, decaimento ao temperamento, recuperação negativa mais lenta,
-   escolha de expressão com histerese; fonte `MOOD` no árbitro; estímulos de
-   emoção do xiaozhi, toque e conversa. Host-test.
+   ativação em RAM, decaimento ao temperamento, recuperação negativa mais
+   lenta, habituação por chave de estímulo, escolha de expressão com
+   histerese; fonte `MOOD` (prioridade 3, não transitória) no árbitro.
+   Host-test, incluindo estímulo repetido sem acumular (VIDA.md §3).
 3. [ ] **Estados comportamentais** (IDLE, ENGAGED, REACTING, SLEEPING,
    FAULT; modo quiet) derivados de `DeviceState` sem duplicar a conversa;
    teste de que toda volta ao IDLE limpa o transitório e preserva o humor.
 4. [ ] **Personalidade**: temperamento, reatividade, recuperação e iniciativa
    com default no firmware e override no SD.
-5. [ ] **microSD** (SDMMC 1-bit, GPIO 6/15/16): casca FATFS, escrita
-   atômica, versão de formato, funcionamento sem SD com aviso no banner.
-6. [ ] **Memória média e longa**: núcleo de episódios com importância que
-   decai, perfil/fatos/preferências; consolidação simples. Host-test.
-7. [ ] **MCP**: `self.mood.get`, `self.mood.stimulate`,
+5. [ ] **Hora para a memória**: validade por piso de build, registros sem
+   hora com `boot_id` + monotônico, último instante visto persistido,
+   relógio voltando tratado como inválido (VIDA.md §5.1). Host-test.
+6. [ ] **microSD** (SDMMC 1-bit, GPIO 6/15/16): task única dona do cartão,
+   dois slots com geração e CRC, log de episódios com quadros e `seq`,
+   modo degradado sem formatar (VIDA.md §5.2). Host-test de corrupção e
+   truncamento em cada byte; bancada com cortes de energia durante escrita.
+7. [ ] **Memória média e longa**: episódios com importância calculada pela
+   idade, perfil/fatos/preferências, viés de humor limitado, esquecimento
+   que remove derivados (VIDA.md §5, §5.3). Host-test do roteiro de §8.
+8. [ ] **MCP**: `self.mood.get`, `self.mood.stimulate`,
    `self.memory.recall`/`remember`/`correct`/`forget`, com descrições ricas.
-8. [ ] Verificar no console do xiaozhi.me o que a memória do agente oferece
+9. [ ] Verificar no console do xiaozhi.me o que a memória do agente oferece
    e registrar em VIDA.md §7.
 
 ---
