@@ -139,17 +139,17 @@ o roteiro de aceitação de VIDA.md §8 passa (registrar → reiniciar →
 recordar → corrigir → reiniciar → conferir → esquecer → reiniciar →
 ausência); sem microSD o robô funciona e avisa.
 
-1. [~] **Duração da expressão** acima das animações de uma execução
+1. [x] **Duração da expressão** acima das animações de uma execução
    (`39568c7`): a expressão vencedora fica na pose final com movimento mais
    calmo enquanto valer; ao voltar ao IDLE, um gesto ainda na primeira
    passada termina antes. `core/nb_face_link` liga árbitro e avatar, com
    host-test conjunto. O comando `self.face.set_expression` passou a ser não
-   transitório: dura o prazo pedido mesmo depois de voltar à espera, e toque
-   e falha o encobrem sem parar o relógio. Falta ver em bancada: "cara de
-   bravo por 30 s" dura 30 s com o robô já em espera; tap no meio encobre e
-   o bravo volta; tap ainda completa o gesto (os LEDs podem voltar ~0,4 s
-   antes da face, porque a proposta do tap dura 1,5 s e o gesto ~1,9 s);
-   carinho mantém a face durante o toque.
+   transitório (`83c6033`): dura o prazo pedido mesmo depois de voltar à
+   espera, e toque e falha o encobrem sem parar o relógio. Validado em
+   bancada: "cara de bravo por 30 s" durou 30 s com o robô em espera; tap no
+   meio encobriu e o bravo voltou; tap completa o gesto e carinho mantém a
+   face. Não conferido: LEDs junto da face (diferença esperada de ~0,4 s no
+   fim do tap, porque a proposta dura 1,5 s e o gesto ~1,9 s).
 2. [ ] **Humor** (`core/nb_mood_vector` ou nome final): vetor valência ×
    ativação em RAM, decaimento ao temperamento, recuperação negativa mais
    lenta, habituação por chave de estímulo, escolha de expressão com
