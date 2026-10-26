@@ -7,6 +7,7 @@
 #include "led/single_led.h"
 #include "behavior/expression_arbiter.h"
 #include "behavior/state_led.h"
+#include "behavior/mood_lights.h"
 #include "behavior/touch_modifier.h"
 #include "face/face_display.h"
 #include "mcp/face_tools.h"
@@ -116,6 +117,8 @@ public:
         InitializeButtons();
         RegisterFaceTools(arbiter_);
         static TouchModifier touch(BODY_TOUCH_CHANNEL, arbiter_);
+        static MoodLights mood_lights(MOOD_LED_GPIO, MOOD_LED_COUNT, MOOD_LED_MAX_BRIGHTNESS,
+                                      arbiter_);
     }
 
     Led* GetLed() override {

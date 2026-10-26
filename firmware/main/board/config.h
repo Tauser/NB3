@@ -31,6 +31,12 @@
 // Copper-tape body pad on GPIO2 = touch channel 2.
 #define BODY_TOUCH_CHANNEL 2
 
+// External WS2812 body LEDs. The brightness cap keeps them from glaring next
+// to the face; the data line is driven at 3.3 V without a level shifter.
+#define MOOD_LED_GPIO           GPIO_NUM_21
+#define MOOD_LED_COUNT          2
+#define MOOD_LED_MAX_BRIGHTNESS 60
+
 // ST7789 2" on SPI2; RST and backlight are hardwired, reset is SWRESET.
 #define DISPLAY_SPI_HOST    SPI2_HOST
 #define DISPLAY_CS_PIN      GPIO_NUM_10
