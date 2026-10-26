@@ -103,8 +103,12 @@ void StoreService::Run() {
     while (true) {
         Job* job = nullptr;
         if (xQueueReceive(queue_, &job, available_ ? portMAX_DELAY : kRetryTicks) != pdTRUE) {
-            if (!available_ && Mount()) {
-                Probe();
+            if (!available_) {
+                if (Mount()) {
+                    Probe();
+                } else if (listener_) {
+                    listener_(false);  // still missing: the listener decides whether to remind
+                }
             }
             continue;
         }

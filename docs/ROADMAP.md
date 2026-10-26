@@ -227,9 +227,13 @@ ausência); sem microSD o robô funciona e avisa.
    truncamentos; o slot mais novo danificado nunca vence. Visto em bancada:
    cartão de 960 MB montado, slot de teste alternando A (geração 1) e B
    (geração 2) entre boots. A personalidade passa a vir do
-   `personalidade.ini` do cartão quando existe. Falta ver: boot sem cartão
-   (aviso e nova montagem), arquivo de personalidade, cortes de energia
-   durante escrita (com a memória do item 8 gravando de verdade).
+   `personalidade.ini` do cartão quando existe (visto: 2 chaves aplicadas,
+   reatividade 0.60 e recuperação 300 s). Sem cartão: erro logado, nova
+   tentativa a cada 30 s; o aviso no boot era coberto pelo "Procurando
+   redes Wi-Fi", então ele repete na primeira tentativa e depois a cada
+   5 min. Falta ver: o aviso repetido na tela, o cartão montando ao ser
+   inserido com o robô ligado, cortes de energia durante escrita (com a
+   memória do item 8 gravando de verdade).
 8. [ ] **Memória média e longa**: episódios com importância calculada pela
    idade, perfil/fatos/preferências, viés de humor limitado, esquecimento
    que remove derivados (VIDA.md §5, §5.3). Host-test do roteiro de §8.

@@ -116,6 +116,9 @@ private:
     ClockService clock_;
     AudioLevels audio_levels_;
     FaceDisplay* display_ = nullptr;
+    static constexpr uint32_t kMissingReminderMs = 5 * 60 * 1000;
+    int missing_notices_ = 0;           // store task only
+    uint32_t last_missing_notice_ms_ = 0;
 
     void InitializeSpi() {
         spi_bus_config_t buscfg = {};
@@ -175,8 +178,17 @@ public:
         InitializeSpi();
         InitializeDisplay();
         InitializeButtons();
+        // Without a card: warn at boot, again at the first retry (the boot
+        // notices tend to cover the first one), then every few minutes.
         store_.SetListener([this](bool available) {
-            if (!available) {
+            if (available) {
+                missing_notices_ = 0;
+                return;
+            }
+            const uint32_t now = static_cast<uint32_t>(esp_timer_get_time() / 1000);
+            if (missing_notices_ < 2 || now - last_missing_notice_ms_ >= kMissingReminderMs) {
+                missing_notices_++;
+                last_missing_notice_ms_ = now;
                 display_->ShowNotification("Memória indisponível: sem microSD", 8000);
             }
         });

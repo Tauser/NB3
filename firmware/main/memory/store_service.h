@@ -19,7 +19,7 @@
 // interrupted write never corrupts what was there before. The card is never
 // formatted by the firmware. Without a card, or after an I/O error, the
 // service is unavailable (degraded): calls fail fast, the listener hears
-// about it once, and mounting is retried in the background.
+// about it, and mounting is retried in the background.
 class StoreService {
 public:
     StoreService();
@@ -29,7 +29,8 @@ public:
     StoreService& operator=(const StoreService&) = delete;
 
     bool Available() const { return available_; }
-    // Called from the store task whenever the card comes or goes.
+    // Called from the store task when the card comes or goes, and again after
+    // every failed retry while it is missing.
     void SetListener(std::function<void(bool available)> listener);
 
     // A small text file in the memory folder, e.g. the personality.
