@@ -85,11 +85,16 @@ alternar na fronteira) e a propõe ao árbitro como fonte `MOOD`:
 | 60 | falha (`kFault`) | não |
 | 50 | reflexo | sim |
 | 40 | toque | sim |
-| 30 | comando MCP | sim |
+| 30 | comando MCP | não; expira no prazo pedido |
 | 20 | emoção da conversa | sim |
 | 5 | estado operacional (escuta, conexão, Wi-Fi) | sim |
 | **3** | **humor (`MOOD`)** | **não** |
 | — | baseline do árbitro | — |
+
+O comando MCP de expressão é explícito e tem prazo, então sobrevive à volta
+ao IDLE: "faz cara de bravo por 30 segundos" dura 30 s. Toque e falha o
+encobrem; ao terminarem, ele reaparece se ainda estiver no prazo, que continua
+correndo por baixo.
 
 Os estados operacionais vencem o humor: durante a escuta a face mostra
 escuta. Como `MOOD` não é transitória, `EnterIdle()` não a remove; ao voltar

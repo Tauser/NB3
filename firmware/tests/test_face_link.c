@@ -42,6 +42,13 @@ static void rig_propose(rig_t *rig, nb_source_t source, nb_expression_t expressi
     NB_CHECK(nb_arbiter_propose(&rig->arbiter, source, &proposal, rig->now_ms));
 }
 
+static void rig_propose_timed(rig_t *rig, nb_source_t source, nb_expression_t expression,
+                              uint8_t priority, uint32_t ttl_ms)
+{
+    nb_proposal_t proposal = {expression, priority, ttl_ms, false};
+    NB_CHECK(nb_arbiter_propose(&rig->arbiter, source, &proposal, rig->now_ms));
+}
+
 static nb_avatar_expression_t on_screen(const rig_t *rig)
 {
     nb_avatar_render_frame_t frame;
@@ -60,6 +67,26 @@ static void test_command_holds_face_for_its_whole_duration(void)
     NB_CHECK(on_screen(&rig) == NB_AVATAR_EXPR_HAPPY);
     rig_run(&rig, 6000u);
     NB_CHECK_EQ_INT(NB_EXPR_NEUTRAL, rig.shown);
+    NB_CHECK(on_screen(&rig) == NB_AVATAR_EXPR_IDLE);
+}
+
+static void test_command_outlives_idle_and_returns_after_touch(void)
+{
+    rig_t rig;
+    rig_init(&rig);
+    rig_propose_timed(&rig, NB_SOURCE_COMMAND, NB_EXPR_ANGRY, 30, 30000u);
+    rig_run(&rig, 3000u);
+    nb_arbiter_enter_idle(&rig.arbiter);
+    rig_run(&rig, 3000u);
+    NB_CHECK(on_screen(&rig) == NB_AVATAR_EXPR_ANGRY);
+
+    rig_propose(&rig, NB_SOURCE_TOUCH, NB_EXPR_HAPPY, 40, 1500u);
+    rig_run(&rig, 500u);
+    NB_CHECK(on_screen(&rig) == NB_AVATAR_EXPR_HAPPY);
+    rig_run(&rig, 1500u);
+    NB_CHECK(on_screen(&rig) == NB_AVATAR_EXPR_ANGRY);
+
+    rig_run(&rig, 23500u);
     NB_CHECK(on_screen(&rig) == NB_AVATAR_EXPR_IDLE);
 }
 
@@ -126,6 +153,7 @@ static void test_every_expression_maps_to_an_animation(void)
 
 int main(void) {
     NB_RUN(test_command_holds_face_for_its_whole_duration);
+    NB_RUN(test_command_outlives_idle_and_returns_after_touch);
     NB_RUN(test_short_reaction_finishes_its_gesture);
     NB_RUN(test_loving_holds_while_petting_and_idle_clears_it);
     NB_RUN(test_new_winner_replaces_held_expression_at_once);

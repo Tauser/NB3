@@ -85,6 +85,26 @@ static void test_idle_with_only_transient_returns_baseline(void) {
     NB_CHECK_EQ_INT(NB_EXPR_NEUTRAL, nb_arbiter_resolve(&a, 1));
 }
 
+// The MCP face command: timed, not transient, below touch.
+static void test_timed_command_survives_idle_and_resumes_after_touch(void) {
+    nb_arbiter_t a;
+    nb_arbiter_init(&a, NB_EXPR_NEUTRAL);
+    nb_proposal_t command = proposal(NB_EXPR_ANGRY, 30, 30000, false);
+    nb_proposal_t touch = proposal(NB_EXPR_HAPPY, 40, 1500, true);
+    NB_CHECK(nb_arbiter_propose(&a, NB_SOURCE_COMMAND, &command, 0));
+
+    nb_arbiter_enter_idle(&a);
+    NB_CHECK_EQ_INT(NB_EXPR_ANGRY, nb_arbiter_resolve(&a, 5000));
+
+    NB_CHECK(nb_arbiter_propose(&a, NB_SOURCE_TOUCH, &touch, 10000));
+    NB_CHECK_EQ_INT(NB_EXPR_HAPPY, nb_arbiter_resolve(&a, 10500));
+    NB_CHECK_EQ_INT(NB_EXPR_ANGRY, nb_arbiter_resolve(&a, 11600));
+
+    // The deadline kept running under the touch: it ends at 30 s, not later.
+    NB_CHECK_EQ_INT(NB_EXPR_ANGRY, nb_arbiter_resolve(&a, 29999));
+    NB_CHECK_EQ_INT(NB_EXPR_NEUTRAL, nb_arbiter_resolve(&a, 30000));
+}
+
 static void test_withdraw_removes_only_that_source(void) {
     nb_arbiter_t a;
     nb_arbiter_init(&a, NB_EXPR_NEUTRAL);
@@ -117,6 +137,7 @@ int main(void) {
     NB_RUN(test_expiry_survives_clock_wraparound);
     NB_RUN(test_idle_clears_transient_and_keeps_persistent);
     NB_RUN(test_idle_with_only_transient_returns_baseline);
+    NB_RUN(test_timed_command_survives_idle_and_resumes_after_touch);
     NB_RUN(test_withdraw_removes_only_that_source);
     NB_RUN(test_invalid_input_is_rejected);
     NB_TEST_MAIN_END();

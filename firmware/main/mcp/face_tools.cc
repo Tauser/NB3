@@ -11,9 +11,10 @@ void RegisterFaceTools(ExpressionArbiter& arbiter) {
         "that follows the conversation. Use it when the user asks the robot to make a face "
         "(\"faz cara de bravo\", \"sorri\"), or to stress a reaction in your answer. "
         "expression must be one of: neutral, happy, excited, loving, curious, confused, "
-        "embarrassed, thinking, surprised, sad, angry, sleepy, dizzy. After duration_seconds "
-        "the face goes back to following the conversation on its own; there is no need to "
-        "reset it.",
+        "embarrassed, thinking, surprised, sad, angry, sleepy, dizzy. The expression lasts "
+        "duration_seconds even after the conversation ends; touching the robot briefly covers "
+        "it without stopping the clock. Afterwards the face goes back to following the "
+        "conversation on its own; there is no need to reset it.",
         PropertyList({Property("expression", kPropertyTypeString),
                       Property("duration_seconds", kPropertyTypeInteger, 5, 1, 60)}),
         [&arbiter](const PropertyList& properties) -> ReturnValue {
@@ -25,8 +26,11 @@ void RegisterFaceTools(ExpressionArbiter& arbiter) {
                        "embarrassed, thinking, surprised, sad, angry, sleepy, dizzy.";
             }
             const int seconds = properties["duration_seconds"].value<int>();
+            // Not transient: the AI asked for a duration, so the face keeps it
+            // after the conversation returns to IDLE. Touch and faults still
+            // cover it, and the deadline keeps running underneath them.
             nb_proposal_t proposal = {expression, priority::kCommand,
-                                      static_cast<uint32_t>(seconds) * 1000u, true};
+                                      static_cast<uint32_t>(seconds) * 1000u, false};
             arbiter.Propose(NB_SOURCE_COMMAND, proposal);
             return true;
         });

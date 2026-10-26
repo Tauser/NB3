@@ -143,9 +143,13 @@ ausência); sem microSD o robô funciona e avisa.
    (`39568c7`): a expressão vencedora fica na pose final com movimento mais
    calmo enquanto valer; ao voltar ao IDLE, um gesto ainda na primeira
    passada termina antes. `core/nb_face_link` liga árbitro e avatar, com
-   host-test conjunto. Falta ver em bancada: `self.face.set_expression`
-   HAPPY por 30 s fica na tela; tap ainda completa o gesto; carinho mantém
-   a face durante o toque.
+   host-test conjunto. O comando `self.face.set_expression` passou a ser não
+   transitório: dura o prazo pedido mesmo depois de voltar à espera, e toque
+   e falha o encobrem sem parar o relógio. Falta ver em bancada: "cara de
+   bravo por 30 s" dura 30 s com o robô já em espera; tap no meio encobre e
+   o bravo volta; tap ainda completa o gesto (os LEDs podem voltar ~0,4 s
+   antes da face, porque a proposta do tap dura 1,5 s e o gesto ~1,9 s);
+   carinho mantém a face durante o toque.
 2. [ ] **Humor** (`core/nb_mood_vector` ou nome final): vetor valência ×
    ativação em RAM, decaimento ao temperamento, recuperação negativa mais
    lenta, habituação por chave de estímulo, escolha de expressão com
