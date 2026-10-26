@@ -218,6 +218,14 @@ os núcleos integralmente.
 - [ ] Arcos com desfecho: birra e perdão (taps repetidos), reconciliação
   (humor negativo + carinho), procura com o olhar após tédio.
 - [ ] Energia e tédio; circadiano (requer fonte de hora e fuso explícito).
+- [ ] **Idle autônomo guiado pelo humor**: hoje o olhar em repouso é uma
+  coreografia fixa de 8 olhares em ciclo, e as poses do humor ficam paradas.
+  Trocar por olhares sorteados (destino, duração e pausa ao acaso, dentro de
+  limites, sem repetir o ciclo), com o humor mudando o jeito: ativação alta
+  olha mais rápido e amplo, baixa olha devagar e pisca lento; valência
+  positiva olha para cima e para os lados, negativa para baixo e desvia. O
+  olhar passa a correr também por cima de contente, triste e das outras
+  poses do humor. Núcleo C17 com host-test.
 - [ ] "Pensar sozinho" no repouso: sem interação há alguns minutos, o
   pensando aparece ~5 s ao acaso e some (FACE.md); primeiro gesto da
   iniciativa.
