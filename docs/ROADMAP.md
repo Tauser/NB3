@@ -13,7 +13,7 @@ D-010 (vida própria e memória local antes do movimento).
 |---|---|---|---|
 | 0 | xiaozhi em board customizada NB3 na Waveshare N32R16V | conversa em PT-BR agrada; wake word funciona | **concluída** |
 | 1 | Firmware NB3 próprio: face, emoções, toque, LED | o robô "vive" e conversa | **concluída** |
-| 2 | Vida própria: humor contínuo, estados comportamentais, personalidade e memória local mínima no microSD, com MCP | humor sobrevive ao IDLE; lembra de um fato depois de reiniciar; esquece quando pedido | não iniciada |
+| 2 | Vida própria: humor contínuo, estados comportamentais, personalidade e memória local mínima no microSD, com MCP | humor sobrevive ao IDLE; lembra de um fato depois de reiniciar; esquece quando pedido | prova vista em bancada; faltam cortes de energia e compactação no cartão |
 | 3 | Arcos, energia, circadiano e iniciativa | reage com sequência e desfecho; desacelera à noite; toma iniciativa sem exagero | não iniciada |
 | 4 | Servos SCS + `motion_safety` + ferramentas MCP de movimento (entrega própria) | olha e acena; safety corta com carga real | **núcleos prontos**; falta a parte que toca o hardware |
 | 5 | Agenda, timers e comportamentos offline como ferramentas do dispositivo | funciona sem nuvem para o que é local | não iniciada |
@@ -260,7 +260,7 @@ ausência); sem microSD o robô funciona e avisa.
      com eles o viés chegou ao teto de +0,15. Falta ver: compactação no cartão, ciclo de cortes
      de energia durante escrita (pendente do item 7). A falha do dispositivo
      não vira episódio: hoje ela é erro de rede, não mágoa.
-9. [~] **MCP** (`mcp/memory_tools`): `self.mood.get`, `self.mood.stimulate`,
+9. [x] **MCP** (`mcp/memory_tools`): `self.mood.get`, `self.mood.stimulate`,
    `self.memory.recall`/`remember`/`correct`/`forget`, com descrições ricas.
    As ferramentas rodam na task do app e chamam a memória na task dela
    (`MemoryService::Query`); sem cartão respondem "memória indisponível".
@@ -281,10 +281,14 @@ ausência); sem microSD o robô funciona e avisa.
    agente desligada: o LLM recusou tudo ("memória de longo prazo
    desligada"). 3ª rodada, com a seção "Memória do corpo" no prompt da
    persona: `recall` e `remember` chamados certo, e o nome gravado sobreviveu
-   ao reinício (1 registro longo e 9 episódios no boot). Falta ver pela
-   conversa: `correct` e `forget` com reinício entre os passos.
-10. [ ] Verificar no console do xiaozhi.me o que a memória do agente oferece
-   e registrar em VIDA.md §7.
+   ao reinício (1 registro longo e 9 episódios no boot). `correct` e
+   `forget` validados pela conversa pelo usuário (sem log). A observar:
+   gostos ditos na conversa às vezes viram nota (episódio, desbota em ~7
+   dias) em vez de preferência; se repetir, orientar no prompt.
+10. [x] Verificar no console do xiaozhi.me o que a memória do agente oferece
+   e registrar em VIDA.md §7: existe, compete com a do robô e fica
+   desligada; o prompt da persona leva a seção "Memória do corpo". O que ela
+   guarda e por quanto tempo não foi verificado, porque desligada não importa.
 
 ---
 
