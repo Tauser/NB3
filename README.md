@@ -5,7 +5,7 @@ movimento, toque, LEDs, reflexos) sobre uma mente de IA em nuvem. Liga na
 tomada, conecta no WiFi e conversa — **nenhum serviço, server ou LLM rodando
 fora do robô e da nuvem**.
 
-> **Status:** etapa 0 concluída, etapa 1 implementada, núcleos da etapa 2
+> **Status:** etapas 0 e 1 concluídas; núcleos da etapa 2 (servos e safety)
 > prontos. Ver [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Princípios

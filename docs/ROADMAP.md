@@ -4,14 +4,14 @@ Etapas, prova de sucesso de cada uma e onde o projeto está. Atualizado a cada
 entrega; a fonte da verdade do código é o git (`git log`), aqui fica o
 andamento em linguagem de produto.
 
-**Atualizado em:** 2026-10-26 — `main` em `203bb78`.
+**Atualizado em:** 2026-10-26 — etapa 1 concluída.
 
 ## Visão geral
 
 | Etapa | Entrega | Prova de sucesso | Situação |
 |---|---|---|---|
 | 0 | xiaozhi em board customizada NB3 na Waveshare N32R16V | conversa em PT-BR agrada; wake word funciona | **concluída** |
-| 1 | Firmware NB3 próprio: face, emoções, toque, LED | o robô "vive" e conversa | **implementada**, falta confirmar o brilho dos LEDs |
+| 1 | Firmware NB3 próprio: face, emoções, toque, LED | o robô "vive" e conversa | **concluída** |
 | 2 | Servos SCS + `motion_safety` + ferramentas MCP de movimento | olha e acena; safety corta com carga real | **núcleos prontos**; falta a parte que toca o hardware |
 | 3 | Agenda, timers e comportamentos offline como ferramentas do dispositivo | funciona sem nuvem para o que é local | não iniciada |
 | 4 | Corpo/placa carrier com acústica tratada; CoreS3 se AEC fizer falta | só se necessário | não iniciada |
@@ -55,12 +55,14 @@ Em aberto (não bloqueia):
 
 ---
 
-## Etapa 1 — corpo vivo: face, emoções, toque, LED — implementada
+## Etapa 1 — corpo vivo: face, emoções, toque, LED — concluída
 
 **Objetivo:** o NB3 dono do próprio boot e da tela, com o xiaozhi como peça;
 a face reage à conversa, ao estado do aparelho e ao toque.
 
 **Prova de sucesso:** o robô "vive" (anima sozinho, reage) e conversa.
+Atingida: face animada, reação a conversa, estado, toque e LEDs, validados
+em bancada.
 
 ### Arquitetura
 
@@ -97,10 +99,10 @@ a face reage à conversa, ao estado do aparelho e ao toque.
 - [x] **Toque corporal** (`core/nb_touch`, GPIO2/TOUCH2, `2f445dc`): baseline
   calibrado no boot e com deriva lenta, histerese e debounce; tap → feliz
   1,5 s, segurar 1,5 s → carinho enquanto segura + 2 s. Validado com a mão.
-- [~] **LEDs de humor** (`core/nb_mood`, 2× WS2812 no GPIO21, `b46d69c`): cor
+- [x] **LEDs de humor** (`core/nb_mood`, 2× WS2812 no GPIO21, `b46d69c`): cor
   e efeito por expressão (respirar, pulsar, arco-íris no tonto), transição
   suave, teto de brilho. Teto reduzido 60 → 16 → 6/255 (`61d745a` e o
-  commit seguinte), ainda forte a 16. **Falta confirmar o brilho em 6.**
+  `f8b65f9`); 6 aprovado em bancada.
 
 ### Qualidade
 
@@ -109,11 +111,14 @@ a face reage à conversa, ao estado do aparelho e ao toque.
 - [x] 9 núcleos C17 puros com host-test: expression, arbiter, touch, avatar,
   mood, scs, motion_safety, banner, hpf.
 
-Para fechar a etapa:
+Validação de fechamento:
 
-- [x] Testar o toque (tap e segurar).
-- [ ] Confirmar o brilho dos LEDs em 6/255.
-- [x] Ver o banner no boot.
+- [x] Toque (tap e segurar).
+- [x] Brilho dos LEDs em 6/255.
+- [x] Banner no boot.
+
+Em aberto (não bloqueia):
+
 - [ ] Ver o banner numa mensagem de erro ou ativação (texto com acento).
 - [ ] Medir CPU/FPS da face (hoje a tela inteira é redesenhada a 30 fps;
   otimizar para só a área dos olhos se pesar).
