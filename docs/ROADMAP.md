@@ -277,8 +277,12 @@ ausência); sem microSD o robô funciona e avisa.
    do agente no xiaozhi.me, que está ligada e compete com a nossa (item 10).
    As descrições de `remember`, `forget` e `recall` foram reforçadas (única
    memória do corpo, nunca dizer que gravou ou esqueceu sem a ferramenta
-   confirmar, `recall` antes de `forget`). Falta: desligar ou orientar a
-   memória do agente no console e repetir o roteiro.
+   confirmar, `recall` antes de `forget`). 2ª rodada, com a memória do
+   agente desligada: o LLM recusou tudo ("memória de longo prazo
+   desligada"). 3ª rodada, com a seção "Memória do corpo" no prompt da
+   persona: `recall` e `remember` chamados certo, e o nome gravado sobreviveu
+   ao reinício (1 registro longo e 9 episódios no boot). Falta ver pela
+   conversa: `correct` e `forget` com reinício entre os passos.
 10. [ ] Verificar no console do xiaozhi.me o que a memória do agente oferece
    e registrar em VIDA.md §7.
 

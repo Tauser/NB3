@@ -375,8 +375,14 @@ habituação.
 Visto em bancada (2026-10-26): a memória do agente no xiaozhi.me está
 ligada. Pedido de "lembra que...", o LLM gravou nela e não chamou
 `self.memory.remember`, e depois respondeu "o que você lembra de mim" com o
-que ela guardou. Ainda não verificado: o que ela guarda, por quanto tempo,
-como apagar e se dá para desligá-la. A memória local é a do
+que ela guardou. Ela pode ser desligada no console, e fica desligada:
+com duas memórias o LLM escolhe a da nuvem, o `forget` do robô não a apaga
+e os dados ficariam fora do cartão. Desligada, o servidor avisa o LLM que
+"a memória de longo prazo está desligada" e ele passa a recusar também as
+ferramentas `self.memory`; o prompt da persona precisa de uma seção
+"Memória do corpo" dizendo que a memória do robô funciona mesmo assim e
+quando chamar cada ferramenta. Com essa seção, `recall` e `remember` passaram
+a ser chamados. A memória local é a do
 corpo e não depende disso; as duas podem coexistir. Verificar no console do
 agente e registrar aqui.
 
