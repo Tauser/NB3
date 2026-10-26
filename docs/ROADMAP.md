@@ -205,7 +205,7 @@ ausência); sem microSD o robô funciona e avisa.
    os padrões de hoje; leitor de `chave = valor` tolerante (faixas seguras,
    conta o que aplicou, prendeu, rejeitou e desconheceu), formato em
    VIDA.md §4. O humor recebe o perfil pela board e o boot registra o perfil
-   em uso. 9 host-tests. Lido do `personalidade.txt` do microSD desde o
+   em uso. 9 host-tests. Lido do `personalidade.ini` do microSD desde o
    item 7. Falta usar a iniciativa (etapa 3).
 6. [x] **Hora para a memória** (`core/nb_clock`, `memory/clock_service`):
    três níveis (inválida, plausível, sincronizada pelo salto do
@@ -227,7 +227,7 @@ ausência); sem microSD o robô funciona e avisa.
    truncamentos; o slot mais novo danificado nunca vence. Visto em bancada:
    cartão de 960 MB montado, slot de teste alternando A (geração 1) e B
    (geração 2) entre boots. A personalidade passa a vir do
-   `personalidade.txt` do cartão quando existe. Falta ver: boot sem cartão
+   `personalidade.ini` do cartão quando existe. Falta ver: boot sem cartão
    (aviso e nova montagem), arquivo de personalidade, cortes de energia
    durante escrita (com a memória do item 8 gravando de verdade).
 8. [ ] **Memória média e longa**: episódios com importância calculada pela

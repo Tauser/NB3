@@ -134,8 +134,9 @@ override por um arquivo de texto no SD:
 | `negative_slowdown` | quantas vezes a mágoa passa mais devagar | 2,0 | 1 … 4 |
 | `initiative` | frequência de comportamentos espontâneos no IDLE (etapa 3) | 0,5 | 0 … 1 |
 
-Formato: uma linha `chave = valor` por parâmetro, `#` começa comentário, o
-que o arquivo não diz fica no padrão. Valor fora da faixa é preso nela;
+Formato (D-012): INI, `noise/personalidade.ini` no cartão, porque é
+editado por uma pessoa no PC. Uma linha `chave = valor` por parâmetro, `#`
+começa comentário, o que o arquivo não diz fica no padrão. Valor fora da faixa é preso nela;
 número inválido e chave desconhecida são ignorados e contados, para o boot
 dizer o que aconteceu. Um arquivo ruim deixa o robô mais calmo ou mais
 vivo, nunca estranho.
@@ -172,6 +173,13 @@ memória longa. Os recentes e importantes formam o viés de humor de §3.1
 data e contador de uso, e padrões consolidados (horários de interação,
 frequência de carinho). Corrigir e esquecer são operações de primeira
 classe: esquecer apaga do SD, não marca como oculto.
+
+**Formato dos dados (D-012):** o que o robô grava (perfil, fatos,
+preferências, episódios) é JSON com um campo de versão de esquema, dentro
+dos slots e quadros com CRC de §5.2. O CRC garante a integridade; o JSON
+deixa os dados legíveis no PC, o que serve para depurar e para conferir que
+um esquecimento apagou de fato. O volume é pequeno, então um formato
+binário não compensa.
 
 **Persistência:** núcleo C17 puro (importância, decaimento, consolidação,
 busca por palavra/tag, limites de tamanho, formato e recuperação) + casca
@@ -266,7 +274,7 @@ depende de rename:
   `memory/store_service` (task única dona do cartão; os outros pedem e
   esperam). Arquivos em `/sdcard/noise/`: `<registro>_a.bin` e
   `<registro>_b.bin` para os slots, `<log>` para os quadros,
-  `personalidade.txt` para a personalidade. Cada montagem grava e relê um
+  `personalidade.ini` para a personalidade. Cada montagem grava e relê um
   slot `probe`, que alterna A/B entre boots. Montagem por
   `esp_vfs_fat_sdmmc_mount`: o driver novo de SD host do IDF 6 ainda não é
   usado pela camada de protocolo SD nem pelo FATFS. Um cartão retirado com

@@ -95,7 +95,7 @@ private:
 static nb_personality_t LoadPersonality(StoreService& store) {
     nb_personality_t personality = nb_personality_default();
     std::string text;
-    if (!store.ReadText("personalidade.txt", &text)) {
+    if (!store.ReadText("personalidade.ini", &text)) {
         ESP_LOGI(TAG, "no personality file: firmware defaults");
         return personality;
     }
