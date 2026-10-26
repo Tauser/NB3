@@ -14,8 +14,8 @@ nb_avatar_expression_t nb_face_link_avatar_for(nb_expression_t expression)
     case NB_EXPR_SAD: return NB_AVATAR_EXPR_SAD;
     case NB_EXPR_SLEEPY: return NB_AVATAR_EXPR_SLEEPY;
     case NB_EXPR_DIZZY: return NB_AVATAR_EXPR_DIZZY;
-    case NB_EXPR_LOVING: return NB_AVATAR_EXPR_HAPPY;
-    case NB_EXPR_EMBARRASSED: return NB_AVATAR_EXPR_CURIOUS;
+    case NB_EXPR_LOVING: return NB_AVATAR_EXPR_LOVING;
+    case NB_EXPR_EMBARRASSED: return NB_AVATAR_EXPR_EMBARRASSED;
     default: return NB_AVATAR_EXPR_IDLE;
     }
 }

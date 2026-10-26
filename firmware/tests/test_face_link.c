@@ -108,7 +108,7 @@ static void test_loving_holds_while_petting_and_idle_clears_it(void)
     rig_init(&rig);
     rig_propose(&rig, NB_SOURCE_TOUCH, NB_EXPR_LOVING, 40, 0u);
     rig_run(&rig, 20000u);
-    NB_CHECK(on_screen(&rig) == NB_AVATAR_EXPR_HAPPY);
+    NB_CHECK(on_screen(&rig) == NB_AVATAR_EXPR_LOVING);
     nb_arbiter_enter_idle(&rig.arbiter);
     rig_run(&rig, 3000u);
     NB_CHECK(on_screen(&rig) == NB_AVATAR_EXPR_IDLE);
@@ -146,8 +146,8 @@ static void test_every_expression_maps_to_an_animation(void)
         NB_CHECK(nb_face_link_avatar_for((nb_expression_t)e) < NB_AVATAR_EXPR_COUNT);
     }
     NB_CHECK(nb_face_link_avatar_for(NB_EXPR_NEUTRAL) == NB_AVATAR_EXPR_IDLE);
-    NB_CHECK(nb_face_link_avatar_for(NB_EXPR_LOVING) == NB_AVATAR_EXPR_HAPPY);
-    NB_CHECK(nb_face_link_avatar_for(NB_EXPR_EMBARRASSED) == NB_AVATAR_EXPR_CURIOUS);
+    NB_CHECK(nb_face_link_avatar_for(NB_EXPR_LOVING) == NB_AVATAR_EXPR_LOVING);
+    NB_CHECK(nb_face_link_avatar_for(NB_EXPR_EMBARRASSED) == NB_AVATAR_EXPR_EMBARRASSED);
     NB_CHECK(!nb_face_link_show(NULL, NB_EXPR_HAPPY));
 }
 

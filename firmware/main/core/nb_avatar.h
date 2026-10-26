@@ -8,9 +8,9 @@
 extern "C" {
 #endif
 
-// The NB3 avatar: two capsule eyes with lids and brows, ported from the
-// NoiseBot 2 avatar (itself a C17 port of the m5stack-stopwatch-avatar
-// catalog). Poses live in a 1000x1000 design space centered on the face;
+// The NB3 avatar: two solid eyes (capsules, crescents, slanted half-moons,
+// circles) built from a capsule, lids and a crescent cut, first ported from
+// the NoiseBot 2 avatar and redrawn for the face V2 (docs/FACE.md). Poses live in a 1000x1000 design space centered on the face;
 // the renderer scales them to the screen. Time advances only through
 // nb_avatar_core_tick(), randomness only through the seed.
 
@@ -27,6 +27,8 @@ typedef enum {
     NB_AVATAR_EXPR_SAD,
     NB_AVATAR_EXPR_SLEEPY,
     NB_AVATAR_EXPR_DIZZY,
+    NB_AVATAR_EXPR_LOVING,
+    NB_AVATAR_EXPR_EMBARRASSED,
     NB_AVATAR_EXPR_COUNT,
 } nb_avatar_expression_t;
 
@@ -43,6 +45,8 @@ typedef struct {
     float brow_tilt;       // degrees
     float brow_opacity;    // 0 hidden .. 1 full
     float angle;           // eye rotation, degrees
+    float crescent;        // >0 a curved cut rises from below (happy arc), <0 it
+                           // comes down from above (sleepy arc); |1| leaves a sliver
 } nb_avatar_eye_pose_t;
 
 typedef struct {

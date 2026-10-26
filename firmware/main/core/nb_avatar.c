@@ -67,8 +67,15 @@ typedef struct {
             brow_opacity_, angle_)                                                             \
     {                                                                                            \
         (x_), (y_), (w_), (h_), (round_), (upper_), (upper_tilt_), (lower_), (brow_y_),         \
-            (brow_tilt_), (brow_opacity_), (angle_)                                             \
+            (brow_tilt_), (brow_opacity_), (angle_), 0.0f                                       \
     }
+/* Face V2 pieces: a capsule, a capsule under a slanted upper lid (half-moon)
+ * and a capsule with a crescent cut. No brows. */
+#define CAP(x_, y_, w_, h_) EYE((x_), (y_), (w_), (h_), 1.0f, 0, 0, 0, -230.0f, 0, 0, 0)
+#define LID(x_, y_, w_, h_, upper_, tilt_)                                                       \
+    EYE((x_), (y_), (w_), (h_), 1.0f, (upper_), (tilt_), 0, -230.0f, 0, 0, 0)
+#define CRES(x_, y_, w_, h_, crescent_)                                                          \
+    {(x_), (y_), (w_), (h_), 1.0f, 0, 0, 0, -230.0f, 0, 0, 0, (crescent_)}
 #define EYE_DEFAULT(x_, y_, w_, h_) EYE((x_), (y_), (w_), (h_), 1.0f, 0, 0, 0, -230.0f, 0, 0, 0)
 #define EYE_ANGLED(x_, y_, w_, h_, angle_)                                                       \
     EYE((x_), (y_), (w_), (h_), 1.0f, 0, 0, 0, -230.0f, 0, 0, (angle_))
@@ -88,133 +95,111 @@ static const nb_avatar_keyframe_t s_idle[] = {
           0, NB_AVATAR_EASING_SMOOTH),
 };
 
+/* Face V2 (docs/FACE.md): a strong entrance, then a calm pose that is held
+ * while the expression wins. The last keyframe of every one-shot expression
+ * is that held pose. */
+
 static const nb_avatar_keyframe_t s_listening[] = {
-    FRAME(POSE(EYE_ANGLED(-220, -18, 160, 325, -1), EYE_ANGLED(220, -18, 160, 325, 1), 1.0f,
-               0, -9, 0, -3, 0),
-          360, 900, NB_AVATAR_EASING_SMOOTH),
-    FRAME(POSE(EYE_ANGLED(-218, -22, 152, 315, -3), EYE_ANGLED(218, -20, 174, 340, 4), 1.01f,
-               0, -10, 12, -5, 2),
-          560, 1600, NB_AVATAR_EASING_SMOOTH),
-    FRAME(POSE(EYE_ANGLED(-220, -18, 172, 338, -4), EYE_ANGLED(220, -20, 154, 318, 2), 1.0f,
-               0, -9, -9, -4, -1.5f),
-          540, 1450, NB_AVATAR_EASING_SMOOTH),
+    /* Attentive: wider capsules, looking straight ahead, breathing slowly. */
+    FRAME(POSE(CAP(-222, -18, 200, 325), CAP(222, -18, 200, 325), 1.0f, 0, -9, 0, -3, 0),
+          300, 1200, NB_AVATAR_EASING_SMOOTH),
+    FRAME(POSE(CAP(-222, -18, 190, 315), CAP(222, -18, 190, 315), 1.0f, 0, -9, 0, -2, 0),
+          600, 1200, NB_AVATAR_EASING_SMOOTH),
 };
 
 static const nb_avatar_keyframe_t s_thinking[] = {
-    FRAME(POSE(EYE_ANGLED(-220, -30, 178, 305, -5), EYE_ANGLED(220, -34, 150, 250, 8), 1.0f,
-               0, -12, 18, -14, 4),
-          620, 1750, NB_AVATAR_EASING_SMOOTH),
-    FRAME(POSE(EYE_ANGLED(-218, -28, 152, 245, -9), EYE_ANGLED(218, -32, 205, 320, 5), 1.0f,
-               0, -12, -15, -11, -5),
-          640, 1600, NB_AVATAR_EASING_SMOOTH),
-    FRAME(POSE(EYE_ANGLED(-220, -38, 188, 280, -3), EYE_ANGLED(220, -38, 148, 245, 7), 1.005f,
-               0, -14, 7, -17, 3),
-          600, 1900, NB_AVATAR_EASING_SMOOTH),
-    FRAME(POSE(EYE_ANGLED(-218, -26, 148, 250, -8), EYE_ANGLED(218, -28, 195, 310, 4), 1.0f,
-               0, -11, -18, -8, -4),
-          620, 1700, NB_AVATAR_EASING_SMOOTH),
+    /* Both eyes go up and to the side together, without tilting; the right
+     * one a little smaller. */
+    FRAME(POSE(CAP(-195, -60, 160, 333), CAP(250, -66, 160, 313), 1.0f, 0, -10, 6, -6, 0),
+          420, 2200, NB_AVATAR_EASING_SMOOTH),
+    FRAME(POSE(CAP(-200, -56, 160, 333), CAP(245, -62, 160, 300), 1.0f, 0, -10, 4, -5, 0),
+          900, 2000, NB_AVATAR_EASING_SMOOTH),
 };
 
 static const nb_avatar_keyframe_t s_happy[] = {
-    FRAME(POSE(EYE_DEFAULT(-225, 5, 180, 285), EYE_DEFAULT(225, 5, 180, 285), .98f, 0, 4, 0,
-               0, 0),
-          115, 0, NB_AVATAR_EASING_SNAPPY),
-    FRAME(POSE(EYE(-220, -4, 290, 72, 1, 0, 0, 0, -112, -8, .28f, 0),
-               EYE(220, -4, 290, 72, 1, 0, 0, 0, -112, 8, .28f, 0), 1.035f, 0, -12, 0, 0,
-               0),
-          225, 920, NB_AVATAR_EASING_SPRING),
-    FRAME(POSE(EYE_DEFAULT(-220, -20, 270, 86), EYE_DEFAULT(220, -20, 270, 86), 1.015f, 0,
-               -16, 0, 0, 0),
-          175, 420, NB_AVATAR_EASING_SMOOTH),
+    /* Capsules pop, then close into thick arcs. */
+    FRAME(POSE(CAP(-225, 5, 180, 285), CAP(225, 5, 180, 285), .98f, 0, 4, 0, 0, 0), 115, 0,
+          NB_AVATAR_EASING_SNAPPY),
+    FRAME(POSE(CRES(-222, -10, 205, 195, .70f), CRES(222, -10, 205, 195, .70f), 1.035f, 0, -12,
+               0, 0, 0),
+          225, 900, NB_AVATAR_EASING_SPRING),
+    FRAME(POSE(CRES(-220, -14, 200, 185, .74f), CRES(220, -14, 200, 185, .74f), 1.015f, 0, -14,
+               0, 0, 0),
+          200, 420, NB_AVATAR_EASING_SMOOTH),
 };
 
 static const nb_avatar_keyframe_t s_excited[] = {
-    FRAME(POSE(EYE_ANGLED(-220, 18, 205, 112, -3), EYE_ANGLED(220, 18, 205, 112, 3), .965f, 0,
-               10, 0, 10, 0),
-          90, 25, NB_AVATAR_EASING_SNAPPY),
-    FRAME(POSE(EYE_ANGLED(-225, -34, 225, 365, -6), EYE_ANGLED(225, -34, 225, 365, 6), 1.075f,
-               0, -24, 0, -11, 0),
-          155, 180, NB_AVATAR_EASING_SPRING),
-    FRAME(POSE(EYE_ANGLED(-220, -16, 205, 330, -10), EYE_ANGLED(220, -16, 205, 330, 2),
-               1.035f, 0, -12, -7, -5, -4.5f),
-          135, 120, NB_AVATAR_EASING_SPRING),
-    FRAME(POSE(EYE_DEFAULT(-220, -12, 285, 82), EYE_DEFAULT(220, -12, 285, 82), 1.035f, 0,
-               -16, 7, -7, 4),
-          170, 720, NB_AVATAR_EASING_SPRING),
+    /* Squash, jump into big capsules and stay big. */
+    FRAME(POSE(CAP(-220, 18, 205, 112), CAP(220, 18, 205, 112), .965f, 0, 10, 0, 10, 0), 90, 25,
+          NB_AVATAR_EASING_SNAPPY),
+    FRAME(POSE(CAP(-225, -34, 225, 410), CAP(225, -34, 225, 410), 1.075f, 0, -24, 0, -11, 0), 155,
+          180, NB_AVATAR_EASING_SPRING),
+    FRAME(POSE(CAP(-222, -22, 205, 395), CAP(222, -22, 205, 395), 1.035f, 0, -12, 0, -5, 0), 160,
+          700, NB_AVATAR_EASING_SPRING),
 };
 
 static const nb_avatar_keyframe_t s_curious[] = {
-    FRAME(POSE(EYE_ANGLED(-220, -16, 160, 320, -2), EYE_ANGLED(220, -16, 160, 320, 2), .99f, 0,
-               -6, 0, 2, 0),
-          120, 40, NB_AVATAR_EASING_SNAPPY),
-    FRAME(POSE(EYE_ANGLED(-218, -28, 195, 360, -8), EYE_ANGLED(218, -18, 142, 270, 4), 1.025f,
-               0, -14, 16, -8, 7),
-          230, 850, NB_AVATAR_EASING_SPRING),
-    FRAME(POSE(EYE_ANGLED(-220, -22, 182, 342, -6), EYE_ANGLED(220, -18, 150, 292, 3), 1.01f,
-               0, -11, 10, -5, 5),
-          260, 520, NB_AVATAR_EASING_SMOOTH),
+    /* One eye grows, the other shrinks, the face tilts. */
+    FRAME(POSE(CAP(-220, -16, 160, 320), CAP(220, -16, 160, 320), .99f, 0, -6, 0, 2, 0), 120, 40,
+          NB_AVATAR_EASING_SNAPPY),
+    FRAME(POSE(CAP(-220, -26, 190, 410), CAP(220, 0, 140, 280), 1.02f, 0, -12, 0, -4, -7), 230,
+          850, NB_AVATAR_EASING_SPRING),
+    FRAME(POSE(CAP(-220, -24, 185, 400), CAP(220, -2, 138, 275), 1.01f, 0, -11, 0, -4, -6), 260,
+          520, NB_AVATAR_EASING_SMOOTH),
 };
 
 static const nb_avatar_keyframe_t s_confused[] = {
-    FRAME(POSE(EYE_ANGLED(-220, -12, 188, 290, 9), EYE_ANGLED(220, -26, 145, 250, -7), .99f, 0,
-               -5, -12, 5, -5),
+    /* One half-moon, one capsule, swaying side to side. */
+    FRAME(POSE(LID(-220, -10, 175, 300, .5f, 0), CAP(220, -20, 160, 340), .99f, 0, -5, 0, 4, 5),
           165, 300, NB_AVATAR_EASING_SNAPPY),
-    FRAME(POSE(EYE_ANGLED(-218, -26, 145, 250, 7), EYE_ANGLED(218, -12, 188, 290, -9), 1.005f,
-               0, -8, 12, 3, 5),
+    FRAME(POSE(LID(-220, -10, 175, 300, .5f, 0), CAP(220, -20, 160, 340), 1.005f, 0, -8, 0, 3,
+               -5),
           280, 420, NB_AVATAR_EASING_SPRING),
-    FRAME(POSE(EYE(-220, -20, 178, 245, .9f, .14f, -.32f, 0, -195, -10, .62f, 0),
-               EYE(220, -20, 178, 245, .9f, .14f, .32f, 0, -195, 10, .62f, 0), 1.0f, 0, -6,
-               0, 4, 0),
+    FRAME(POSE(LID(-220, -10, 175, 300, .5f, 0), CAP(220, -20, 160, 340), 1.0f, 0, -6, 0, 4, 3),
           260, 720, NB_AVATAR_EASING_SMOOTH),
 };
 
 static const nb_avatar_keyframe_t s_angry[] = {
-    FRAME(POSE(EYE(-220, -18, 205, 245, .8f, .15f, .45f, 0, -190, 17, .72f, 0),
-               EYE(220, -18, 205, 245, .8f, .15f, -.45f, 0, -190, -17, .72f, 0), .985f, 0, 4,
-               0, 0, 0),
+    /* Half-moons slanted down toward the middle. */
+    FRAME(POSE(LID(-218, -18, 200, 250, .10f, .55f), LID(218, -18, 200, 250, .10f, -.55f), .985f,
+               0, 4, 0, 0, 0),
           145, 80, NB_AVATAR_EASING_SNAPPY),
-    FRAME(POSE(EYE(-212, -28, 220, 270, .72f, .22f, .55f, 0, -205, 20, 1, 0),
-               EYE(212, -28, 220, 270, .72f, .22f, -.55f, 0, -205, -20, 1, 0), 1.015f, 0, 4,
-               0, 0, 0),
+    FRAME(POSE(LID(-214, -24, 205, 260, .14f, .75f), LID(214, -24, 205, 260, .14f, -.75f), 1.015f,
+               0, 4, 0, 0, 0),
           230, 1160, NB_AVATAR_EASING_SPRING),
-    FRAME(POSE(EYE(-218, -20, 208, 248, .76f, .18f, .48f, 0, -194, 18, .85f, 0),
-               EYE(218, -20, 208, 248, .76f, .18f, -.48f, 0, -194, -18, .85f, 0), 1.0f, 0, 3,
-               0, 0, 0),
+    FRAME(POSE(LID(-218, -20, 200, 250, .12f, .68f), LID(218, -20, 200, 250, .12f, -.68f), 1.0f,
+               0, 3, 0, 0, 0),
           190, 350, NB_AVATAR_EASING_SMOOTH),
 };
 
 static const nb_avatar_keyframe_t s_surprised[] = {
-    FRAME(POSE(EYE_DEFAULT(-225, 5, 205, 92), EYE_DEFAULT(225, 5, 205, 92), .97f, 0, 2, 0, 0,
-               0),
-          105, 0, NB_AVATAR_EASING_SNAPPY),
-    FRAME(POSE(EYE_DEFAULT(-230, -15, 255, 255), EYE_DEFAULT(230, -15, 255, 255), 1.06f, 0, -12,
-               0, 0, 0),
-          215, 810, NB_AVATAR_EASING_SPRING),
-    FRAME(POSE(EYE_DEFAULT(-228, -14, 225, 275), EYE_DEFAULT(228, -14, 225, 275), 1.025f, 0,
-               -10, 0, 0, 0),
-          180, 430, NB_AVATAR_EASING_SMOOTH),
+    FRAME(POSE(CAP(-225, 5, 205, 92), CAP(225, 5, 205, 92), .97f, 0, 2, 0, 0, 0), 105, 0,
+          NB_AVATAR_EASING_SNAPPY),
+    FRAME(POSE(CAP(-230, -15, 255, 255), CAP(230, -15, 255, 255), 1.06f, 0, -12, 0, 0, 0), 215,
+          810, NB_AVATAR_EASING_SPRING),
+    FRAME(POSE(CAP(-228, -14, 240, 240), CAP(228, -14, 240, 240), 1.025f, 0, -10, 0, 0, 0), 180,
+          430, NB_AVATAR_EASING_SMOOTH),
 };
 
 static const nb_avatar_keyframe_t s_sad[] = {
-    FRAME(POSE(EYE(-220, -5, 180, 275, .95f, .08f, -.20f, 0, -210, -12, .55f, 0),
-               EYE(220, -5, 180, 275, .95f, .08f, .20f, 0, -210, 12, .55f, 0), .995f, 0, 4, 0,
-               5, 0),
+    /* Half-moons drooping to the outside, looking down. */
+    FRAME(POSE(LID(-218, 4, 180, 270, .08f, -.30f), LID(218, 4, 180, 270, .08f, .30f), .995f, 0, 4,
+               0, 5, 0),
           280, 260, NB_AVATAR_EASING_SMOOTH),
-    FRAME(POSE(EYE(-215, 18, 205, 205, .9f, .26f, -.38f, .06f, -205, -17, .92f, 0),
-               EYE(215, 18, 205, 205, .9f, .26f, .38f, .06f, -205, 17, .92f, 0), .985f, 0, 20,
-               0, 15, 0),
+    FRAME(POSE(LID(-216, 20, 185, 255, .12f, -.65f), LID(216, 20, 185, 255, .12f, .65f), .985f, 0,
+               20, 0, 15, 0),
           430, 1250, NB_AVATAR_EASING_SMOOTH),
-    FRAME(POSE(EYE(-215, 22, 215, 165, .92f, .30f, -.42f, .08f, -190, -18, 1, 0),
-               EYE(215, 22, 215, 165, .92f, .30f, .42f, .08f, -190, 18, 1, 0), .98f, 0, 24, -5,
-               18, -2.5f),
+    FRAME(POSE(LID(-216, 24, 185, 250, .12f, -.60f), LID(216, 24, 185, 250, .12f, .60f), .98f, 0,
+               24, 0, 18, 0),
           360, 760, NB_AVATAR_EASING_SMOOTH),
 };
 
 static const nb_avatar_keyframe_t s_sleepy[] = {
+    /* Capsules sink into upside-down arcs, like eyes closing. */
     FRAME(POSE(EYE(-215, 18, 245, 165, 1, .28f, 0, 0, -230, 0, 0, 0),
                EYE(215, 18, 245, 165, 1, .28f, 0, 0, -230, 0, 0, 0), .99f, 0, 18, 0, 0, 0),
           320, 380, NB_AVATAR_EASING_SMOOTH),
-    FRAME(POSE(EYE_DEFAULT(-210, 48, 305, 48), EYE_DEFAULT(210, 48, 305, 48), .98f, 0, 26, 0, 0,
+    FRAME(POSE(CRES(-215, 30, 220, 160, -.72f), CRES(215, 30, 220, 160, -.72f), .98f, 0, 26, 0, 0,
                0),
           520, 1380, NB_AVATAR_EASING_SMOOTH),
 };
@@ -229,6 +214,30 @@ static const nb_avatar_keyframe_t s_dizzy[] = {
     FRAME(POSE(EYE_DEFAULT(-210, -7, 264, 264), EYE_DEFAULT(210, 2, 252, 252), 1.015f, 0, -5, 0,
                0, -3.5f),
           210, 360, NB_AVATAR_EASING_SPRING),
+};
+
+static const nb_avatar_keyframe_t s_loving[] = {
+    /* Thin, flatter arcs than happy: the face of being petted. */
+    FRAME(POSE(CAP(-225, 0, 190, 280), CAP(225, 0, 190, 280), .99f, 0, 2, 0, 0, 0), 140, 0,
+          NB_AVATAR_EASING_SNAPPY),
+    FRAME(POSE(CRES(-222, -6, 220, 170, .80f), CRES(222, -6, 220, 170, .80f), 1.03f, 0, -8, 0, 0,
+               0),
+          260, 700, NB_AVATAR_EASING_SPRING),
+    FRAME(POSE(CRES(-222, -8, 215, 165, .82f), CRES(222, -8, 215, 165, .82f), 1.01f, 0, -8, 0, 0,
+               0),
+          220, 600, NB_AVATAR_EASING_SMOOTH),
+};
+
+static const nb_avatar_keyframe_t s_embarrassed[] = {
+    /* Heavy half-moons looking down and away, then glancing back a little. */
+    FRAME(POSE(CAP(-225, -10, 160, 330), CAP(225, -10, 160, 330), 1.0f, 0, -4, 0, 0, 0), 140, 0,
+          NB_AVATAR_EASING_SNAPPY),
+    FRAME(POSE(LID(-245, 40, 150, 250, .32f, -.30f), LID(195, 40, 150, 250, .32f, .30f), .99f, 0,
+               10, -6, 10, 0),
+          300, 700, NB_AVATAR_EASING_SMOOTH),
+    FRAME(POSE(LID(-238, 36, 150, 250, .30f, -.28f), LID(202, 36, 150, 250, .30f, .28f), .99f, 0,
+               8, -3, 8, 0),
+          400, 900, NB_AVATAR_EASING_SMOOTH),
 };
 
 #define OSC(offset_, amp_, freq_, phase_) {(offset_), (amp_), (freq_), (phase_)}
@@ -278,6 +287,13 @@ static const nb_avatar_spec_t s_specs[NB_AVATAR_EXPR_COUNT] = {
     SPEC("DIZZY", s_dizzy, NB_AVATAR_PLAY_ONCE, BLINK(false, 0, 0, 0, 0, 0),
          MOTION(OSC(0, 18, 10.5f, 0), OSC(0, 7, 6.4f, 0), OSC(0, 5, 7, 0),
                 OSC(0, 4, 8.8f, 0), OSC(1, .012f, 4.2f, 0), 140, 300), false),
+    SPEC("LOVING", s_loving, NB_AVATAR_PLAY_ONCE, BLINK(true, 1800, 2800, 5200, 110, 170),
+         MOTION(OSC(0, 0, 0, 0), OSC(0, 6, 2.4f, 0), OSC(0, 2, .9f, 0), OSC(0, 1.5f, .8f, 0),
+                OSC(1, .005f, 1.6f, 0), 220, 300), false),
+    SPEC("EMBARRASSED", s_embarrassed, NB_AVATAR_PLAY_ONCE,
+         BLINK(true, 1800, 2800, 5200, 95, 145),
+         MOTION(OSC(0, 1.5f, .8f, 0), OSC(0, 2, .9f, 0), OSC(0, 2.5f, .7f, 0),
+                OSC(0, 1, .6f, 0), OSC(1, .003f, .9f, 0), 220, 320), false),
 };
 
 static const nb_avatar_attention_t s_idle_attention[] = {
@@ -417,6 +433,7 @@ static nb_avatar_eye_pose_t mix_eye(const nb_avatar_eye_pose_t *a,
     MIX_EYE(brow_tilt);
     MIX_EYE(brow_opacity);
     MIX_EYE(angle);
+    MIX_EYE(crescent);
 #undef MIX_EYE
     return out;
 }

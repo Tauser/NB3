@@ -18,7 +18,7 @@ static void test_idle_uses_reference_silhouette(void)
     NB_CHECK(frame.pose.right_eye.x == 225.0f);
 }
 
-static void test_catalog_resolves_all_twelve_expressions(void)
+static void test_catalog_resolves_every_expression(void)
 {
     nb_avatar_core_state_t state;
     nb_avatar_render_frame_t frame;
@@ -300,6 +300,76 @@ static void test_release_needs_persistent_base(void)
     NB_CHECK(!nb_avatar_core_hold(&state, NB_AVATAR_EXPR_COUNT));
 }
 
+// The V2 pose an expression holds once its first pass is over.
+static nb_avatar_render_frame_t held_frame(nb_avatar_expression_t expression)
+{
+    nb_avatar_core_state_t state;
+    nb_avatar_render_frame_t frame;
+    nb_avatar_core_init(&state, 17u);
+    NB_CHECK(nb_avatar_core_hold(&state, expression));
+    tick_for(&state, 6000u);
+    nb_avatar_core_get_frame(&state, &frame);
+    NB_CHECK(frame.expression == expression);
+    return frame;
+}
+
+static void test_v2_arcs_are_crescents(void)
+{
+    const nb_avatar_render_frame_t happy = held_frame(NB_AVATAR_EXPR_HAPPY);
+    const nb_avatar_render_frame_t loving = held_frame(NB_AVATAR_EXPR_LOVING);
+    const nb_avatar_render_frame_t sleepy = held_frame(NB_AVATAR_EXPR_SLEEPY);
+    // Happy and loving close from below; loving is the thinner arc.
+    NB_CHECK(happy.pose.left_eye.crescent > 0.6f);
+    NB_CHECK(happy.pose.right_eye.crescent > 0.6f);
+    NB_CHECK(loving.pose.left_eye.crescent > happy.pose.left_eye.crescent);
+    // Sleepy closes from above.
+    NB_CHECK(sleepy.pose.left_eye.crescent < -0.6f);
+    // A plain capsule has no cut.
+    const nb_avatar_render_frame_t idle = held_frame(NB_AVATAR_EXPR_IDLE);
+    NB_CHECK(idle.pose.left_eye.crescent == 0.0f);
+}
+
+static void test_v2_half_moons_slant_the_right_way(void)
+{
+    // Positive tilt drops the lid on the right side of that eye.
+    const nb_avatar_render_frame_t angry = held_frame(NB_AVATAR_EXPR_ANGRY);
+    NB_CHECK(angry.pose.left_eye.upper_lid_tilt > 0.5f);   // low toward the middle
+    NB_CHECK(angry.pose.right_eye.upper_lid_tilt < -0.5f);
+    const nb_avatar_render_frame_t sad = held_frame(NB_AVATAR_EXPR_SAD);
+    NB_CHECK(sad.pose.left_eye.upper_lid_tilt < -0.5f);    // low toward the outside
+    NB_CHECK(sad.pose.right_eye.upper_lid_tilt > 0.5f);
+    const nb_avatar_render_frame_t shy = held_frame(NB_AVATAR_EXPR_EMBARRASSED);
+    NB_CHECK(shy.pose.left_eye.upper_lid > 0.25f);
+    NB_CHECK(shy.pose.left_eye.y > 0.0f);                  // looking down
+    const nb_avatar_render_frame_t confused = held_frame(NB_AVATAR_EXPR_CONFUSED);
+    NB_CHECK(confused.pose.left_eye.upper_lid > 0.4f);     // one half-moon
+    NB_CHECK(confused.pose.right_eye.upper_lid < 0.01f);   // one capsule
+}
+
+static void test_v2_has_no_brows(void)
+{
+    for (int id = NB_AVATAR_EXPR_IDLE; id < NB_AVATAR_EXPR_COUNT; ++id) {
+        if (id == NB_AVATAR_EXPR_DIZZY) {
+            continue;
+        }
+        const nb_avatar_render_frame_t frame = held_frame((nb_avatar_expression_t)id);
+        NB_CHECK(frame.pose.left_eye.brow_opacity == 0.0f);
+        NB_CHECK(frame.pose.right_eye.brow_opacity == 0.0f);
+    }
+}
+
+static void test_crescent_interpolates_on_the_way_in(void)
+{
+    nb_avatar_core_state_t state;
+    nb_avatar_render_frame_t frame;
+    nb_avatar_core_init(&state, 18u);
+    NB_CHECK(nb_avatar_core_hold(&state, NB_AVATAR_EXPR_HAPPY));
+    tick_for(&state, 120u);  // 5 ms into the move from the pop (115 ms) to the first arc
+    nb_avatar_core_get_frame(&state, &frame);
+    NB_CHECK(frame.pose.left_eye.crescent > 0.0f);
+    NB_CHECK(frame.pose.left_eye.crescent < 0.7f);
+}
+
 static void test_null_calls_are_safe(void)
 {
     nb_avatar_render_frame_t frame;
@@ -318,7 +388,7 @@ static void test_null_calls_are_safe(void)
 
 int main(void) {
     NB_RUN(test_idle_uses_reference_silhouette);
-    NB_RUN(test_catalog_resolves_all_twelve_expressions);
+    NB_RUN(test_catalog_resolves_every_expression);
     NB_RUN(test_persistent_expressions_loop);
     NB_RUN(test_once_expression_returns_to_current_base);
     NB_RUN(test_gaze_target_moves_face_in_both_axes);
@@ -332,6 +402,10 @@ int main(void) {
     NB_RUN(test_release_finishes_first_pass_then_returns);
     NB_RUN(test_release_after_pass_returns_at_once);
     NB_RUN(test_release_needs_persistent_base);
+    NB_RUN(test_v2_arcs_are_crescents);
+    NB_RUN(test_v2_half_moons_slant_the_right_way);
+    NB_RUN(test_v2_has_no_brows);
+    NB_RUN(test_crescent_interpolates_on_the_way_in);
     NB_RUN(test_null_calls_are_safe);
     NB_TEST_MAIN_END();
 }

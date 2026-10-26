@@ -118,7 +118,7 @@ struct Painter {
         // brows assume an upright eye.
         const bool rotated = fabsf(eye.angle) > 0.25f && eye.upper_lid < 0.01f &&
                              eye.lower_lid < 0.01f && eye.brow_opacity < 0.01f &&
-                             eye.roundness > 0.92f;
+                             fabsf(eye.crescent) < 0.01f && eye.roundness > 0.92f;
         if (rotated) {
             const float angle = eye.angle * kPi / 180.0f;
             const bool vertical = height >= width;
@@ -168,6 +168,31 @@ struct Painter {
         if (lower_cover > 0) {
             RoundRect(left - 1, top + height - lower_cover, width + 2, lower_cover + 1, 0,
                       kBackground);
+        }
+
+        // Crescent: a background circle flatter than the eye's own curve eats
+        // the eye from below (a happy arc) or from above (a sleepy arc). The
+        // eye keeps 1 - |crescent| of its height at the middle and thins out
+        // to the sides. The circle stays clear of the other eye.
+        const float crescent = Clamp(eye.crescent, -1.0f, 1.0f);
+        if (fabsf(crescent) > 0.01f) {
+            const int cut_r = static_cast<int>(roundf(fmaxf(width * 0.9f, width * 0.5f + 2.0f)));
+            const int keep = static_cast<int>(roundf(height * (1.0f - fabsf(crescent))));
+            if (crescent > 0.0f) {
+                const int cut_top = top + keep;
+                Circle(eye_x, static_cast<float>(cut_top + cut_r), cut_r, kBackground);
+                const int rest = top + height + 2 - (cut_top + cut_r);
+                if (rest > 0) {
+                    RoundRect(left - 2, cut_top + cut_r, width + 4, rest, 0, kBackground);
+                }
+            } else {
+                const int cut_bottom = top + height - keep;
+                Circle(eye_x, static_cast<float>(cut_bottom - cut_r), cut_r, kBackground);
+                const int rest = cut_bottom - cut_r - (top - 2);
+                if (rest > 0) {
+                    RoundRect(left - 2, top - 2, width + 4, rest, 0, kBackground);
+                }
+            }
         }
 
         const float brow_opacity = Clamp(eye.brow_opacity, 0.0f, 1.0f);

@@ -16,9 +16,7 @@ extern "C" {
 // animation ends, and going back to IDLE lets a gesture still in its first
 // pass finish.
 
-// The avatar animation that draws an expression. Expressions without an
-// animation of their own borrow the closest one (LOVING draws as HAPPY,
-// EMBARRASSED as CURIOUS).
+// The avatar animation that draws an expression.
 nb_avatar_expression_t nb_face_link_avatar_for(nb_expression_t expression);
 
 // Call when the winning expression changes.
