@@ -15,6 +15,7 @@
 #include "face/face_display.h"
 #include "mcp/face_tools.h"
 #include "core/nb_hpf.h"
+#include "core/nb_personality.h"
 
 #include <cmath>
 #include <vector>
@@ -91,7 +92,9 @@ class NoiseBotV3Board : public WifiBoard {
 private:
     Button boot_button_;
     ExpressionArbiter arbiter_{NB_EXPR_NEUTRAL};
-    MoodModifier mood_{arbiter_};
+    // Firmware defaults; the microSD will be able to override them (VIDA.md §4).
+    nb_personality_t personality_ = nb_personality_default();
+    MoodModifier mood_{arbiter_, personality_};
     BehaviorModifier behavior_{arbiter_};
     AudioLevels audio_levels_;
     FaceDisplay* display_ = nullptr;

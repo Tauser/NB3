@@ -8,6 +8,7 @@
 
 #include "behavior/expression_arbiter.h"
 #include "core/nb_affect.h"
+#include "core/nb_personality.h"
 
 // The robot's mood (core/nb_affect). Conversation, touch and device state
 // report what happened; the mood integrates it with habituation, decays it
@@ -17,7 +18,7 @@
 // stimulus live in mood_modifier.cc, in one place.
 class MoodModifier {
 public:
-    explicit MoodModifier(ExpressionArbiter& arbiter);
+    MoodModifier(ExpressionArbiter& arbiter, const nb_personality_t& personality);
     ~MoodModifier();
 
     MoodModifier(const MoodModifier&) = delete;

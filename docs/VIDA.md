@@ -123,14 +123,29 @@ execução (hoje HAPPY por 60 s volta ao IDLE visual em ~2 s enquanto o
 
 ## 4. Personalidade local
 
-Parâmetros pequenos, com default no firmware e override no SD:
+Parâmetros pequenos, com default no firmware (`core/nb_personality`) e
+override por um arquivo de texto no SD:
 
-| Parâmetro | Efeito |
-|---|---|
-| Temperamento `(v₀, a₀)` | ponto de repouso do humor |
-| Reatividade | ganho aplicado aos estímulos |
-| Recuperação | constante de decaimento e fator de assimetria negativa |
-| Iniciativa | frequência de comportamentos espontâneos no IDLE |
+| Chave | Efeito | Padrão | Faixa segura |
+|---|---|---|---|
+| `temperament_valence`, `temperament_arousal` | ponto de repouso do humor | 0,10 / 0,05 | −0,5 … 0,5 |
+| `reactivity` | ganho aplicado aos estímulos | 1,0 | 0,25 … 2,0 |
+| `recovery_s` | tempo até o desvio do humor cair a 5% | 120 | 20 … 600 |
+| `negative_slowdown` | quantas vezes a mágoa passa mais devagar | 2,0 | 1 … 4 |
+| `initiative` | frequência de comportamentos espontâneos no IDLE (etapa 3) | 0,5 | 0 … 1 |
+
+Formato: uma linha `chave = valor` por parâmetro, `#` começa comentário, o
+que o arquivo não diz fica no padrão. Valor fora da faixa é preso nela;
+número inválido e chave desconhecida são ignorados e contados, para o boot
+dizer o que aconteceu. Um arquivo ruim deixa o robô mais calmo ou mais
+vivo, nunca estranho.
+
+```
+# Noise mais calmo e mais caloroso
+temperament_valence = 0.2
+reactivity = 0.8
+recovery_s = 90
+```
 
 Padrões consolidados da memória longa (§5) podem deslocar esses parâmetros
 devagar e com limites; isso entra depois que a memória média estiver

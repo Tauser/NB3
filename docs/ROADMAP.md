@@ -200,8 +200,13 @@ ausência); sem microSD o robô funciona e avisa.
    soltar), conversa inteira em engaged → idle. Toque durante a conversa
    só no host-test. Sono e modo quieto ainda não têm quem os acione
    (energia na etapa 3, MCP no item 9).
-5. [ ] **Personalidade**: temperamento, reatividade, recuperação e iniciativa
-   com default no firmware e override no SD.
+5. [x] **Personalidade** (`core/nb_personality`): temperamento,
+   reatividade, recuperação, lentidão da mágoa e iniciativa num perfil com
+   os padrões de hoje; leitor de `chave = valor` tolerante (faixas seguras,
+   conta o que aplicou, prendeu, rejeitou e desconheceu), formato em
+   VIDA.md §4. O humor recebe o perfil pela board e o boot registra o perfil
+   em uso. 9 host-tests. Falta: ler o arquivo do microSD (item 7) e usar a
+   iniciativa (etapa 3).
 6. [ ] **Hora para a memória**: validade por piso de build, registros sem
    hora com `boot_id` + monotônico, último instante visto persistido,
    relógio voltando tratado como inválido (VIDA.md §5.1). Host-test.

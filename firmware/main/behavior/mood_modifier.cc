@@ -51,8 +51,15 @@ uint32_t NowMs() {
 
 }  // namespace
 
-MoodModifier::MoodModifier(ExpressionArbiter& arbiter) : arbiter_(arbiter) {
-    nb_affect_init(&affect_, nullptr);
+MoodModifier::MoodModifier(ExpressionArbiter& arbiter, const nb_personality_t& personality)
+    : arbiter_(arbiter) {
+    const nb_affect_personality_t p = nb_personality_affect(&personality);
+    nb_affect_init(&affect_, &p);
+    ESP_LOGI(TAG, "personality: temperament (%.2f, %.2f), reactivity %.2f, recovery %lu s, "
+             "negative x%.1f, initiative %.2f",
+             personality.temperament.valence, personality.temperament.arousal,
+             personality.reactivity, static_cast<unsigned long>(personality.recovery_ms / 1000),
+             personality.negative_slowdown, personality.initiative);
     if (xTaskCreate(TaskEntry, "nb_affect", 3072, this, 3, &task_) != pdPASS) {
         task_ = nullptr;
         ESP_LOGE(TAG, "task not created: the mood will not decay or show");
