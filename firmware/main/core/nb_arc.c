@@ -87,8 +87,9 @@ static void build_make_up(nb_arc_t *arc) {
     nb_arc_step_t *s = arc->steps;
     s[0] = step(NB_EXPR_SAD, 0.0f, -0.3f, 400);  // looks at the person
     s[0].aborts_without_petting = true;
-    s[1] = step(NB_EXPR_SAD, 0.0f, -0.3f, 1500);  // still sad, being petted
-    s[1].aborts_without_petting = true;
+    // Still sad a moment. The hand may already be gone: petting starts
+    // counting 1.5 s after the touch, so a 3 s caress leaves little more.
+    s[1] = step(NB_EXPR_SAD, 0.0f, -0.3f, 800);
     s[2] = step(NB_EXPR_LOVING, 0.0f, -0.2f, 2500);  // made up
     s[2].alone = NB_EXPR_CONTENT;
     s[2].slow_blink = true;

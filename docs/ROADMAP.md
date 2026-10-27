@@ -344,8 +344,11 @@ os núcleos integralmente.
   somar. Na segunda tentativa a birra levou a valência ao ponto certo, mas
   a face voltou brava depois do sorriso (ativação +0,2 caía perto de
   bravo); a ativação passou a descer 0,1 para a mágoa aparecer triste.
-  Falta ver: a reconciliação depois da birra (segurar a mão 1,5 s ou mais)
-  e uma procura depois de ~20 min de tédio.
+  Na terceira, birra → carinho virou reconciliação, mas abortou quando a
+  mão saiu: o carinho só conta 1,5 s depois do toque e começou no meio da
+  birra, então sobrava menos de 1 s dos 1,9 s exigidos. Agora só os
+  primeiros 0,4 s exigem a mão e o momento triste caiu para 0,8 s. Falta
+  ver: a reconciliação completa e uma procura depois de ~20 min de tédio.
 - [~] **Energia, tédio e circadiano** (`core/nb_energy`,
   `behavior/energy_modifier`, VIDA.md §3.3): energia segue a hora do dia
   (1 de dia, 0,15 de madrugada, rampas às 20–23 h e 6–8 h; 0,8 sem hora

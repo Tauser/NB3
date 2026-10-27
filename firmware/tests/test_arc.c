@@ -165,7 +165,7 @@ static void test_petting_a_sad_robot_makes_up(void) {
     run(&arc, &in, &now, 500, &r);
     NB_CHECK_EQ_INT(NB_ARC_NONE, r.started);  // content robot: petting is petting
     in.valence = -0.3f;
-    run(&arc, &in, &now, 1800, &r);
+    run(&arc, &in, &now, 1100, &r);
     NB_CHECK_EQ_INT(NB_ARC_MAKE_UP, r.started);
     NB_CHECK_EQ_INT(NB_EXPR_SAD, r.last.expression);
     NB_CHECK(r.last.look.pitch < 0.0f);  // looks up at the person
@@ -189,7 +189,7 @@ static void test_petting_a_sad_robot_makes_up(void) {
     NB_CHECK_EQ_INT(NB_ARC_MAKE_UP, r.started);
 }
 
-static void test_make_up_aborts_if_the_hand_leaves_early(void) {
+static void test_make_up_needs_the_hand_only_at_first(void) {
     nb_arc_t arc;
     nb_arc_init(&arc, 13u);
     uint32_t now = 0;
@@ -197,13 +197,24 @@ static void test_make_up_aborts_if_the_hand_leaves_early(void) {
     run_t r;
     in.petting = true;
     in.valence = -0.4f;
-    run(&arc, &in, &now, 1000, &r);
+    run(&arc, &in, &now, 200, &r);
     NB_CHECK_EQ_INT(NB_ARC_MAKE_UP, r.started);
-    in.petting = false;
+    in.petting = false;  // gone before it even looked up
     run(&arc, &in, &now, 100, &r);
     NB_CHECK_EQ_INT(NB_ARC_MAKE_UP, r.aborted);
     NB_CHECK_EQ_INT(0, r.pushes);
     NB_CHECK_EQ_INT(NB_ARC_NONE, r.last.kind);
+    // A hand that stays past the first look is enough: it ends content.
+    now += NB_ARC_MAKE_UP_COOLDOWN_MS;
+    in.petting = true;
+    run(&arc, &in, &now, 500, &r);
+    NB_CHECK_EQ_INT(NB_ARC_MAKE_UP, r.started);
+    in.petting = false;
+    run(&arc, &in, &now, 4000, &r);
+    NB_CHECK_EQ_INT(NB_ARC_NONE, r.aborted);
+    NB_CHECK_EQ_INT(NB_ARC_MAKE_UP, r.ended);
+    NB_CHECK_EQ_INT(1, r.pushes);
+    NB_CHECK_EQ_INT(NB_EXPR_CONTENT, r.seen[r.seen_count - 1]);
 }
 
 static void test_a_sulk_turns_into_making_up(void) {
@@ -355,7 +366,7 @@ int main(void) {
     NB_RUN(test_slow_taps_and_cooldown);
     NB_RUN(test_conversation_aborts_without_ending);
     NB_RUN(test_petting_a_sad_robot_makes_up);
-    NB_RUN(test_make_up_aborts_if_the_hand_leaves_early);
+    NB_RUN(test_make_up_needs_the_hand_only_at_first);
     NB_RUN(test_a_sulk_turns_into_making_up);
     NB_RUN(test_sulk_hurts_the_same_from_any_mood);
     NB_RUN(test_boredom_searches_at_most_hourly);
