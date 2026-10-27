@@ -285,8 +285,12 @@ ausência); sem microSD o robô funciona e avisa.
      vigiado). Visto em bancada: migração feita, memória do robô carregada
      (1 fato, 13 episódios), teste no boot 12 sem falhas. O `.ini` também
      passou a ser lido em UTF-8 com BOM e UTF-16 (o "Unicode" do Bloco de
-     Notas), e o boot diz o tamanho do arquivo. Falta repetir o teste de
-     cortes com o `.ini` no cartão.
+     Notas), e o boot diz o tamanho do arquivo. Teste de cortes repetido com
+     o `.ini` no cartão: boots 17 a 23 (cortes de energia de verdade) sem
+     falhas, ~32 mil operações, `.ini` igual e lido com 2 ajustes em todos
+     os boots, memória do robô intacta. Firmware normal gravado de volta;
+     os arquivos `cortes` ficam em `slot_a/`, `slot_b/` e `log/` e podem
+     ser apagados.
 9. [x] **MCP** (`mcp/memory_tools`): `self.mood.get`, `self.mood.stimulate`,
    `self.memory.recall`/`remember`/`correct`/`forget`, com descrições ricas.
    As ferramentas rodam na task do app e chamam a memória na task dela
