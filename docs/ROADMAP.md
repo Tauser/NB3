@@ -318,8 +318,10 @@ os núcleos integralmente.
   encurta o intervalo dos pensamentos (1,7× a 0,7×); energia < 0,25 com
   10 min de silêncio dorme (`SLEEPING`, olhos quase fechados, sem olhar em
   volta), e toque ou wake word acordam. `self.mood.get` diz energia, tédio,
-  sonolento e dormindo. 6 host-tests. Falta ver em bancada: a noite
-  chegando (sonolento, sono) e o acordar.
+  sonolento e dormindo. 6 host-tests. Visto em bancada à meia-noite: uma
+  conversa até 186 s, dois pensamentos sozinhos (395 s e 1140 s), sonolento
+  aos 1370 s (energia 0,35) e dormindo aos 1994 s (0,25). Falta ver: o
+  acordar com toque e wake word.
 - [~] **Idle autônomo guiado pelo humor** (`core/nb_gaze`, FACE.md "Olhar
   autônomo"): a coreografia fixa de 8 olhares saiu. Cada olhar sorteia
   direção (8 mais o centro, nunca uma das duas últimas), alcance, ida e
