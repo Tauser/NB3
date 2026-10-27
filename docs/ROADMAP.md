@@ -324,7 +324,7 @@ os núcleos integralmente.
   overlay "Zzz" (três Z subindo, pedido do usuário), aprovado na tela. Os
   olhos dormindo pareciam estranhos (crescente sonolento achatado a 12% pelo
   piscar travado); viraram olho fechado de verdade (`nb_avatar_core_set_eyes_closed`:
-  só a curva de baixo, altura inteira, sem piscar). Falta ver na tela.
+  só a curva de baixo, altura inteira, sem piscar). Aprovado na tela.
   Falta ver: o acordar com toque e wake word.
 - [~] **Idle autônomo guiado pelo humor** (`core/nb_gaze`, FACE.md "Olhar
   autônomo"): a coreografia fixa de 8 olhares saiu. Cada olhar sorteia
