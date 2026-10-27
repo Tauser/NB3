@@ -11,13 +11,16 @@ extern "C" {
 // Body-touch detection on a capacitive pad. On the ESP32-S3 the raw reading
 // rises when touched; detection is relative to a baseline that is calibrated
 // at start and then follows slow drift (humidity, temperature) while the pad
-// is untouched, so a fixed threshold never goes stale.
+// is untouched, so a fixed threshold never goes stale. A contact longer
+// than any petting is a shift of the pad itself (humidity, a cable, an
+// object resting on it): its level becomes the new baseline.
 typedef enum {
     NB_TOUCH_NONE = 0,
     NB_TOUCH_PRESS,    // contact started
     NB_TOUCH_TAP,      // released quickly
     NB_TOUCH_HOLD,     // held long enough to count as petting (fires once)
     NB_TOUCH_RELEASE,  // contact ended after a hold
+    NB_TOUCH_STUCK,    // contact too long for a hand: re-baselined, no touch
 } nb_touch_event_t;
 
 typedef struct {
@@ -27,6 +30,7 @@ typedef struct {
     uint8_t calib_samples;    // samples averaged into the first baseline
     uint32_t tap_max_ms;      // longest contact still reported as a tap
     uint32_t hold_ms;         // contact time that becomes a hold
+    uint32_t stuck_ms;        // contact time that is no longer a hand
     float drift_alpha;        // baseline tracking weight per untouched sample
 } nb_touch_config_t;
 

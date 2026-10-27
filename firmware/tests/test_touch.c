@@ -113,6 +113,21 @@ static void test_baseline_frozen_while_touched(void) {
     NB_CHECK(r.touch.baseline == before);
 }
 
+static void test_endless_contact_becomes_the_new_baseline(void) {
+    rig_t r;
+    rig_init(&r);
+    // The pad's reading jumps and stays there (nobody touching).
+    NB_CHECK_EQ_INT(NB_TOUCH_PRESS, feed(&r, TOUCHED, 5));
+    NB_CHECK_EQ_INT(NB_TOUCH_HOLD, feed(&r, TOUCHED, 100));
+    NB_CHECK_EQ_INT(NB_TOUCH_NONE, feed(&r, TOUCHED, 2500));  // 50 s of "petting"
+    NB_CHECK_EQ_INT(NB_TOUCH_STUCK, feed(&r, TOUCHED, 500));
+    NB_CHECK(!r.touch.touched);
+    // That level is now the untouched one: no new contact for an hour.
+    NB_CHECK_EQ_INT(NB_TOUCH_NONE, feed(&r, TOUCHED, 180000));
+    // A real touch on top of it is still detected.
+    NB_CHECK_EQ_INT(NB_TOUCH_PRESS, feed(&r, TOUCHED + TOUCHED * 6 / 100, 5));
+}
+
 int main(void) {
     NB_RUN(test_no_events_before_calibration);
     NB_RUN(test_short_touch_is_press_then_tap);
@@ -123,5 +138,6 @@ int main(void) {
     NB_RUN(test_hysteresis_keeps_contact_between_thresholds);
     NB_RUN(test_baseline_follows_slow_drift);
     NB_RUN(test_baseline_frozen_while_touched);
+    NB_RUN(test_endless_contact_becomes_the_new_baseline);
     NB_TEST_MAIN_END();
 }

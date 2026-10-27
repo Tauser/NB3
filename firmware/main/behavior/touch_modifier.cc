@@ -116,6 +116,13 @@ void TouchModifier::OnEvent(nb_touch_event_t event) {
             behavior_.OnTouch(false);
             break;
         }
+        case NB_TOUCH_STUCK: {
+            // Not a hand: drop the contact without afterglow or a memory.
+            ESP_LOGW(TAG, "Contact too long; new baseline %.0f", touch_.baseline);
+            arbiter_.Withdraw(NB_SOURCE_TOUCH);
+            behavior_.OnTouch(false);
+            break;
+        }
         default:
             break;
     }

@@ -10,6 +10,7 @@ nb_touch_config_t nb_touch_default_config(void) {
         .calib_samples = 10,
         .tap_max_ms = 600,
         .hold_ms = 1500,
+        .stuck_ms = 60000,
         .drift_alpha = 1.0f / 512.0f,
     };
     return cfg;
@@ -71,6 +72,12 @@ nb_touch_event_t nb_touch_update(nb_touch_t *touch, uint32_t raw, uint32_t now_m
     }
 
     touch->streak = 0;
+    if (now_ms - touch->press_ms >= touch->cfg.stuck_ms) {
+        touch->baseline = value;
+        touch->touched = false;
+        touch->hold_sent = false;
+        return NB_TOUCH_STUCK;
+    }
     if (!touch->hold_sent && now_ms - touch->press_ms >= touch->cfg.hold_ms) {
         touch->hold_sent = true;
         return NB_TOUCH_HOLD;
