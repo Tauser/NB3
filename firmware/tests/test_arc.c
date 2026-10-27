@@ -89,7 +89,7 @@ static void test_three_quick_taps_sulk_then_forgive(void) {
     NB_CHECK_EQ_INT(NB_EXPR_ANGRY, r.last.expression);
     NB_CHECK(r.last.look.pitch > 0.0f);  // eyes a little down
     NB_CHECK_EQ_INT(1, r.pushes);
-    NB_CHECK(fabsf(r.push_valence + 0.35f) < 0.001f && r.push_arousal > 0.1f);
+    NB_CHECK(fabsf(r.push_valence + 0.35f) < 0.001f && r.push_arousal < 0.0f);
     // Turns away with a slow blink, still cross.
     run(&arc, &in, &now, 1500, &r);
     NB_CHECK_EQ_INT(NB_EXPR_ANGRY, r.last.expression);

@@ -157,7 +157,7 @@ abortam qualquer arco na hora, sem desfecho e sem empurrar o humor.
 
 | Arco | Gatilho | Sequência | Humor |
 |---|---|---|---|
-| **Birra e perdão** | 3 toques rápidos (tap) em 10 s | bravo olhando um pouco para baixo (1,5 s) → vira o rosto para um lado, bravo, com uma piscada lenta (1,5 s) → volta para a frente e sorri (1 s) | no começo a valência vai a 0,35 abaixo do repouso (se já não estiver mais baixa) e a ativação sobe 0,2; o perdão é só a face: a mágoa fica até alguém fazer as pazes |
+| **Birra e perdão** | 3 toques rápidos (tap) em 10 s | bravo olhando um pouco para baixo (1,5 s) → vira o rosto para um lado, bravo, com uma piscada lenta (1,5 s) → volta para a frente e sorri (1 s) | no começo a valência vai a 0,35 abaixo do repouso (se já não estiver mais baixa) e a ativação desce 0,1, para a mágoa aparecer triste e não brava; o perdão é só a face: a mágoa fica até alguém fazer as pazes |
 | **Reconciliação** | humor abaixo do repouso (valência 0,15 abaixo do temperamento com o viés) e carinho | olha para a frente, um pouco para cima, triste ("te olha", 0,4 s) → continua olhando, triste, enquanto o carinho segue (1,5 s) → apaixonado com corações se o carinho continua, contente se parou, com piscada lenta (2,5 s) | no desfecho a valência vai a 0,35 acima do repouso e a ativação desce 0,1: fazer as pazes deixa mais feliz que o repouso |
 | **Procura** | tédio ≥ 0,9 em repouso, acordado e sem sono, no máximo 1 vez por hora | curioso, olha um pouco para cima (0,5 s) → 2 a 4 olhadas para os lados num padrão (lateral, diagonal ou em volta; nunca o mesmo da vez anterior), 1 s cada → ninguém: olha para baixo, triste, com piscada lenta (1,8 s) | nenhum |
 

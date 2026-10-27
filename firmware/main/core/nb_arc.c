@@ -71,8 +71,10 @@ static void build_sulk(nb_arc_t *arc) {
     const float side = next_unit(arc) < 0.5f ? -1.0f : 1.0f;
     nb_arc_step_t *s = arc->steps;
     s[0] = step(NB_EXPR_ANGRY, 0.0f, 0.25f, 1500);  // cross, eyes a little down
+    // Hurt rather than angry: once the sulk's own face is over, the mood
+    // shows sad, which asks for comfort.
     s[0].valence_to = -0.35f;
-    s[0].push_arousal = 0.2f;
+    s[0].push_arousal = -0.1f;
     s[1] = step(NB_EXPR_ANGRY, side * 0.8f, 0.2f, 1500);  // turns away
     s[1].slow_blink = true;
     // Looks back and smiles: forgiven, though still a little hurt until
