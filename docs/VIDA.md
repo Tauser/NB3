@@ -157,16 +157,18 @@ abortam qualquer arco na hora, sem desfecho e sem empurrar o humor.
 
 | Arco | Gatilho | Sequência | Humor |
 |---|---|---|---|
-| **Birra e perdão** | 3 toques rápidos (tap) em 10 s | bravo olhando um pouco para baixo (1,5 s) → vira o rosto para um lado, bravo, com uma piscada lenta (1,5 s) → volta para a frente e sorri (1 s) | −0,6 de valência e +0,2 de ativação no começo; o perdão é só a face: a mágoa fica até alguém fazer as pazes |
-| **Reconciliação** | humor abaixo do repouso (valência 0,15 abaixo do temperamento com o viés) e carinho | olha para a frente, um pouco para cima, triste ("te olha", 0,4 s) → continua olhando, triste, enquanto o carinho segue (1,5 s) → apaixonado com corações se o carinho continua, contente se parou, com piscada lenta (2,5 s) | +0,5 de valência e −0,1 de ativação no desfecho: fazer as pazes deixa mais feliz que o repouso |
+| **Birra e perdão** | 3 toques rápidos (tap) em 10 s | bravo olhando um pouco para baixo (1,5 s) → vira o rosto para um lado, bravo, com uma piscada lenta (1,5 s) → volta para a frente e sorri (1 s) | no começo a valência vai a 0,35 abaixo do repouso (se já não estiver mais baixa) e a ativação sobe 0,2; o perdão é só a face: a mágoa fica até alguém fazer as pazes |
+| **Reconciliação** | humor abaixo do repouso (valência 0,15 abaixo do temperamento com o viés) e carinho | olha para a frente, um pouco para cima, triste ("te olha", 0,4 s) → continua olhando, triste, enquanto o carinho segue (1,5 s) → apaixonado com corações se o carinho continua, contente se parou, com piscada lenta (2,5 s) | no desfecho a valência vai a 0,35 acima do repouso e a ativação desce 0,1: fazer as pazes deixa mais feliz que o repouso |
 | **Procura** | tédio ≥ 0,9 em repouso, acordado e sem sono, no máximo 1 vez por hora | curioso, olha um pouco para cima (0,5 s) → 2 a 4 olhadas para os lados num padrão (lateral, diagonal ou em volta; nunca o mesmo da vez anterior), 1 s cada → ninguém: olha para baixo, triste, com piscada lenta (1,8 s) | nenhum |
 
 - **Birra:** os toques que a provocam continuam sendo carinhos rápidos
   (felizes) até o terceiro. Durante a birra, novos toques são ignorados;
   depois do perdão, 60 s de intervalo antes de outra. A birra deixa o humor
   abaixo do repouso, então um carinho logo depois vira reconciliação: o
-  ciclo provocar → emburrar → consolar → fazer as pazes. Os empurrões dos
-  arcos passam pela reatividade da personalidade como qualquer estímulo.
+  ciclo provocar → emburrar → consolar → fazer as pazes. Os arcos levam a
+  valência a um ponto (não somam um delta), porque na bancada um humor
+  alto antes da birra a deixava acima do repouso e o carinho seguinte não
+  reconciliava; pelo mesmo motivo não passam pela reatividade.
 - **Reconciliação:** se o carinho parar antes do desfecho, ela aborta sem
   mexer no humor. Depois do desfecho, 30 s de intervalo.
 - **Procura:** alguém aparecer no meio (toque, conversa) tira o robô do

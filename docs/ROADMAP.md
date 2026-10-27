@@ -331,15 +331,18 @@ os núcleos integralmente.
 - [~] **Arcos com desfecho** (`core/nb_arc`, `behavior/arc_modifier`,
   VIDA.md §3.4): orientação → execução → desfecho, um por vez, abortados
   por conversa, sono e falha. Birra e perdão (3 taps em 10 s: bravo →
-  vira o rosto com piscada lenta → volta e sorri; −0,6 de valência, 60 s de
-  intervalo), reconciliação (humor 0,15 abaixo do repouso + carinho: olha
-  para a pessoa triste → apaixonado, ou contente se a mão saiu; +0,5 de
-  valência, 30 s de intervalo) e procura (tédio ≥ 0,9 em repouso, no
+  vira o rosto com piscada lenta → volta e sorri; valência a 0,35 abaixo do
+  repouso, 60 s de intervalo), reconciliação (humor 0,15 abaixo do repouso +
+  carinho: olha para a pessoa triste → apaixonado, ou contente se a mão
+  saiu; valência a 0,35 acima do repouso, 30 s de intervalo) e procura (tédio ≥ 0,9 em repouso, no
   máximo 1 por hora: curioso → 2 a 4 olhadas num padrão que não repete →
   suspiro). Fonte `ARC`, prioridade 45, não transitória; o arco traz o
   próprio olhar e a piscada lenta. 10 host-tests. Gravado e com boot limpo.
-  Falta ver em bancada: birra com 3 taps, carinho logo depois da birra
-  virando reconciliação, e uma procura depois de ~20 min de tédio.
+  Em bancada a birra saiu e terminou, e taps dentro dos 60 s não a
+  repetiram; mas o humor estava alto (v 0,34) e o carinho seguinte não
+  reconciliou: os arcos passaram a levar a valência a um ponto em vez de
+  somar. Falta ver: a reconciliação depois da birra e uma procura depois de
+  ~20 min de tédio.
 - [~] **Energia, tédio e circadiano** (`core/nb_energy`,
   `behavior/energy_modifier`, VIDA.md §3.3): energia segue a hora do dia
   (1 de dia, 0,15 de madrugada, rampas às 20–23 h e 6–8 h; 0,8 sem hora

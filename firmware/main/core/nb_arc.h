@@ -58,7 +58,11 @@ typedef struct {
     bool slow_blink;       // a slow blink at the start of the step
     bool aborts_without_petting;
     uint32_t duration_ms;
-    float push_valence, push_arousal;  // mood push at the start of the step
+    // At the start of the step the valence goes to valence_to (relative to
+    // rest) unless it is already past it; 0 leaves it alone. Plus a push in
+    // arousal. Targets, not deltas: a sulk hurts as much whatever the mood
+    // before it.
+    float valence_to, push_arousal;
 } nb_arc_step_t;
 
 // What the robot does around the arc, sampled by the caller.

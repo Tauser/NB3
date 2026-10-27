@@ -34,7 +34,8 @@ public:
     // axis, scaled down and capped below touch).
     void OnConversationEvent(float valence, float arousal, const std::string& reason);
     // A turning point of an arc (core/nb_arc): the sulk, the forgiving, the
-    // making up. Not habituated: an arc already has its own cooldown.
+    // making up. Not habituated (an arc already has its own cooldown) and
+    // not scaled by the reactivity (the arc says where the mood goes).
     void OnArc(float valence, float arousal, const char* arc);
 
     struct Snapshot {

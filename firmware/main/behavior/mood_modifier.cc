@@ -101,8 +101,16 @@ void MoodModifier::OnConversationEvent(float valence, float arousal, const std::
 }
 
 void MoodModifier::OnArc(float valence, float arousal, const char* arc) {
-    // Cap high enough for a sulk and a making up inside one window.
-    const nb_affect_stimulus_t s = {"arc", valence, arousal, 2.0f, 1.0f};
+    // The arc already decided how far the mood goes, so the reactivity is
+    // undone here; the cap is high enough for a sulk and a making up inside
+    // one window.
+    float reactivity;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        reactivity = affect_.personality.reactivity;
+    }
+    const nb_affect_stimulus_t s = {"arc", valence / reactivity, arousal / reactivity, 4.0f,
+                                    1.0f};
     Feel(s);
     std::lock_guard<std::mutex> lock(mutex_);
     recent_ = std::string("arco: ") + arc;

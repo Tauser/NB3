@@ -89,7 +89,7 @@ static void test_three_quick_taps_sulk_then_forgive(void) {
     NB_CHECK_EQ_INT(NB_EXPR_ANGRY, r.last.expression);
     NB_CHECK(r.last.look.pitch > 0.0f);  // eyes a little down
     NB_CHECK_EQ_INT(1, r.pushes);
-    NB_CHECK(r.push_valence < -0.5f && r.push_arousal > 0.1f);
+    NB_CHECK(fabsf(r.push_valence + 0.35f) < 0.001f && r.push_arousal > 0.1f);
     // Turns away with a slow blink, still cross.
     run(&arc, &in, &now, 1500, &r);
     NB_CHECK_EQ_INT(NB_EXPR_ANGRY, r.last.expression);
@@ -230,6 +230,36 @@ static void test_a_sulk_turns_into_making_up(void) {
     NB_CHECK_EQ_INT(NB_ARC_MAKE_UP, r.started);
 }
 
+static void test_sulk_hurts_the_same_from_any_mood(void) {
+    // The sulk takes the valence to the same point below rest whatever the
+    // mood before it, and never lifts a mood already lower.
+    const float before[] = {0.6f, 0.0f, -0.6f};
+    const float expect[] = {-0.95f, -0.35f, 0.0f};
+    for (int i = 0; i < 3; i++) {
+        nb_arc_t arc;
+        nb_arc_init(&arc, 29u);
+        uint32_t now = 0;
+        nb_arc_input_t in = calm();
+        in.valence = before[i];
+        run_t r;
+        taps(&arc, &now, 3, 200);
+        run(&arc, &in, &now, 300, &r);
+        NB_CHECK_EQ_INT(NB_ARC_SULK, r.started);
+        NB_CHECK(fabsf(r.push_valence - expect[i]) < 0.001f);
+    }
+    // Making up lands above rest, however low it starts.
+    nb_arc_t arc;
+    nb_arc_init(&arc, 31u);
+    uint32_t now = 0;
+    nb_arc_input_t in = calm();
+    in.petting = true;
+    in.valence = -0.9f;
+    run_t r;
+    run(&arc, &in, &now, 2500, &r);
+    NB_CHECK_EQ_INT(NB_ARC_MAKE_UP, r.started);
+    NB_CHECK(fabsf(in.valence + r.push_valence - 0.35f) < 0.001f);
+}
+
 static void test_boredom_searches_at_most_hourly(void) {
     nb_arc_t arc;
     nb_arc_init(&arc, 19u);
@@ -327,6 +357,7 @@ int main(void) {
     NB_RUN(test_petting_a_sad_robot_makes_up);
     NB_RUN(test_make_up_aborts_if_the_hand_leaves_early);
     NB_RUN(test_a_sulk_turns_into_making_up);
+    NB_RUN(test_sulk_hurts_the_same_from_any_mood);
     NB_RUN(test_boredom_searches_at_most_hourly);
     NB_RUN(test_someone_coming_ends_the_search);
     NB_RUN(test_searches_vary);

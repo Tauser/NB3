@@ -71,7 +71,7 @@ static void build_sulk(nb_arc_t *arc) {
     const float side = next_unit(arc) < 0.5f ? -1.0f : 1.0f;
     nb_arc_step_t *s = arc->steps;
     s[0] = step(NB_EXPR_ANGRY, 0.0f, 0.25f, 1500);  // cross, eyes a little down
-    s[0].push_valence = -0.6f;
+    s[0].valence_to = -0.35f;
     s[0].push_arousal = 0.2f;
     s[1] = step(NB_EXPR_ANGRY, side * 0.8f, 0.2f, 1500);  // turns away
     s[1].slow_blink = true;
@@ -90,7 +90,7 @@ static void build_make_up(nb_arc_t *arc) {
     s[2] = step(NB_EXPR_LOVING, 0.0f, -0.2f, 2500);  // made up
     s[2].alone = NB_EXPR_CONTENT;
     s[2].slow_blink = true;
-    s[2].push_valence = 0.5f;
+    s[2].valence_to = 0.35f;  // happier than at rest: making up brings closer
     s[2].push_arousal = -0.1f;
     arc->step_count = 3;
 }
@@ -214,9 +214,17 @@ void nb_arc_update(nb_arc_t *arc, const nb_arc_input_t *in, uint32_t now_ms,
         const nb_arc_step_t *s = &arc->steps[arc->step];
         if (!arc->step_entered) {
             arc->step_entered = true;
-            if (s->push_valence != 0.0f || s->push_arousal != 0.0f) {
+            float dv = s->valence_to - (in->valence + out->push_valence);
+            if (s->valence_to < 0.0f) {
+                dv = fminf(dv, 0.0f);
+            } else if (s->valence_to > 0.0f) {
+                dv = fmaxf(dv, 0.0f);
+            } else {
+                dv = 0.0f;
+            }
+            if (dv != 0.0f || s->push_arousal != 0.0f) {
                 out->push = true;
-                out->push_valence += s->push_valence;
+                out->push_valence += dv;
                 out->push_arousal += s->push_arousal;
             }
         }

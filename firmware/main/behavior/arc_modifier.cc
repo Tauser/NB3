@@ -56,8 +56,7 @@ void ArcModifier::Tick() {
               state == NB_BEHAVIOR_FAULT || energy.sleeping;
     in.petting = petting_;
     in.drowsy = energy.drowsy;
-    const MoodModifier::Snapshot mood = mood_.Read();
-    in.valence = mood.mood.valence - (mood.temperament.valence + mood.bias.valence);
+    in.valence = mood_.Deviation().valence;
     in.boredom = energy.boredom;
     nb_arc_frame_t frame;
     {
