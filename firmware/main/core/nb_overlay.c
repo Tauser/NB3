@@ -60,6 +60,11 @@ static float bubble_scale(uint32_t since, uint32_t leaving) {
     return scale;
 }
 
+void nb_overlay_set_sleeping(nb_overlay_t *overlay, bool sleeping)
+{
+    overlay->sleeping = sleeping;
+}
+
 void nb_overlay_update(nb_overlay_t *overlay, nb_expression_t winner, bool speaking,
                        float audio_level, uint32_t now_ms, nb_overlay_frame_t *out) {
     if (overlay == NULL || out == NULL) {
@@ -79,7 +84,7 @@ void nb_overlay_update(nb_overlay_t *overlay, nb_expression_t winner, bool speak
     const float tau = target > overlay->level ? NB_OVERLAY_ATTACK_MS : NB_OVERLAY_RELEASE_MS;
     overlay->level += (target - overlay->level) * (1.0f - expf(-dt / tau));
 
-    nb_overlay_kind_t kind = kind_for(winner);
+    nb_overlay_kind_t kind = overlay->sleeping ? NB_OVERLAY_SLEEP : kind_for(winner);
     uint32_t leaving = 0u;
     if (speaking) {
         kind = NB_OVERLAY_SPEECH;
@@ -136,6 +141,15 @@ void nb_overlay_update(nb_overlay_t *overlay, nb_expression_t winner, bool speak
             out->hearts[i] = fmodf((float)(since + (uint32_t)i * 1200u) / 2400.0f, 1.0f);
         }
         out->cheeks = true;
+        break;
+    case NB_OVERLAY_SLEEP:
+        for (int i = 0; i < NB_OVERLAY_ZS; ++i) {
+            // One Z at a time starts, so the first frame shows none yet.
+            const uint32_t offset = (uint32_t)i * (NB_OVERLAY_Z_RISE_MS / NB_OVERLAY_ZS);
+            out->zs[i] = since < offset ? 0.0f
+                                        : fmodf((float)(since - offset) / NB_OVERLAY_Z_RISE_MS,
+                                                1.0f);
+        }
         break;
     case NB_OVERLAY_CHEEKS:
         out->cheeks = true;

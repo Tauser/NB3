@@ -142,6 +142,33 @@ static void test_null_is_safe(void) {
     nb_overlay_update(&o, NB_EXPR_NEUTRAL, false, 0, 0, NULL);
 }
 
+static void test_sleep_shows_rising_zs(void)
+{
+    nb_overlay_t o;
+    nb_overlay_frame_t f;
+    nb_overlay_init(&o);
+    nb_overlay_set_sleeping(&o, true);
+    nb_overlay_update(&o, NB_EXPR_SLEEPY, false, 0.0f, 1000, &f);
+    NB_CHECK_EQ_INT(NB_OVERLAY_SLEEP, f.kind);
+    NB_CHECK(f.zs[1] == 0.0f && f.zs[2] == 0.0f);  // they start one by one
+    // Later all three are up, each at its own height, and they keep cycling.
+    nb_overlay_update(&o, NB_EXPR_SLEEPY, false, 0.0f, 1000 + 2500, &f);
+    NB_CHECK(f.zs[0] > f.zs[1] && f.zs[1] > f.zs[2] && f.zs[2] > 0.0f);
+    for (int i = 0; i < NB_OVERLAY_ZS; ++i) {
+        NB_CHECK(f.zs[i] >= 0.0f && f.zs[i] < 1.0f);
+    }
+    // The voice still wins (the wake word answer), and waking ends the Zs.
+    nb_overlay_update(&o, NB_EXPR_SLEEPY, true, 0.5f, 4000, &f);
+    NB_CHECK_EQ_INT(NB_OVERLAY_SPEECH, f.kind);
+    nb_overlay_set_sleeping(&o, false);
+    nb_overlay_update(&o, NB_EXPR_NEUTRAL, false, 0.0f, 5000, &f);  // the bubble lingers
+    nb_overlay_update(&o, NB_EXPR_NEUTRAL, false, 0.0f, 6000, &f);
+    NB_CHECK_EQ_INT(NB_OVERLAY_NONE, f.kind);
+    // Drowsy but awake: no Zs.
+    nb_overlay_update(&o, NB_EXPR_SLEEPY, false, 0.0f, 7000, &f);
+    NB_CHECK_EQ_INT(NB_OVERLAY_NONE, f.kind);
+}
+
 int main(void) {
     NB_RUN(test_each_state_gets_its_overlay);
     NB_RUN(test_speaking_wins_over_the_expression);
@@ -154,5 +181,6 @@ int main(void) {
     NB_RUN(test_level_falls_slower_than_it_rises);
     NB_RUN(test_hearts_take_turns_rising);
     NB_RUN(test_null_is_safe);
+    NB_RUN(test_sleep_shows_rising_zs);
     NB_TEST_MAIN_END();
 }

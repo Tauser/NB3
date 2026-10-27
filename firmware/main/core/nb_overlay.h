@@ -21,7 +21,12 @@ typedef enum {
     NB_OVERLAY_SPEECH,     // speech bubble with dots in the voice's rhythm
     NB_OVERLAY_AFFECTION,  // rising hearts and cheeks
     NB_OVERLAY_CHEEKS,     // cheeks only
+    NB_OVERLAY_SLEEP,      // Zs drifting up while asleep
 } nb_overlay_kind_t;
+
+#define NB_OVERLAY_ZS 3
+// Each Z takes this long to rise and fade; they follow one another.
+#define NB_OVERLAY_Z_RISE_MS 3300u
 
 #define NB_OVERLAY_BARS 7
 
@@ -39,6 +44,7 @@ typedef struct {
     float bubble;                 // SPEECH: bubble scale, 0 hidden .. ~1.1
     float hearts[2];              // AFFECTION: rise phase 0..1 of each heart
     bool cheeks;                  // AFFECTION, CHEEKS
+    float zs[NB_OVERLAY_ZS];      // SLEEP: rise phase 0..1 of each Z
 } nb_overlay_frame_t;
 
 typedef struct {
@@ -49,11 +55,16 @@ typedef struct {
     uint32_t last_ms;
     float level;             // smoothed audio level 0..1
     bool started;
+    bool sleeping;
 } nb_overlay_t;
 
 void nb_overlay_init(nb_overlay_t *overlay);
 
-// Speaking wins over everything; otherwise the winning expression decides.
+// Asleep, the Zs show whatever the expression (it is the sleepy one).
+void nb_overlay_set_sleeping(nb_overlay_t *overlay, bool sleeping);
+
+// Speaking wins over everything, then sleep; otherwise the winning
+// expression decides.
 // audio_level (0..1) is the microphone while listening and the speaker while
 // speaking. Writes the frame to draw now.
 void nb_overlay_update(nb_overlay_t *overlay, nb_expression_t winner, bool speaking,

@@ -53,6 +53,8 @@ constexpr float kHandTop = 47.0f;
 constexpr float kBubbleCentre[2] = {108.0f, -80.0f};
 constexpr float kHeartsY = -60.0f;    // where a heart starts rising
 constexpr float kHeartsRise = 36.0f;
+constexpr float kZStart[2] = {70.0f, -58.0f};  // where a Z appears, beside the eyes
+constexpr float kZDrift[2] = {38.0f, -52.0f};  // how far it travels up and out
 }  // namespace
 
 // Generated from the user's hand drawing by tools/design/svg_to_lvgl.py.
@@ -264,6 +266,16 @@ struct Painter {
         lv_draw_image(layer, &dsc, &area);
     }
 
+    // A "Z" of the given height centred on (x, y): two bars and a diagonal.
+    void Zee(float x, float y, float size, lv_color_t color) const {
+        const float h = size * 0.5f;
+        const float w = size * 0.45f;
+        const float stroke = fmaxf(2.0f, size * 0.16f);
+        Line(x - w, y - h, x + w, y - h, stroke, color);
+        Line(x + w, y - h, x - w, y + h, stroke, color);
+        Line(x - w, y + h, x + w, y + h, stroke, color);
+    }
+
     // The face V2 overlay, one at a time (docs/FACE.md). Fades are dims
     // toward the black background.
     void Overlay(const nb_overlay_frame_t& o, const nb_avatar_pose_t& pose) const {
@@ -320,6 +332,17 @@ struct Painter {
             case NB_OVERLAY_CHEEKS:
                 Cheek(pose.left_eye, pose, -1.0f);
                 Cheek(pose.right_eye, pose, 1.0f);
+                break;
+            case NB_OVERLAY_SLEEP:
+                for (int i = 0; i < NB_OVERLAY_ZS; ++i) {
+                    const float p = o.zs[i];
+                    if (p <= 0.0f) {
+                        continue;
+                    }
+                    const float fade = p < 0.2f ? p / 0.2f : (p > 0.7f ? (1.0f - p) / 0.3f : 1.0f);
+                    Zee(cx + kZStart[0] + kZDrift[0] * p, cy + kZStart[1] + kZDrift[1] * p,
+                        9.0f + 9.0f * p, Dim(kEyeColor, Clamp(fade, 0.0f, 1.0f)));
+                }
                 break;
             default:
                 break;
@@ -546,6 +569,7 @@ void FaceDisplay::Tick() {
     const bool wander = !sleeping && (winner == NB_SOURCE_COUNT || winner == NB_SOURCE_MOOD ||
                                       winner == NB_SOURCE_ENERGY);
     nb_avatar_core_set_blink_override(&avatar_, 0.12f, sleeping);
+    nb_overlay_set_sleeping(&overlay_, sleeping);
     const nb_avatar_look_t look = nb_gaze_look(&gaze_);
     nb_avatar_core_set_look(&avatar_, &look, wander);
     nb_avatar_core_set_blink_pace(&avatar_, wander ? nb_gaze_blink_pace(&gaze_) : 1.0f);

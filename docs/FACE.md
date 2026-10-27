@@ -49,6 +49,10 @@ As mãos são os desenhos do usuário (seis poses: pensando, confuso,
 risadinha, sonolento, combinado, oi), recortados e usados como sprites
 pequenos, animados por posição, giro e escala.
 
+- **Sono:** três "Z" desenhados com traços sobem ao lado da face, um depois
+  do outro, crescendo e sumindo (3,3 s cada). Só dormindo; sonolento
+  acordado não tem adorno. A fala vence o sono.
+
 ## O que entra agora e o que espera
 
 Entram agora, porque os estados já existem: neutro, escuta, pensando,
