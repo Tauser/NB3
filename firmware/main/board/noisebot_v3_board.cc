@@ -28,6 +28,7 @@
 #include <cmath>
 #include <vector>
 #include <esp_log.h>
+#include <esp_system.h>
 #include <esp_timer.h>
 #include <esp_lcd_panel_vendor.h>
 #include <esp_lcd_panel_io.h>
@@ -130,6 +131,21 @@ private:
     int missing_notices_ = 0;           // store task only
     uint32_t last_missing_notice_ms_ = 0;
 
+    static const char* ResetReasonName(esp_reset_reason_t reason) {
+        switch (reason) {
+            case ESP_RST_POWERON: return "power on";
+            case ESP_RST_SW: return "restart";
+            case ESP_RST_PANIC: return "panic";
+            case ESP_RST_INT_WDT: return "interrupt watchdog";
+            case ESP_RST_TASK_WDT: return "task watchdog";
+            case ESP_RST_WDT: return "watchdog";
+            case ESP_RST_BROWNOUT: return "brownout";
+            case ESP_RST_DEEPSLEEP: return "deep sleep";
+            case ESP_RST_EXT: return "external pin";
+            default: return "other";
+        }
+    }
+
     void InitializeSpi() {
         spi_bus_config_t buscfg = {};
         buscfg.mosi_io_num = DISPLAY_MOSI_PIN;
@@ -185,6 +201,9 @@ private:
 
 public:
     NoiseBotV3Board() : boot_button_(BOOT_BUTTON_GPIO) {
+        // A crash reboots in a second and looks like a normal boot on the
+        // face; the log says which it was.
+        ESP_LOGI(TAG, "last reset: %s", ResetReasonName(esp_reset_reason()));
         InitializeSpi();
         InitializeDisplay();
         InitializeButtons();

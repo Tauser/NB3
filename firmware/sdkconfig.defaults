@@ -12,6 +12,11 @@ CONFIG_FIRMWARE_AUTO_UPGRADE=n
 CONFIG_SR_WN_WN9_NIHAOXIAOZHI_TTS=n
 CONFIG_SR_WN_WN9_JARVIS_TTS=y
 
+# A crash prints a core dump of both cores on the console before rebooting:
+# a backtrace alone does not say what the other core was holding. The flash
+# has no room for a core dump partition inside the first 16 MB.
+CONFIG_ESP_COREDUMP_ENABLE_TO_UART=y
+
 # N32R16V: 32 MB octal flash. The partition table stays inside the first
 # 16 MB so the bootloader needs no experimental 32-bit addressing.
 CONFIG_ESPTOOLPY_OCT_FLASH=y

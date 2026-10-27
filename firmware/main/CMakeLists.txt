@@ -158,6 +158,7 @@ idf_component_register(SRCS ${NB3_SOURCES} ${XIAOZHI_SOURCES}
                         bt
                         fatfs
                         nvs_flash
+                        espcoredump
                         xiaozhi-fonts
                     )
 
