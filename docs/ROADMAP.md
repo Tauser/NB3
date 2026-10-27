@@ -323,7 +323,7 @@ os núcleos integralmente.
   primeira olhada na tela) em perspectiva; olhando a 27° para o lado o olho
   de perto vai a ~130% da largura e o de longe a ~36%; para cima ou para
   baixo os olhos andam ~180, achatam ~20% e se inclinam ~7° um para o
-  outro. As microssacadas continuam. 6 host-tests novos do olhar, 2 do avatar e 1 do árbitro
+  outro. 3D aprovado na tela pelo usuário. As microssacadas continuam. 6 host-tests novos do olhar, 2 do avatar e 1 do árbitro
   (vencedor). Falta ver em bancada: o olhar em repouso não parecer ciclo,
   calmo vs alerta, contente olhando para cima, e a volta ao centro numa
   reação.
