@@ -327,11 +327,17 @@ os núcleos integralmente.
   (vencedor). Falta ver em bancada: o olhar em repouso não parecer ciclo,
   calmo vs alerta, contente olhando para cima, e a volta ao centro numa
   reação.
-- [ ] "Pensar sozinho" no repouso: sem interação há alguns minutos, o
-  pensando aparece ~5 s ao acaso e some (FACE.md); primeiro gesto da
-  iniciativa.
-- [ ] Iniciativa no IDLE dosada pela personalidade, sem somar movimento demais
-  à coreografia que o avatar já tem.
+- [~] "Pensar sozinho" no repouso, dosado pela iniciativa da personalidade
+  (`core/nb_initiative`, `behavior/initiative_modifier`, FACE.md): depois de
+  um silêncio em repouso (3,5 min no padrão 0,5; 1 min em 1; nunca em 0) o
+  pensando aparece por 4–6 s e some; os seguintes a cada ~7 min (metade a
+  uma vez e meia). Sair do repouso interrompe na hora e zera o silêncio.
+  Fonte `INITIATIVE` no árbitro (prioridade 4, logo acima do humor). 5
+  host-tests (silêncio, dose, interrupção, conversa que nunca deixa, relógio
+  dando a volta). Visto em bancada: repouso aos 12 s, pensamento aos 222 s
+  (210 s de silêncio) por 4,6 s e volta ao neutro; um carinho depois zerou a
+  contagem. Falta ver: se o pensando sozinho, com a frequência padrão,
+  parece natural no uso.
 - [ ] Padrões consolidados da memória (contagens por tipo e horário dos
   episódios que saem na compactação) e, sobre eles, a personalidade
   ajustando devagar e com limites. Hoje um episódio apagado na compactação

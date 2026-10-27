@@ -8,6 +8,7 @@
 #include "behavior/behavior_modifier.h"
 #include "behavior/expression_arbiter.h"
 #include "behavior/state_led.h"
+#include "behavior/initiative_modifier.h"
 #include "behavior/mood_lights.h"
 #include "behavior/mood_modifier.h"
 #include "behavior/touch_modifier.h"
@@ -204,6 +205,7 @@ public:
         static TouchModifier touch(BODY_TOUCH_CHANNEL, arbiter_, mood_, behavior_, memory_);
         static MoodLights mood_lights(MOOD_LED_GPIO, MOOD_LED_COUNT, MOOD_LED_MAX_BRIGHTNESS,
                                       arbiter_);
+        static InitiativeModifier initiative(arbiter_, behavior_, personality_);
     }
 
     Led* GetLed() override {

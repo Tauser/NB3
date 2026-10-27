@@ -29,6 +29,7 @@ nb_host_test(test_arbiter ${CORE_DIR}/nb_arbiter.c ${CORE_DIR}/nb_expression.c)
 nb_host_test(test_touch ${CORE_DIR}/nb_touch.c)
 nb_host_test(test_avatar ${CORE_DIR}/nb_avatar.c)
 nb_host_test(test_gaze ${CORE_DIR}/nb_gaze.c)
+nb_host_test(test_initiative ${CORE_DIR}/nb_initiative.c)
 nb_host_test(test_face_link ${CORE_DIR}/nb_face_link.c ${CORE_DIR}/nb_avatar.c
              ${CORE_DIR}/nb_arbiter.c ${CORE_DIR}/nb_expression.c)
 nb_host_test(test_mood ${CORE_DIR}/nb_mood.c)

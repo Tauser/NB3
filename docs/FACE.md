@@ -65,6 +65,16 @@ interação há alguns minutos e em espera, o robô "pensa sozinho" por uns
 frequência vem do parâmetro de iniciativa da personalidade; nunca durante
 conversa, toque ou sono, e um toque ou a wake word interrompem na hora.
 
+| Iniciativa | Silêncio antes do primeiro | Intervalo entre eles | Duração |
+|---|---|---|---|
+| 0 | nunca pensa sozinho | — | — |
+| 0,5 (padrão) | 3,5 min | ~7 min (3,5–10,5) | 4–6 s |
+| 1 | 1 min | ~2 min (1–3) | 4–6 s |
+
+Qualquer saída do repouso (conversa, toque, reação, sono) zera a contagem
+de silêncio. No árbitro é a fonte `INITIATIVE`, logo acima do humor e
+abaixo de tudo o mais, então qualquer outra coisa a cobre.
+
 ## Olhar autônomo
 
 Em repouso o robô olha em volta sozinho, e o jeito de olhar mostra o humor
