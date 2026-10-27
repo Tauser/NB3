@@ -328,7 +328,7 @@ ausência); sem microSD o robô funciona e avisa.
 Comportamentos do NB2 recuperados como modifiers sobre o árbitro, sem portar
 os núcleos integralmente.
 
-- [~] **Arcos com desfecho** (`core/nb_arc`, `behavior/arc_modifier`,
+- [x] **Arcos com desfecho** (`core/nb_arc`, `behavior/arc_modifier`,
   VIDA.md §3.4): orientação → execução → desfecho, um por vez, abortados
   por conversa, sono e falha. Birra e perdão (3 taps em 10 s: bravo →
   vira o rosto com piscada lenta → volta e sorri; valência a 0,35 abaixo do
@@ -350,7 +350,10 @@ os núcleos integralmente.
   primeiros 0,4 s exigem a mão e o momento triste caiu para 0,8 s. Procura
   vista em bancada: sozinho, aos 18 min de repouso (tédio 0,90), curioso
   3,5 s (3 olhadas) e suspiro 1,8 s; nenhuma outra na meia hora seguinte.
-  Falta ver: a reconciliação completa depois da birra.
+  Reconciliação completa vista duas vezes depois da birra: carinho no fim
+  do sorriso → triste olhando a pessoa → apaixonado (valência −0,15 →
+  +0,55); na segunda a mão saiu no meio e o desfecho ficou contente. Taps
+  seguidos só repetiram a birra depois dos 60 s.
 - [~] **Estabilidade em uso longo**: um crash depois de ~3,6 h ligado
   (Guru Meditation na interrupção do SPI do display, `spi_intr` →
   `esp_intr_disable`, só código do IDF na pilha; reiniciou sozinho). Um
