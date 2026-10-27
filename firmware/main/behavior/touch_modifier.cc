@@ -12,6 +12,7 @@ constexpr uint32_t kSettleMs = 200;           // pad must be untouched while set
 constexpr uint32_t kTapReactionMs = 1500;
 constexpr uint32_t kPetAfterglowMs = 2000;
 constexpr uint32_t kPetPulseMs = 4000;  // petting warms the mood again this often
+constexpr uint32_t kLevelReportMs = 30000;
 
 uint32_t NowMs() {
     return static_cast<uint32_t>(esp_timer_get_time() / 1000);
@@ -61,9 +62,31 @@ void TouchModifier::TaskEntry(void* arg) {
 void TouchModifier::Run() {
     vTaskDelay(pdMS_TO_TICKS(kSettleMs));
     bool reported_baseline = false;
+    // A pad that stops answering looks like nobody touching it, so its level
+    // is reported now and then: the peak shows how close a touch came.
+    uint32_t report_ms = NowMs();
+    uint32_t peak = 0;
+    uint32_t read_errors = 0;
     while (true) {
         uint32_t raw = 0;
-        if (touch_channel_read_data(channel_, TOUCH_CHAN_DATA_TYPE_SMOOTH, &raw) == ESP_OK) {
+        const bool read_ok =
+            touch_channel_read_data(channel_, TOUCH_CHAN_DATA_TYPE_SMOOTH, &raw) == ESP_OK;
+        if (!read_ok) {
+            read_errors++;
+        } else if (raw > peak) {
+            peak = raw;
+        }
+        if (NowMs() - report_ms >= kLevelReportMs) {
+            const float base = touch_.baseline;
+            ESP_LOGI(TAG, "level %lu, baseline %.0f, peak %+.1f%% (press at +%.1f%%), %lu read errors",
+                     static_cast<unsigned long>(raw), base,
+                     base > 0 ? (static_cast<float>(peak) / base - 1.0f) * 100.0f : 0.0f,
+                     touch_.cfg.press_ratio * 100.0f, static_cast<unsigned long>(read_errors));
+            report_ms = NowMs();
+            peak = 0;
+            read_errors = 0;
+        }
+        if (read_ok) {
             nb_touch_event_t event = nb_touch_update(&touch_, raw, NowMs());
             if (!reported_baseline && nb_touch_is_calibrated(&touch_)) {
                 ESP_LOGI(TAG, "Calibrated, baseline %.0f", touch_.baseline);
