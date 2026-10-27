@@ -4,8 +4,8 @@ Etapas, prova de sucesso de cada uma e onde o projeto está. Atualizado a cada
 entrega; a fonte da verdade do código é o git (`git log`), aqui fica o
 andamento em linguagem de produto.
 
-**Atualizado em:** 2026-10-26 — etapa 1 concluída; etapas reordenadas pela
-D-010 (vida própria e memória local antes do movimento).
+**Atualizado em:** 2026-10-26 — etapa 2 concluída (vida própria e memória no
+microSD, com MCP); etapa 3 começando.
 
 ## Visão geral
 
@@ -13,7 +13,7 @@ D-010 (vida própria e memória local antes do movimento).
 |---|---|---|---|
 | 0 | xiaozhi em board customizada NB3 na Waveshare N32R16V | conversa em PT-BR agrada; wake word funciona | **concluída** |
 | 1 | Firmware NB3 próprio: face, emoções, toque, LED | o robô "vive" e conversa | **concluída** |
-| 2 | Vida própria: humor contínuo, estados comportamentais, personalidade e memória local mínima no microSD, com MCP | humor sobrevive ao IDLE; lembra de um fato depois de reiniciar; esquece quando pedido | prova e cortes de energia vistos em bancada; falta conferir as durações do humor (item 2) |
+| 2 | Vida própria: humor contínuo, estados comportamentais, personalidade e memória local mínima no microSD, com MCP | humor sobrevive ao IDLE; lembra de um fato depois de reiniciar; esquece quando pedido | **concluída**; durações do humor (item 2) em observação no uso |
 | 3 | Arcos, energia, circadiano e iniciativa | reage com sequência e desfecho; desacelera à noite; toma iniciativa sem exagero | não iniciada |
 | 4 | Servos SCS + `motion_safety` + ferramentas MCP de movimento (entrega própria) | olha e acena; safety corta com carga real | **núcleos prontos**; falta a parte que toca o hardware |
 | 5 | Agenda, timers e comportamentos offline como ferramentas do dispositivo | funciona sem nuvem para o que é local | não iniciada |
@@ -128,7 +128,7 @@ Em aberto (não bloqueia):
 
 ---
 
-## Etapa 2 — vida própria e memória local — não iniciada
+## Etapa 2 — vida própria e memória local — concluída
 
 **Objetivo:** recuperar no ESP32 a autonomia do Noise sem duplicar a máquina
 de conversa do xiaozhi. Spec em [VIDA.md](VIDA.md).
@@ -164,7 +164,8 @@ ausência); sem microSD o robô funciona e avisa.
    o humor. Visto: habituação da emoção (1,00 → 0,50 → nova janela) sem
    saturar; feliz (amarelo) e carinhoso (rosa) nas conversas. Falta ver:
    carinhoso ~30 s depois de soltar; feliz ~30 s depois da última resposta
-   alegre, com a face saindo do ciano ~8 s após a resposta.
+   alegre, com a face saindo do ciano ~8 s após a resposta. Fica para
+   observar no uso, sem bloquear a etapa 2.
 3. [x] **Face V2** (D-011, [FACE.md](FACE.md)): só os estados que já
    existem.
    - [x] Formas (`50b11c9`): campo `crescent` na pose (corte curvo por
