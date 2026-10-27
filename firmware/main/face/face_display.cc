@@ -568,7 +568,7 @@ void FaceDisplay::Tick() {
     nb_gaze_tick(&gaze_, now - last_tick_ms_);
     const bool wander = !sleeping && (winner == NB_SOURCE_COUNT || winner == NB_SOURCE_MOOD ||
                                       winner == NB_SOURCE_ENERGY);
-    nb_avatar_core_set_blink_override(&avatar_, 0.12f, sleeping);
+    nb_avatar_core_set_eyes_closed(&avatar_, sleeping);
     nb_overlay_set_sleeping(&overlay_, sleeping);
     const nb_avatar_look_t look = nb_gaze_look(&gaze_);
     nb_avatar_core_set_look(&avatar_, &look, wander);

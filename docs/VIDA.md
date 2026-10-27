@@ -141,7 +141,7 @@ valência nem a ativação, ela muda o **jeito** de fazer as coisas.
 |---|---|
 | Energia baixa | olhar e piscar no ritmo da energia (o mais calmo entre ela e o humor) |
 | Energia < 0,35 (sonolento) | a face em repouso mostra sonolento; nada de pensar sozinho |
-| Energia < 0,25 e 10 min de silêncio | dorme: estado `SLEEPING`, olhos quase fechados, "Zzz" subindo ao lado da face, sem olhar em volta; toque ou wake word acordam |
+| Energia < 0,25 e 10 min de silêncio | dorme: estado `SLEEPING`, olhos fechados (só a curva de baixo, sem piscar), "Zzz" subindo ao lado da face, sem olhar em volta; toque ou wake word acordam |
 | Tédio | pensa sozinho com mais frequência: o intervalo vai de 1,7× (tédio 0) a 0,7× (tédio 1) |
 
 No árbitro, o sonolento é a fonte `ENERGY`, entre o humor e a iniciativa:

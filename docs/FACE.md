@@ -49,6 +49,9 @@ As mãos são os desenhos do usuário (seis poses: pensando, confuso,
 risadinha, sonolento, combinado, oi), recortados e usados como sprites
 pequenos, animados por posição, giro e escala.
 
+- **Olhos fechados (sono):** o corte de cima desce quase até o fim e deixa só
+  a curva de baixo, um "◡" fino, sem achatar o olho e sem piscar. Fecha em
+  1,2 s ao adormecer e abre em 0,3 s ao acordar.
 - **Sono:** três "Z" desenhados com traços sobem ao lado da face, um depois
   do outro, crescendo e sumindo (3,3 s cada). Só dormindo; sonolento
   acordado não tem adorno. A fala vence o sono.

@@ -127,6 +127,8 @@ typedef struct {
     float look_weight;         // 0..1, eased toward look_target
     float look_target;
     float blink_pace;          // multiplies blink intervals and durations
+    float eyes_closed;         // 0 open .. 1 shut, eased toward eyes_closed_target
+    float eyes_closed_target;
     nb_avatar_pose_t from_pose;
     nb_avatar_pose_t pose;
 } nb_avatar_core_state_t;
@@ -161,6 +163,12 @@ void nb_avatar_core_set_gaze_target(nb_avatar_core_state_t *state, float normali
 #define NB_AVATAR_LOOK_FADE_MS 400u
 void nb_avatar_core_set_look(nb_avatar_core_state_t *state, const nb_avatar_look_t *look,
                              bool active);
+
+// Asleep: the eyes close into a thin lower arc (the top cut runs almost to
+// the bottom) and stop blinking. They close slowly and open fast.
+#define NB_AVATAR_CLOSE_MS 1200u
+#define NB_AVATAR_OPEN_MS 300u
+void nb_avatar_core_set_eyes_closed(nb_avatar_core_state_t *state, bool closed);
 
 // Blink rhythm: >1 blinks less often and more slowly (0.5..2).
 void nb_avatar_core_set_blink_pace(nb_avatar_core_state_t *state, float pace);

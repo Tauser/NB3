@@ -6,6 +6,8 @@
 
 #define NB_AVATAR_MAX_ADVANCES 64u
 #define NB_AVATAR_PI 3.14159265358979323846f
+/* How far the top cut comes down on a shut eye: a thin lower arc is left. */
+#define NB_AVATAR_SHUT (-0.93f)
 /* Share of an expression's own motion kept while it is held: enough to stay
  * alive, calm enough that an ANGRY shake or HAPPY bounce can last a minute. */
 #define NB_AVATAR_HOLD_MOTION 0.3f
@@ -620,6 +622,14 @@ void nb_avatar_core_set_look(nb_avatar_core_state_t *state, const nb_avatar_look
     state->look_target = active ? 1.0f : 0.0f;
 }
 
+void nb_avatar_core_set_eyes_closed(nb_avatar_core_state_t *state, bool closed)
+{
+    if (state == NULL) {
+        return;
+    }
+    state->eyes_closed_target = closed ? 1.0f : 0.0f;
+}
+
 void nb_avatar_core_set_blink_pace(nb_avatar_core_state_t *state, float pace)
 {
     if (state == NULL) {
@@ -679,6 +689,13 @@ void nb_avatar_core_tick(nb_avatar_core_state_t *state, uint32_t dt_ms)
     }
     state->now_ms += dt_ms;
     update_gaze_spring(state, dt_ms);
+    if (state->eyes_closed < state->eyes_closed_target) {
+        state->eyes_closed = fminf(state->eyes_closed_target,
+                                   state->eyes_closed + (float)dt_ms / (float)NB_AVATAR_CLOSE_MS);
+    } else {
+        state->eyes_closed = fmaxf(state->eyes_closed_target,
+                                   state->eyes_closed - (float)dt_ms / (float)NB_AVATAR_OPEN_MS);
+    }
     const float fade = (float)dt_ms / (float)NB_AVATAR_LOOK_FADE_MS;
     state->look_weight = state->look_weight < state->look_target
                              ? fminf(state->look_target, state->look_weight + fade)
@@ -783,6 +800,17 @@ void nb_avatar_core_get_frame(const nb_avatar_core_state_t *state,
     out->blink_scale = blink_scale(state);
     if (state->blink_override_enabled) {
         out->blink_scale = fminf(out->blink_scale, state->blink_override_scale);
+    }
+    if (state->eyes_closed > 0.0f) {
+        // Closed eyes do not blink; the lid comes down as a curved cut.
+        const float shut = easing(NB_AVATAR_EASING_SMOOTH, state->eyes_closed);
+        out->blink_scale = mixf(out->blink_scale, 1.0f, shut);
+        out->pose.left_eye.crescent = mixf(out->pose.left_eye.crescent, NB_AVATAR_SHUT, shut);
+        out->pose.right_eye.crescent = mixf(out->pose.right_eye.crescent, NB_AVATAR_SHUT, shut);
+        out->pose.left_eye.upper_lid *= 1.0f - shut;
+        out->pose.right_eye.upper_lid *= 1.0f - shut;
+        out->pose.left_eye.lower_lid *= 1.0f - shut;
+        out->pose.right_eye.lower_lid *= 1.0f - shut;
     }
     out->animation_ms = state->now_ms;
     out->dizzy_overlay = state->expression == NB_AVATAR_EXPR_DIZZY;

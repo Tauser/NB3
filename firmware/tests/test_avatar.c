@@ -157,6 +157,44 @@ static void test_turning_head_has_perspective(void)
     NB_CHECK(up.pose.left_eye.angle > 0.5f && up.pose.right_eye.angle < -0.5f);
 }
 
+static void test_sleep_shuts_the_eyes_into_an_arc(void)
+{
+    nb_avatar_core_state_t state;
+    nb_avatar_core_init(&state, 6u);
+    nb_avatar_core_hold(&state, NB_AVATAR_EXPR_SLEEPY);
+    nb_avatar_render_frame_t frame;
+    for (uint32_t t = 0u; t < 2000u; t += 20u) {
+        nb_avatar_core_tick(&state, 20u);
+    }
+    nb_avatar_core_get_frame(&state, &frame);
+    const float awake_height = frame.pose.left_eye.height;
+    nb_avatar_core_set_eyes_closed(&state, true);
+    // Halfway through closing: not shut yet.
+    for (uint32_t t = 0u; t < NB_AVATAR_CLOSE_MS / 2u; t += 20u) {
+        nb_avatar_core_tick(&state, 20u);
+    }
+    nb_avatar_core_get_frame(&state, &frame);
+    NB_CHECK(frame.pose.left_eye.crescent > -0.9f);
+    // Shut: a thin lower arc, full height (no flattening), and no blinking
+    // for a whole minute.
+    float lowest_blink = 1.0f;
+    for (uint32_t t = 0u; t < 60000u; t += 20u) {
+        nb_avatar_core_tick(&state, 20u);
+        nb_avatar_core_get_frame(&state, &frame);
+        lowest_blink = fminf(lowest_blink, frame.blink_scale);
+    }
+    NB_CHECK(frame.pose.left_eye.crescent < -0.9f && frame.pose.right_eye.crescent < -0.9f);
+    NB_CHECK(fabsf(frame.pose.left_eye.height - awake_height) < 1.0f);
+    NB_CHECK(lowest_blink > 0.99f);
+    // Waking opens them fast.
+    nb_avatar_core_set_eyes_closed(&state, false);
+    for (uint32_t t = 0u; t < NB_AVATAR_OPEN_MS + 40u; t += 20u) {
+        nb_avatar_core_tick(&state, 20u);
+    }
+    nb_avatar_core_get_frame(&state, &frame);
+    NB_CHECK(frame.pose.left_eye.crescent > -0.8f);
+}
+
 static void test_look_fades_in_and_out(void)
 {
     nb_avatar_core_state_t state;
@@ -460,6 +498,7 @@ int main(void) {
     NB_RUN(test_gaze_target_moves_face_in_both_axes);
     NB_RUN(test_idle_keeps_visible_2_5d_attention);
     NB_RUN(test_turning_head_has_perspective);
+    NB_RUN(test_sleep_shuts_the_eyes_into_an_arc);
     NB_RUN(test_look_fades_in_and_out);
     NB_RUN(test_blink_pace_slows_blinks);
     NB_RUN(test_external_blink_modulates_without_replacing_expression);
