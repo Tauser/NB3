@@ -423,7 +423,10 @@ os núcleos integralmente.
   (consolidar não muda os hábitos e sobrevive a reboot; empurrados para
   fora contam, sem data como "sem data"; esquecer leva as contagens mesmo
   sem episódio vivo; tipo malformado descartado sozinho). Gravado com boot
-  limpo. Falta ver: a IA responder sobre a rotina pela ferramenta, e a
+  limpo. Em bancada, "quando eu mais te faço carinho?" chamou
+  `self.memory.habits` e a resposta veio dos dados (carinho mais de manhã,
+  conversa mais à noite, sentimento médio 0,7 e 0,54, "nesses dois dias");
+  a pergunta seguinte sobre conversa usou o mesmo resultado. Falta ver: a
   primeira compactação real consolidando.
 - [ ] Personalidade ajustando devagar e com limites sobre os padrões.
 

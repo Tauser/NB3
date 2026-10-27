@@ -421,7 +421,11 @@ void RegisterMemory(MemoryService& memory) {
                 cJSON_Delete(o);
                 return std::string(kNoMemory);
             }
-            ESP_LOGI(TAG, "habits: %d types", cJSON_GetArraySize(o));
+            int types = 0;
+            for (const cJSON* item = o->child; item != nullptr; item = item->next) {
+                types += cJSON_IsObject(item) ? 1 : 0;
+            }
+            ESP_LOGI(TAG, "habits: %d types", types);
             return o;
         });
 }
