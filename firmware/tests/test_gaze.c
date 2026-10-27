@@ -27,7 +27,7 @@ static stats_t run(uint32_t seed, float valence, float arousal, int n) {
         const float step = fmaxf(fabsf(now.eye_x - before.eye_x), fabsf(now.eye_y - before.eye_y));
         s.max_step = fmaxf(s.max_step, step);
         before = now;
-        if (fabsf(now.yaw) > 27.01f || fabsf(now.pitch) > 26.01f || fabsf(now.eye_y) > 82.01f) {
+        if (fabsf(now.yaw) > 27.01f || fabsf(now.pitch) > 26.01f || fabsf(now.eye_y) > 20.01f) {
             s.out_of_range = true;
         }
         if (g.elapsed_ms >= elapsed_before) {

@@ -88,8 +88,12 @@ emoção da conversa, comando) o olhar volta ao centro e fica no usuário.
   negativa puxa para baixo e desvia (pouco centro, mais diagonais baixas).
 - **Transição suave** entre olhar e não olhar (~0,4 s), para uma reação
   não dar um tranco ao começar nem ao acabar.
-- **2.5D como hoje:** a cabeça vira junto (yaw, pitch, roll), a face chega
-  mais perto quando olha para baixo, e as microssacadas continuam.
+- **3D:** os olhos ficam sobre a frente de uma cabeça esférica que gira e é
+  vista em perspectiva. Virando para um lado, os olhos atravessam a face, o
+  do lado de lá fica menor e mais estreito e o do lado de cá maior; olhando
+  para cima ou para baixo, eles achatam e se inclinam um para o outro, como
+  as linhas de um rosto real. A face chega mais perto quando olha para baixo
+  e as microssacadas continuam.
 
 ## Implementação
 

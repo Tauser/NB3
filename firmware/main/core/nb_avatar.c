@@ -337,29 +337,91 @@ static float micro_saccade(uint32_t now_ms, float seed)
     return mixf(previous, next, t);
 }
 
+/* The eyes sit on the front of a spherical head that turns and is seen in
+ * perspective: turning moves them across the face, the eye on the far side
+ * gets smaller and narrower, the near one larger, and looking up or down
+ * squashes them and tilts them toward each other as the face's vertical
+ * lines converge. HEAD_TURN maps the head angle to the sphere's rotation;
+ * below 1 it keeps the eyes on the screen at the widest looks. */
+#define HEAD_RADIUS 520.0f
+#define CAMERA_DISTANCE 1800.0f
+#define HEAD_TURN 0.6f
+#define TANGENT_STEP 10.0f
+
+typedef struct {
+    float x, y, z;
+} vec3_t;
+
+typedef struct {
+    float cos_yaw, sin_yaw, cos_pitch, sin_pitch;
+} head_turn_t;
+
+// Point of the head's surface under a face point (front hemisphere).
+static vec3_t on_head(float x, float y)
+{
+    const float r2 = HEAD_RADIUS * HEAD_RADIUS;
+    vec3_t p = {x, y, sqrtf(fmaxf(r2 - x * x - y * y, r2 * 0.05f))};
+    return p;
+}
+
+// Pitch about the horizontal axis (positive looks down), then yaw about the
+// vertical one (positive looks right). Screen y grows downward, z toward the
+// viewer.
+static vec3_t turn(vec3_t p, const head_turn_t *t)
+{
+    const vec3_t a = {p.x, p.y * t->cos_pitch + p.z * t->sin_pitch,
+                      -p.y * t->sin_pitch + p.z * t->cos_pitch};
+    const vec3_t b = {a.x * t->cos_yaw + a.z * t->sin_yaw, a.y,
+                      -a.x * t->sin_yaw + a.z * t->cos_yaw};
+    return b;
+}
+
+// Perspective, normalized so a point at depth z_rest keeps its size.
+static void to_screen(vec3_t p, float z_rest, float *x, float *y)
+{
+    const float s = (CAMERA_DISTANCE - z_rest) / (CAMERA_DISTANCE - p.z);
+    *x = p.x * s;
+    *y = p.y * s;
+}
+
 static void project_eye(nb_avatar_eye_pose_t *eye, float side, float head_yaw,
                         float head_pitch, float head_roll)
 {
-    const float yaw = fmaxf(-1.0f, fminf(1.0f, head_yaw / 35.0f));
-    const float pitch = fmaxf(-1.0f, fminf(1.0f, head_pitch / 28.0f));
-    const float horizontal_compression = 1.0f - fabsf(yaw) * 0.16f;
-    /* Pitch changes the shape only slightly: the reference keeps vertical
-     * capsules even at the extremes, so depth reads from offset and face
-     * scale (applied later) rather than from flattening the eyes. */
-    const float vertical_compression = 1.0f - fabsf(pitch) * 0.08f;
-    const float vertical_widening = 1.0f + fabsf(pitch) * 0.04f;
-    const float depth_scale =
-        fmaxf(0.62f, 1.0f + side * yaw * 0.28f - fabsf(pitch) * 0.02f);
-    eye->x = eye->x * horizontal_compression + yaw * 96.0f + side * pitch * 12.0f;
-    eye->y += pitch * 62.0f;
-    eye->width *= depth_scale * (1.0f - fabsf(yaw) * 0.12f) * vertical_widening;
-    eye->height *= depth_scale * vertical_compression;
+    (void)side;
+    const float yaw = fmaxf(-50.0f, fminf(50.0f, head_yaw)) * HEAD_TURN * NB_AVATAR_PI / 180.0f;
+    const float pitch =
+        fmaxf(-45.0f, fminf(45.0f, head_pitch)) * HEAD_TURN * NB_AVATAR_PI / 180.0f;
+    const head_turn_t rest = {1.0f, 0.0f, 1.0f, 0.0f};
+    const head_turn_t now = {cosf(yaw), sinf(yaw), cosf(pitch), sinf(pitch)};
+
+    const vec3_t center = on_head(eye->x, eye->y);
+    const vec3_t across = on_head(eye->x + TANGENT_STEP, eye->y);
+    const vec3_t down = on_head(eye->x, eye->y + TANGENT_STEP);
+    float cx, cy, ax, ay, dx, dy;
+    float rcx, rcy, rax, ray, rdx, rdy;
+    to_screen(turn(center, &now), center.z, &cx, &cy);
+    to_screen(turn(across, &now), center.z, &ax, &ay);
+    to_screen(turn(down, &now), center.z, &dx, &dy);
+    to_screen(turn(center, &rest), center.z, &rcx, &rcy);
+    to_screen(turn(across, &rest), center.z, &rax, &ray);
+    to_screen(turn(down, &rest), center.z, &rdx, &rdy);
+
+    // How the eye's own horizontal and vertical stretch, against rest.
+    const float width_scale = hypotf(ax - cx, ay - cy) / hypotf(rax - rcx, ray - rcy);
+    const float height_scale = hypotf(dx - cx, dy - cy) / hypotf(rdx - rcx, rdy - rcy);
+    const float tilt = atan2f(dx - cx, dy - cy) - atan2f(rdx - rcx, rdy - rcy);
+    eye->x = cx;
+    eye->y = cy;
+    eye->width *= width_scale;
+    eye->height *= height_scale;
+    eye->angle -= tilt * 180.0f / NB_AVATAR_PI;
+
     const float roll = head_roll * NB_AVATAR_PI / 180.0f;
     const float rotated_x = eye->x * cosf(roll) - eye->y * sinf(roll);
     const float rotated_y = eye->x * sinf(roll) + eye->y * cosf(roll);
     eye->x = rotated_x;
     eye->y = rotated_y;
-    eye->angle += head_roll + yaw * 7.0f + side * yaw * 3.5f + side * pitch * 3.5f;
+    eye->angle += head_roll;
 }
 
 static nb_avatar_eye_pose_t mix_eye(const nb_avatar_eye_pose_t *a,

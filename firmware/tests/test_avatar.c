@@ -137,6 +137,26 @@ static void test_idle_keeps_visible_2_5d_attention(void)
     NB_CHECK(down.pose.left_eye.angle * down.pose.right_eye.angle < 0.0f);
 }
 
+static void test_turning_head_has_perspective(void)
+{
+    // Looking right on a turning head: the eyes move right, the left eye is
+    // now nearer (larger) and the right one farther (smaller and narrower).
+    nb_avatar_core_state_t state;
+    nb_avatar_core_init(&state, 6u);
+    const nb_avatar_render_frame_t rest = look_frame(&state, (nb_avatar_look_t){0, 0, 0, 0, 0}, true);
+    const nb_avatar_render_frame_t right =
+        look_frame(&state, (nb_avatar_look_t){27, 0, 0, 0, 0}, true);
+    NB_CHECK(right.pose.right_eye.x > rest.pose.right_eye.x + 60.0f);
+    NB_CHECK(right.pose.left_eye.x > rest.pose.left_eye.x + 100.0f);
+    NB_CHECK(right.pose.left_eye.width > rest.pose.left_eye.width * 1.1f);
+    NB_CHECK(right.pose.right_eye.width < rest.pose.right_eye.width * 0.75f);
+    NB_CHECK(right.pose.right_eye.height < right.pose.left_eye.height);
+    // Looking up squashes the eyes and tilts them the other way from down.
+    const nb_avatar_render_frame_t up = look_frame(&state, (nb_avatar_look_t){0, -26, 0, 0, 0}, true);
+    NB_CHECK(up.pose.left_eye.height < rest.pose.left_eye.height * 0.95f);
+    NB_CHECK(up.pose.left_eye.angle > 0.5f && up.pose.right_eye.angle < -0.5f);
+}
+
 static void test_look_fades_in_and_out(void)
 {
     nb_avatar_core_state_t state;
@@ -437,6 +457,7 @@ int main(void) {
     NB_RUN(test_once_expression_returns_to_current_base);
     NB_RUN(test_gaze_target_moves_face_in_both_axes);
     NB_RUN(test_idle_keeps_visible_2_5d_attention);
+    NB_RUN(test_turning_head_has_perspective);
     NB_RUN(test_look_fades_in_and_out);
     NB_RUN(test_blink_pace_slows_blinks);
     NB_RUN(test_external_blink_modulates_without_replacing_expression);

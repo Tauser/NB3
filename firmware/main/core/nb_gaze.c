@@ -5,12 +5,13 @@
 
 // Reach of a full look in each axis, the same vocabulary as the avatar's
 // earlier fixed choreography: the head turns ~27 deg, the eyes slide in the
-// face, and a vertical look moves the eyes far, as the 2.5D cue needs.
+// face a little; the head turn itself carries the eyes across (the avatar
+// projects them on a turning head).
 #define YAW_MAX 27.0f
 #define PITCH_MAX 26.0f
 #define ROLL_MAX 5.0f
-#define EYE_X_MAX 12.0f
-#define EYE_Y_MAX 82.0f
+#define EYE_X_MAX 8.0f
+#define EYE_Y_MAX 20.0f
 
 // About one look in four goes back to the center at neutral valence.
 #define CENTER_WEIGHT 2.67f
