@@ -354,6 +354,74 @@ void RegisterMemory(MemoryService& memory) {
                                             gone.count[k]);
                 }
             }
+            if (gone.counted > 0) {
+                cJSON_AddNumberToObject(counts, "habit_counts", gone.counted);
+            }
+            return o;
+        });
+
+    mcp.AddTool(
+        "self.memory.habits",
+        "What the robot has learned about its routine with the user from everything it lived, "
+        "including episodes too old to recall one by one: how often it was petted (affection), "
+        "talked with (conversation) and hurt (hurt), at which times of day (madrugada 0-6 h, "
+        "manha 6-12 h, tarde 12-18 h, noite 18-24 h), and how those moments felt on average "
+        "(-1 bad .. +1 good). Use it when the user asks about habits or the routine (\"quando "
+        "eu mais falo com você?\", \"eu te dou carinho todo dia?\", \"você sente falta de "
+        "mim?\") or to make a remark about the routine sound true. Counts start at observed_since; "
+        "undated ones happened before the robot knew the time. Empty means nothing lived yet.",
+        PropertyList(), [&memory](const PropertyList&) -> ReturnValue {
+            static const char* const kPeriods[] = {"madrugada", "manha", "tarde", "noite"};
+            static const nb_ep_type_t kTypes[] = {NB_EP_AFFECTION, NB_EP_CONVERSATION, NB_EP_HURT};
+            cJSON* o = cJSON_CreateObject();
+            const bool ok = memory.Query([&](const MemoryService::Access& a) {
+                nb_mem_patterns_t p;
+                nb_memory_patterns(&a.memory, &p);
+                int64_t now_s = 0;
+                if (p.since_s != 0 && nb_clock_now_s(&a.clock, a.now_ms, &now_s)) {
+                    const time_t t = static_cast<time_t>(p.since_s);
+                    struct tm tm = {};
+                    gmtime_r(&t, &tm);
+                    char since[16];
+                    strftime(since, sizeof(since), "%Y-%m-%d", &tm);
+                    cJSON_AddStringToObject(o, "observed_since", since);
+                    cJSON_AddNumberToObject(o, "days_observed",
+                                            static_cast<double>((now_s - p.since_s) / 86400 + 1));
+                }
+                for (nb_ep_type_t type : kTypes) {
+                    const uint32_t total = nb_memory_patterns_total(&p, type);
+                    if (total == 0) {
+                        continue;
+                    }
+                    cJSON* t = cJSON_AddObjectToObject(o, nb_memory_episode_name(type));
+                    cJSON_AddNumberToObject(t, "times", total);
+                    uint32_t period[4] = {};
+                    for (int h = 0; h < NB_MEM_HOURS; h++) {
+                        period[h / 6] += p.hours[type][h];
+                    }
+                    cJSON* by = cJSON_AddObjectToObject(t, "by_time_of_day");
+                    int usual = -1;
+                    for (int i = 0; i < 4; i++) {
+                        cJSON_AddNumberToObject(by, kPeriods[i], period[i]);
+                        if (period[i] > 0 && (usual < 0 || period[i] > period[usual])) {
+                            usual = i;
+                        }
+                    }
+                    if (usual >= 0) {
+                        cJSON_AddStringToObject(t, "usually", kPeriods[usual]);
+                    }
+                    if (p.undated[type] > 0) {
+                        cJSON_AddNumberToObject(t, "undated", p.undated[type]);
+                    }
+                    cJSON_AddNumberToObject(t, "average_feeling",
+                                            Round2(p.valence_sum[type] / static_cast<float>(total)));
+                }
+            });
+            if (!ok) {
+                cJSON_Delete(o);
+                return std::string(kNoMemory);
+            }
+            ESP_LOGI(TAG, "habits: %d types", cJSON_GetArraySize(o));
             return o;
         });
 }

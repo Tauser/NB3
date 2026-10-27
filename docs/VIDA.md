@@ -260,8 +260,21 @@ conversa 7 dias; a compactação apaga o que cai abaixo de 0,05. O viés é
 0,05 × Σ(importância × afeto) dos episódios de idade conhecida, preso em
 ±0,15. Episódios cheios: sai o que menos importa agora (o mais antigo no
 empate). Um episódio sobre um registro longo guarda só o id dele (`about`),
-nunca uma cópia do texto. Os padrões consolidados ficam para a etapa 3; até
-lá, o episódio que sai na compactação não vira contagem.
+nunca uma cópia do texto.
+
+**Padrões consolidados:** o episódio que sai (apagado na compactação ou
+empurrado para fora com os episódios cheios) vira contagem por tipo e hora
+do dia (hora local; sem data conhecida conta como "sem data"), com a soma
+da valência e o instante mais antigo contado. Só contam episódios anônimos
+(carinho, conversa, mágoa): uma nota guarda conteúdo e um episódio sobre um
+registro longo está ligado a ele, então esses só saem. Assim esquecer um
+registro nunca precisa recalcular contagem, e §5.3 se cumpre sem guardar
+ids nos padrões. Esquecer os episódios (ou tudo) leva as contagens junto. Os
+hábitos que a IA vê (`self.memory.habits`) são as contagens mais os
+episódios vivos que contariam, então consolidar não muda nada do que ela
+vê. No snapshot, `patterns` só traz os tipos com contagem; um tipo
+malformado é descartado inteiro (e contado como rejeitado), sem atingir os
+outros. A personalidade ajustando devagar sobre esses padrões vem depois.
 
 Casca: `memory/memory_service`, task única dona da memória; os outros só
 avisam o que aconteceu (fila sem bloqueio). Arquivos `slot_a/memoria.bin`,

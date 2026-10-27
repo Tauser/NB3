@@ -186,6 +186,61 @@ static void insert_episode(nb_memory_t *m, const nb_mem_record_t *r) {
     m->episode_count++;
 }
 
+// --- Patterns ---------------------------------------------------------------
+
+static bool counts_in_patterns(const nb_mem_record_t *e) {
+    return e->type != NB_EP_NOTE && e->about == 0;
+}
+
+static void count_episode(nb_mem_patterns_t *p, const nb_mem_record_t *e) {
+    if (!counts_in_patterns(e)) {
+        return;
+    }
+    if (e->when.has_wall) {
+        // Local time posing as UTC (nb_clock.h): the hour is the local one.
+        const int64_t day_s = ((e->when.wall_s % 86400) + 86400) % 86400;
+        p->hours[e->type][day_s / 3600]++;
+        if (p->since_s == 0 || e->when.wall_s < p->since_s) {
+            p->since_s = e->when.wall_s;
+        }
+    } else {
+        p->undated[e->type]++;
+    }
+    p->valence_sum[e->type] += e->valence;
+}
+
+// An episode is leaving the memory: what it says about habits stays.
+static void consolidate(nb_memory_t *m, const nb_mem_record_t *e) {
+    count_episode(&m->patterns, e);
+    m->dirty = true;
+}
+
+uint32_t nb_memory_patterns_total(const nb_mem_patterns_t *p, nb_ep_type_t type) {
+    if ((unsigned)type >= NB_EP_TYPE_COUNT) {
+        return 0;
+    }
+    uint32_t n = p->undated[type];
+    for (int h = 0; h < NB_MEM_HOURS; h++) {
+        n += p->hours[type][h];
+    }
+    return n;
+}
+
+static uint32_t patterns_all(const nb_mem_patterns_t *p) {
+    uint32_t n = 0;
+    for (int t = 0; t < NB_EP_TYPE_COUNT; t++) {
+        n += nb_memory_patterns_total(p, (nb_ep_type_t)t);
+    }
+    return n;
+}
+
+void nb_memory_patterns(const nb_memory_t *m, nb_mem_patterns_t *out) {
+    *out = m->patterns;
+    for (uint16_t i = 0; i < m->episode_count; i++) {
+        count_episode(out, &m->episodes[i]);
+    }
+}
+
 // --- JSON -------------------------------------------------------------------
 
 static void write_record(nb_json_writer_t *w, const nb_mem_record_t *r) {
@@ -312,6 +367,73 @@ static bool read_record(const char *t, const nb_json_tok_t *toks, int obj, nb_me
     return true;
 }
 
+// "patterns": {"since": s, "<type>": {"hours": [24], "undated": n,
+// "valence": sum}, ...}, only the types that counted something.
+static void write_patterns(nb_json_writer_t *w, const nb_mem_patterns_t *p) {
+    nb_jw_key(w, "patterns");
+    nb_jw_object_begin(w);
+    if (p->since_s != 0) {
+        nb_jw_key(w, "since");
+        nb_jw_int(w, p->since_s);
+    }
+    for (int t = 0; t < NB_EP_TYPE_COUNT; t++) {
+        if (nb_memory_patterns_total(p, (nb_ep_type_t)t) == 0) {
+            continue;
+        }
+        nb_jw_key(w, kEpisodeTypes[t].name);
+        nb_jw_object_begin(w);
+        nb_jw_key(w, "hours");
+        nb_jw_array_begin(w);
+        for (int h = 0; h < NB_MEM_HOURS; h++) {
+            nb_jw_int(w, p->hours[t][h]);
+        }
+        nb_jw_array_end(w);
+        nb_jw_key(w, "undated");
+        nb_jw_int(w, p->undated[t]);
+        nb_jw_key(w, "valence");
+        nb_jw_float(w, p->valence_sum[t]);
+        nb_jw_object_end(w);
+    }
+    nb_jw_object_end(w);
+}
+
+// A malformed type is left out whole rather than read in part.
+static void read_patterns(const char *t, const nb_json_tok_t *toks, int obj,
+                          nb_mem_patterns_t *p, uint16_t *rejected) {
+    memset(p, 0, sizeof(*p));
+    int64_t v;
+    if (read_int(t, toks, obj, "since", 1, INT64_MAX, &v)) {
+        p->since_s = v;
+    }
+    for (int type = 0; type < NB_EP_TYPE_COUNT; type++) {
+        const int o = nb_json_find(t, toks, obj, kEpisodeTypes[type].name);
+        if (o < 0) {
+            continue;
+        }
+        const int hours = toks[o].type == NB_JSON_OBJECT ? nb_json_find(t, toks, o, "hours") : -1;
+        nb_mem_patterns_t one;
+        memset(&one, 0, sizeof(one));
+        bool ok = hours >= 0 && toks[hours].type == NB_JSON_ARRAY &&
+                  toks[hours].size == NB_MEM_HOURS;
+        int k = hours + 1;
+        for (int h = 0; ok && h < NB_MEM_HOURS; h++) {
+            ok = nb_json_int(t, &toks[k], 0, UINT32_MAX, &v);
+            one.hours[type][h] = (uint32_t)v;
+            k = (int)toks[k].next;
+        }
+        ok = ok && read_int(t, toks, o, "undated", 0, UINT32_MAX, &v);
+        one.undated[type] = ok ? (uint32_t)v : 0;
+        ok = ok && read_float(t, toks, o, "valence", -1e9f, 1e9f, &one.valence_sum[type]);
+        if (!ok) {
+            (*rejected)++;
+            continue;
+        }
+        memcpy(p->hours[type], one.hours[type], sizeof(p->hours[type]));
+        p->undated[type] = one.undated[type];
+        p->valence_sum[type] = one.valence_sum[type];
+    }
+}
+
 static size_t encode_snapshot(nb_memory_t *m, bool with_pending) {
     nb_json_writer_t w;
     nb_jw_init(&w, m->scratch, m->scratch_cap);
@@ -327,6 +449,9 @@ static size_t encode_snapshot(nb_memory_t *m, bool with_pending) {
             nb_jw_int(&w, m->pending[i]);
         }
         nb_jw_array_end(&w);
+    }
+    if (patterns_all(&m->patterns) > 0) {
+        write_patterns(&w, &m->patterns);
     }
     nb_jw_key(&w, "records");
     nb_jw_array_begin(&w);
@@ -351,6 +476,7 @@ static bool add_loaded(nb_memory_t *m, const nb_mem_record_t *r) {
     }
     if (r->kind == NB_MEM_EPISODE) {
         if (m->episode_count >= NB_MEM_EPISODE_MAX) {
+            consolidate(m, &m->episodes[0]);
             remove_at(m->episodes, &m->episode_count, 0);  // the oldest
         }
         insert_episode(m, r);
@@ -395,6 +521,11 @@ static bool visit_slot(const uint8_t *payload, uint32_t length, uint32_t seq, vo
             }
             k = (int)m->toks[k].next;
         }
+    }
+    // Before the records: an episode pushed out while loading adds to these.
+    i = nb_json_find(t, m->toks, 0, "patterns");
+    if (i >= 0 && m->toks[i].type == NB_JSON_OBJECT) {
+        read_patterns(t, m->toks, i, &m->patterns, &m->rejected);
     }
     i = nb_json_find(t, m->toks, 0, "records");
     if (i < 0 || m->toks[i].type != NB_JSON_ARRAY) {
@@ -643,8 +774,8 @@ nb_mem_status_t nb_memory_episode(nb_memory_t *m, const nb_mem_io_t *io,
                 least = i;
             }
         }
+        consolidate(m, &m->episodes[least]);
         remove_at(m->episodes, &m->episode_count, least);
-        m->dirty = true;
     }
     insert_episode(m, &r);
     if (id != NULL) {
@@ -685,10 +816,12 @@ static bool add_pending(nb_memory_t *m, uint32_t id) {
 // Which records a forget takes, decided before touching anything.
 typedef bool (*forget_pick_t)(const nb_mem_record_t *r, const void *arg);
 
+// takes_patterns: the counts go too, since they came from the episodes.
 static nb_mem_status_t forget_where(nb_memory_t *m, const nb_mem_io_t *io, forget_pick_t pick,
-                                    const void *arg, nb_mem_forgot_t *out) {
+                                    const void *arg, bool takes_patterns, nb_mem_forgot_t *out) {
     nb_mem_forgot_t gone;
     memset(&gone, 0, sizeof(gone));
+    const uint32_t counted = takes_patterns ? patterns_all(&m->patterns) : 0;
     uint32_t longs_taken[NB_MEM_LONG_MAX];
     uint16_t nlong = 0;
     for (uint16_t i = 0; i < m->long_count; i++) {
@@ -707,7 +840,7 @@ static nb_mem_status_t forget_where(nb_memory_t *m, const nb_mem_io_t *io, forge
             neps++;
         }
     }
-    if (nlong + neps == 0) {
+    if (nlong + neps == 0 && counted == 0) {
         if (out != NULL) {
             *out = gone;
         }
@@ -742,6 +875,10 @@ static nb_mem_status_t forget_where(nb_memory_t *m, const nb_mem_io_t *io, forge
             remove_at(m->longs, &m->long_count, i);
         }
     }
+    if (counted > 0) {
+        memset(&m->patterns, 0, sizeof(m->patterns));
+        gone.counted = counted;
+    }
     if (out != NULL) {
         *out = gone;
     }
@@ -765,7 +902,7 @@ static bool pick_all(const nb_mem_record_t *r, const void *arg) {
 
 nb_mem_status_t nb_memory_forget_id(nb_memory_t *m, const nb_mem_io_t *io, uint32_t id,
                                     nb_mem_forgot_t *out) {
-    return forget_where(m, io, pick_id, &id, out);
+    return forget_where(m, io, pick_id, &id, false, out);
 }
 
 nb_mem_status_t nb_memory_forget_kind(nb_memory_t *m, const nb_mem_io_t *io,
@@ -773,12 +910,12 @@ nb_mem_status_t nb_memory_forget_kind(nb_memory_t *m, const nb_mem_io_t *io,
     if ((unsigned)kind >= NB_MEM_KIND_COUNT) {
         return NB_MEM_INVALID;
     }
-    return forget_where(m, io, pick_kind, &kind, out);
+    return forget_where(m, io, pick_kind, &kind, kind == NB_MEM_EPISODE, out);
 }
 
 nb_mem_status_t nb_memory_forget_all(nb_memory_t *m, const nb_mem_io_t *io,
                                      nb_mem_forgot_t *out) {
-    return forget_where(m, io, pick_all, NULL, out);
+    return forget_where(m, io, pick_all, NULL, true, out);
 }
 
 // --- Upkeep -----------------------------------------------------------------
@@ -800,6 +937,7 @@ nb_mem_status_t nb_memory_compact(nb_memory_t *m, const nb_mem_io_t *io,
         bool known;
         const float imp = importance_now(&m->episodes[i], clock, now_mono_ms, &known);
         if (known && imp < NB_MEM_FADED) {
+            consolidate(m, &m->episodes[i]);
             remove_at(m->episodes, &m->episode_count, i);
         }
     }

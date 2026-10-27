@@ -412,10 +412,20 @@ os núcleos integralmente.
   (210 s de silêncio) por 4,6 s e volta ao neutro; um carinho depois zerou a
   contagem. Falta ver: se o pensando sozinho, com a frequência padrão,
   parece natural no uso.
-- [ ] Padrões consolidados da memória (contagens por tipo e horário dos
-  episódios que saem na compactação) e, sobre eles, a personalidade
-  ajustando devagar e com limites. Hoje um episódio apagado na compactação
-  some sem virar contagem.
+- [~] **Padrões consolidados da memória** (`core/nb_memory`, VIDA.md §5):
+  episódio que sai na compactação ou com os episódios cheios vira contagem
+  por tipo e hora do dia, com soma da valência e início da observação; só
+  episódios anônimos contam (nota e episódio sobre registro só saem), então
+  esquecer um registro não mexe em contagem; esquecer episódios ou tudo
+  leva as contagens. `self.memory.habits` mostra, por tipo, vezes, períodos
+  do dia (madrugada, manhã, tarde, noite), o período mais comum e o
+  sentimento médio, somando contagens e episódios vivos. 4 host-tests
+  (consolidar não muda os hábitos e sobrevive a reboot; empurrados para
+  fora contam, sem data como "sem data"; esquecer leva as contagens mesmo
+  sem episódio vivo; tipo malformado descartado sozinho). Gravado com boot
+  limpo. Falta ver: a IA responder sobre a rotina pela ferramenta, e a
+  primeira compactação real consolidando.
+- [ ] Personalidade ajustando devagar e com limites sobre os padrões.
 
 ---
 

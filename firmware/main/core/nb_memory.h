@@ -30,6 +30,12 @@ extern "C" {
 //   reported after the last step. A boot that finds the mark filters those
 //   ids out of the log and finishes the job before anything else.
 // - Ids are never reused: the next id is part of every snapshot.
+// - Patterns: an episode that leaves (faded at compaction, or pushed out when
+//   the episodes are full) becomes a count by type and hour of the day, so
+//   habits outlive the episodes. Only anonymous episodes count: a note keeps
+//   content and an episode about a record is linked to it, so those just go,
+//   and forgetting a record never has to recompute a count. Forgetting the
+//   episodes (or everything) takes the counts too.
 
 #define NB_MEM_SCHEMA 1
 #define NB_MEM_TEXT_MAX 96  // bytes, terminator included
@@ -61,6 +67,17 @@ typedef enum {
     NB_EP_NOTE,       // something the conversation asked to remember
     NB_EP_TYPE_COUNT,
 } nb_ep_type_t;
+
+#define NB_MEM_HOURS 24
+
+// Episodes counted by type. Hours are of the local wall time; episodes of
+// unknown date count as undated.
+typedef struct {
+    uint32_t hours[NB_EP_TYPE_COUNT][NB_MEM_HOURS];
+    uint32_t undated[NB_EP_TYPE_COUNT];
+    float valence_sum[NB_EP_TYPE_COUNT];
+    int64_t since_s;  // earliest wall time counted; 0 = none
+} nb_mem_patterns_t;
 
 typedef struct {
     uint32_t id;  // 0 = none
@@ -108,6 +125,7 @@ typedef struct {
     uint16_t long_count;
     nb_mem_record_t episodes[NB_MEM_EPISODE_MAX];  // oldest first
     uint16_t episode_count;
+    nb_mem_patterns_t patterns;  // episodes that already left
     uint32_t next_id;
     uint32_t next_seq;
     uint32_t pending[NB_MEM_PENDING_MAX];  // forgotten ids not yet gone from the card
@@ -124,6 +142,7 @@ typedef struct {
 
 typedef struct {
     uint16_t count[NB_MEM_KIND_COUNT];
+    uint32_t counted;  // episodes that were only counts in the patterns
 } nb_mem_forgot_t;
 
 // scratch and toks are at least NB_MEM_SCRATCH_SIZE and NB_MEM_TOKENS.
@@ -191,6 +210,12 @@ float nb_memory_importance(const nb_mem_record_t *ep, const nb_clock_t *clock,
 // ±NB_MEM_BIAS_MAX. A pure function of the episodes and the time.
 void nb_memory_bias(const nb_memory_t *m, const nb_clock_t *clock, uint64_t now_mono_ms,
                     float *valence, float *arousal);
+
+// Habits: the counts of episodes that left plus the episodes still held
+// that would count, so nothing changes when an episode is consolidated.
+void nb_memory_patterns(const nb_memory_t *m, nb_mem_patterns_t *out);
+
+uint32_t nb_memory_patterns_total(const nb_mem_patterns_t *p, nb_ep_type_t type);
 
 typedef struct {
     const char *words;  // NULL or "" = everything

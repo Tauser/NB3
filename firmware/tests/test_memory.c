@@ -538,6 +538,120 @@ static void test_malformed_records_are_skipped(void) {
     NB_CHECK_EQ_INT(9, remember_fact("novo"));   // next_id from the snapshot
 }
 
+static nb_mem_patterns_t patterns_now(void) {
+    nb_mem_patterns_t p;
+    nb_memory_patterns(&mem, &p);
+    return p;
+}
+
+static void test_patterns_keep_what_compaction_drops(void) {
+    card_reset();
+    boot_at(REAL);  // 12:00
+    add_episode(NB_EP_AFFECTION, 0.8f, 0, "carinho do almoço");
+    add_episode(NB_EP_NOTE, 0.5f, 0, "fomos ao parque");
+    const uint32_t fact = remember_fact("mora em Recife");
+    add_episode(NB_EP_CONVERSATION, 0.4f, fact, "falamos de Recife");
+    boot_at(REAL + 9 * HOUR);  // 21:00
+    add_episode(NB_EP_AFFECTION, 0.6f, 0, "carinho da noite");
+    nb_mem_patterns_t p = patterns_now();
+    NB_CHECK_EQ_INT(1, p.hours[NB_EP_AFFECTION][12]);
+    NB_CHECK_EQ_INT(1, p.hours[NB_EP_AFFECTION][21]);
+    // A note keeps content and an episode about a record is linked to it.
+    NB_CHECK_EQ_INT(0, nb_memory_patterns_total(&p, NB_EP_NOTE));
+    NB_CHECK_EQ_INT(0, nb_memory_patterns_total(&p, NB_EP_CONVERSATION));
+
+    boot_at(REAL + 4 * 24 * HOUR);
+    NB_CHECK_EQ_INT(NB_MEM_OK, nb_memory_compact(&mem, &io, &clk, 3000));
+    NB_CHECK_EQ_INT(1, mem.episode_count);  // only the note is still fresh
+    const nb_mem_patterns_t after = patterns_now();
+    NB_CHECK(memcmp(&p, &after, sizeof(p)) == 0);  // consolidating changes nothing
+
+    boot_at(REAL + 4 * 24 * HOUR + HOUR);
+    p = patterns_now();
+    NB_CHECK_EQ_INT(2, nb_memory_patterns_total(&p, NB_EP_AFFECTION));
+    NB_CHECK_EQ_INT(1, p.hours[NB_EP_AFFECTION][21]);
+    NB_CHECK(fabsf(p.valence_sum[NB_EP_AFFECTION] - 1.4f) < 1e-3f);
+    NB_CHECK_EQ_INT(REAL + 1, p.since_s);
+    NB_CHECK_EQ_INT(0, mem.rejected);
+}
+
+static void test_episodes_pushed_out_still_count(void) {
+    card_reset();
+    boot_at(REAL);
+    for (int i = 0; i < NB_MEM_EPISODE_MAX + 4; i++) {
+        add_episode(NB_EP_CONVERSATION, 0.1f, 0, "papo");
+    }
+    nb_mem_patterns_t p = patterns_now();
+    NB_CHECK_EQ_INT(NB_MEM_EPISODE_MAX + 4, nb_memory_patterns_total(&p, NB_EP_CONVERSATION));
+    NB_CHECK_EQ_INT(NB_MEM_OK, nb_memory_flush(&mem, &io));
+    boot_at(REAL + HOUR);
+    p = patterns_now();
+    NB_CHECK_EQ_INT(NB_MEM_EPISODE_MAX + 4, nb_memory_patterns_total(&p, NB_EP_CONVERSATION));
+
+    // Without a known date they count as undated, never at an hour.
+    card_reset();
+    boot_id++;
+    nb_clock_init(&clk, FLOOR, 0, boot_id);
+    nb_clock_sample(&clk, 10, 1000);
+    nb_memory_init(&mem, scratch, sizeof(scratch), toks, NB_MEM_TOKENS);
+    nb_memory_load(&mem, &io);
+    for (int i = 0; i < NB_MEM_EPISODE_MAX + 1; i++) {
+        add_episode(NB_EP_AFFECTION, 0.5f, 0, NULL);
+    }
+    NB_CHECK_EQ_INT(1, mem.patterns.undated[NB_EP_AFFECTION]);
+    p = patterns_now();
+    NB_CHECK_EQ_INT(NB_MEM_EPISODE_MAX + 1, p.undated[NB_EP_AFFECTION]);
+    NB_CHECK_EQ_INT(0, p.since_s);
+}
+
+static void test_forgetting_episodes_takes_their_counts(void) {
+    card_reset();
+    boot_at(REAL);
+    const uint32_t fact = remember_fact("gosta de jazz");
+    add_episode(NB_EP_AFFECTION, 0.8f, 0, "carinho");
+    boot_at(REAL + 4 * 24 * HOUR);
+    nb_memory_compact(&mem, &io, &clk, 3000);
+    NB_CHECK_EQ_INT(0, mem.episode_count);
+
+    nb_mem_forgot_t gone;
+    NB_CHECK_EQ_INT(NB_MEM_OK, nb_memory_forget_id(&mem, &io, fact, &gone));
+    NB_CHECK_EQ_INT(0, gone.counted);  // a fact never carried counts
+    nb_mem_patterns_t p = patterns_now();
+    NB_CHECK_EQ_INT(1, nb_memory_patterns_total(&p, NB_EP_AFFECTION));
+
+    // Only counts are left, and forgetting the episodes still finds them.
+    NB_CHECK_EQ_INT(NB_MEM_OK, nb_memory_forget_kind(&mem, &io, NB_MEM_EPISODE, &gone));
+    NB_CHECK_EQ_INT(1, gone.counted);
+    NB_CHECK_EQ_INT(0, gone.count[NB_MEM_EPISODE]);
+    boot_at(REAL + 4 * 24 * HOUR + HOUR);
+    p = patterns_now();
+    NB_CHECK_EQ_INT(0, nb_memory_patterns_total(&p, NB_EP_AFFECTION));
+    NB_CHECK(!card_holds("patterns"));
+    NB_CHECK_EQ_INT(NB_MEM_NOT_FOUND, nb_memory_forget_kind(&mem, &io, NB_MEM_EPISODE, &gone));
+
+    add_episode(NB_EP_HURT, -0.5f, 0, NULL);
+    boot_at(REAL + 30 * 24 * HOUR);
+    nb_memory_compact(&mem, &io, &clk, 3000);
+    NB_CHECK_EQ_INT(NB_MEM_OK, nb_memory_forget_all(&mem, &io, &gone));
+    NB_CHECK_EQ_INT(1, gone.counted);
+    NB_CHECK(!card_holds("patterns"));
+}
+
+static void test_malformed_patterns_drop_only_that_type(void) {
+    card_reset();
+    const char *p =
+        "{\"schema\":1,\"next_id\":2,\"patterns\":{\"since\":1792929601,"
+        "\"affection\":{\"hours\":[0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0],"
+        "\"undated\":1,\"valence\":2.1},"
+        "\"hurt\":{\"hours\":[1,2],\"undated\":0,\"valence\":-1}},\"records\":[]}";
+    card.slot_len[0] = nb_slot_encode(1, 0, p, (uint32_t)strlen(p), card.slot[0], FILE_CAP);
+    NB_CHECK_EQ_INT(NB_MEM_OK, boot_at(REAL));
+    NB_CHECK_EQ_INT(1, mem.rejected);
+    NB_CHECK_EQ_INT(4, nb_memory_patterns_total(&mem.patterns, NB_EP_AFFECTION));
+    NB_CHECK_EQ_INT(0, nb_memory_patterns_total(&mem.patterns, NB_EP_HURT));
+    NB_CHECK_EQ_INT(1792929601LL, mem.patterns.since_s);
+}
+
 int main(void) {
     NB_RUN(test_remember_and_recall_ignore_case_and_accents);
     NB_RUN(test_memory_survives_a_reboot);
@@ -553,5 +667,9 @@ int main(void) {
     NB_RUN(test_torn_log_tail_loses_only_that_episode);
     NB_RUN(test_unreadable_snapshot_is_never_overwritten);
     NB_RUN(test_malformed_records_are_skipped);
+    NB_RUN(test_patterns_keep_what_compaction_drops);
+    NB_RUN(test_episodes_pushed_out_still_count);
+    NB_RUN(test_forgetting_episodes_takes_their_counts);
+    NB_RUN(test_malformed_patterns_drop_only_that_type);
     NB_TEST_MAIN_END();
 }

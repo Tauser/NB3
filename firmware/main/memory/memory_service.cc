@@ -301,8 +301,12 @@ void MemoryService::Tick() {
     if (nb_memory_wants_compaction(memory_)) {
         const uint16_t before = memory_->episode_count;
         const nb_mem_status_t s = nb_memory_compact(memory_, &io_, &clock, now);
-        ESP_LOGI(TAG, "compacted: %u -> %u episodes: %s", before, memory_->episode_count,
-                 StatusName(s));
+        uint32_t counted = 0;
+        for (int t = 0; t < NB_EP_TYPE_COUNT; t++) {
+            counted += nb_memory_patterns_total(&memory_->patterns, static_cast<nb_ep_type_t>(t));
+        }
+        ESP_LOGI(TAG, "compacted: %u -> %u episodes, %lu in the habit counts: %s", before,
+                 memory_->episode_count, static_cast<unsigned long>(counted), StatusName(s));
         last_flush_ms_ = ms;
     } else if ((memory_->dirty || memory_->pending_count > 0) &&
                ms - last_flush_ms_ >= kFlushPeriodMs) {
