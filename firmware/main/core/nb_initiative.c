@@ -39,7 +39,8 @@ uint32_t nb_initiative_gap_ms(float initiative) {
 
 // Gaps vary from half to one and a half of the mean.
 static uint32_t draw_gap(nb_initiative_t *t) {
-    return (uint32_t)((float)nb_initiative_gap_ms(t->initiative) * (0.5f + next_unit(t)));
+    return (uint32_t)((float)nb_initiative_gap_ms(t->initiative) * (0.5f + next_unit(t)) *
+                      t->gap_scale);
 }
 
 void nb_initiative_init(nb_initiative_t *t, float initiative, uint32_t seed, uint32_t now_ms) {
@@ -47,6 +48,11 @@ void nb_initiative_init(nb_initiative_t *t, float initiative, uint32_t seed, uin
     t->initiative = clampf(initiative, 0.0f, 1.0f);
     t->rng = seed ^ 0x51ED270Bu;
     t->next_ms = now_ms + nb_initiative_quiet_ms(t->initiative);
+    t->gap_scale = 1.0f;
+}
+
+void nb_initiative_set_gap_scale(nb_initiative_t *t, float scale) {
+    t->gap_scale = clampf(scale, 0.0f, 4.0f);
 }
 
 nb_initiative_event_t nb_initiative_update(nb_initiative_t *t, bool at_rest, uint32_t now_ms) {
@@ -67,7 +73,7 @@ nb_initiative_event_t nb_initiative_update(nb_initiative_t *t, bool at_rest, uin
         }
         return NB_INITIATIVE_NONE;
     }
-    if (t->initiative <= 0.0f || !reached(now_ms, t->next_ms)) {
+    if (t->initiative <= 0.0f || t->gap_scale <= 0.0f || !reached(now_ms, t->next_ms)) {
         return NB_INITIATIVE_NONE;
     }
     t->duration_ms = THOUGHT_MIN_MS + next_u32(t) % (THOUGHT_SPAN_MS + 1u);

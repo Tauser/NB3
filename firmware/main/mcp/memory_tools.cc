@@ -89,7 +89,7 @@ std::string CardError(const char* what) {
            ": the microSD card failed while writing. Tell the user it may not be kept.";
 }
 
-void RegisterMood(MoodModifier& mood, BehaviorModifier& behavior) {
+void RegisterMood(MoodModifier& mood, BehaviorModifier& behavior, EnergyModifier& energy) {
     auto& mcp = McpServer::GetInstance();
     mcp.AddTool(
         "self.mood.get",
@@ -98,17 +98,26 @@ void RegisterMood(MoodModifier& mood, BehaviorModifier& behavior) {
         "valence (-1 unhappy .. +1 happy) and arousal (-1 calm/sleepy .. +1 alert/excited), the "
         "expression that mood shows, the temperament it returns to, how much recent memories "
         "shift that resting point, and the latest thing that moved it (e.g. touch:pet = being "
-        "petted, xiaozhi:happy = a happy reply, conversa: ... = something reported by you). Use "
+        "petted, xiaozhi:happy = a happy reply, conversa: ... = something reported by you), and "
+        "its energy (0 spent .. 1 full, it follows the time of day: low at night), boredom (0 .. "
+        "1, it grows when left alone), whether it is drowsy and whether it was asleep. Use "
         "it when the user asks how the robot is or feels (\"tá feliz?\", \"como você está?\"), "
         "and answer in the robot's voice from these values.",
-        PropertyList(), [&mood, &behavior](const PropertyList&) -> ReturnValue {
+        PropertyList(), [&mood, &behavior, &energy](const PropertyList&) -> ReturnValue {
             const MoodModifier::Snapshot s = mood.Read();
+            const EnergyModifier::Snapshot e = energy.Read();
             cJSON* o = cJSON_CreateObject();
             cJSON_AddStringToObject(o, "state", nb_behavior_state_name(behavior.State()));
             cJSON_AddItemToObject(o, "mood", Vec(s.mood));
             cJSON_AddStringToObject(o, "shows", nb_expression_name(s.expression));
             cJSON_AddItemToObject(o, "temperament", Vec(s.temperament));
             cJSON_AddItemToObject(o, "memory_bias", Vec(s.bias));
+            cJSON* en = cJSON_AddObjectToObject(o, "energy");
+            cJSON_AddNumberToObject(en, "level", Round2(e.energy));
+            cJSON_AddNumberToObject(en, "boredom", Round2(e.boredom));
+            cJSON_AddBoolToObject(en, "drowsy", e.drowsy);
+            cJSON_AddBoolToObject(en, "sleeping", e.sleeping);
+            cJSON_AddBoolToObject(en, "time_known", e.time_known);
             if (!s.recent.empty()) {
                 cJSON_AddStringToObject(o, "recent", s.recent.c_str());
                 cJSON_AddNumberToObject(o, "recent_seconds_ago", s.recent_age_ms / 1000);
@@ -351,7 +360,8 @@ void RegisterMemory(MemoryService& memory) {
 
 }  // namespace
 
-void RegisterMemoryTools(MemoryService& memory, MoodModifier& mood, BehaviorModifier& behavior) {
-    RegisterMood(mood, behavior);
+void RegisterMemoryTools(MemoryService& memory, MoodModifier& mood, BehaviorModifier& behavior,
+                         EnergyModifier& energy) {
+    RegisterMood(mood, behavior, energy);
     RegisterMemory(memory);
 }

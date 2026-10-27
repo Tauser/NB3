@@ -1,6 +1,8 @@
 #ifndef NB3_INITIATIVE_MODIFIER_H
 #define NB3_INITIATIVE_MODIFIER_H
 
+#include <atomic>
+
 #include <esp_timer.h>
 
 #include "behavior/behavior_modifier.h"
@@ -22,6 +24,9 @@ public:
     InitiativeModifier(const InitiativeModifier&) = delete;
     InitiativeModifier& operator=(const InitiativeModifier&) = delete;
 
+    // From the energy: 0 = no thoughts, >1 rarer, <1 more often.
+    void SetGapScale(float scale) { gap_scale_ = scale; }
+
 private:
     static void OnTimer(void* arg);
     void Tick();
@@ -29,6 +34,7 @@ private:
     ExpressionArbiter& arbiter_;
     BehaviorModifier& behavior_;
     nb_initiative_t initiative_;  // esp_timer task only
+    std::atomic<float> gap_scale_{1.0f};
     esp_timer_handle_t timer_ = nullptr;
 };
 

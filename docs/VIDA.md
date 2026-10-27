@@ -32,7 +32,8 @@ quando ouvir ou falar. Recebe as mudanças de `DeviceState` (hoje via
   `motion_safety`). Modo `quiet` é flag persistente, não estado.
 - **Humor** — como ele se sente: vetor contínuo valência × ativação em
   [−1, +1]. Pode estar em IDLE e continuar contente ou irritado.
-- **Energia** — disposição (sono, tédio): entra na etapa 3, com os arcos (§9).
+- **Energia** — disposição: cansaço que segue o relógio do dia e tédio que
+  cresce no repouso sem companhia (§3.3).
 
 **Voltar ao IDLE limpa ações temporárias** (propostas transitórias do
 árbitro, reação de toque, olhar e, no futuro, pescoço) e **preserva a
@@ -120,6 +121,32 @@ O humor também modula intensidade e ritmo dos LEDs. Pré-requisito: a
 duração da expressão no árbitro precisa prevalecer sobre animações de uma
 execução (hoje HAPPY por 60 s volta ao IDLE visual em ~2 s enquanto o
 árbitro ainda diz HAPPY).
+
+### 3.3 Energia, tédio e circadiano
+
+Dois valores em RAM, de 0 a 1, separados do humor: a energia não empurra a
+valência nem a ativação, ela muda o **jeito** de fazer as coisas.
+
+- **Circadiano:** a energia segue um alvo pela hora do dia: 1 das 8 h às
+  20 h, desce até 0,15 entre 20 h e 23 h, fica em 0,15 até as 6 h e sobe
+  até 1 entre 6 h e 8 h. Sem hora sincronizada (§5.1) o alvo é 0,8: o robô
+  não sabe que é noite e nunca dorme sozinho. A energia anda até o alvo
+  devagar (constante de 15 min), então a noite chega aos poucos.
+- **Acordar:** sair do repouso (conversa, toque) sobe a energia em 0,25 na
+  hora, como alguém que foi chamado; depois ela volta a seguir o relógio.
+- **Tédio:** cresce no repouso até 1 em 20 min de silêncio, cai em ~1 min
+  de conversa ou toque e cai a 30% num instante quando alguém interage.
+
+| Situação | Efeito |
+|---|---|
+| Energia baixa | olhar e piscar no ritmo da energia (o mais calmo entre ela e o humor) |
+| Energia < 0,35 (sonolento) | a face em repouso mostra sonolento; nada de pensar sozinho |
+| Energia < 0,25 e 10 min de silêncio | dorme: estado `SLEEPING`, olhos quase fechados, sem olhar em volta; toque ou wake word acordam |
+| Tédio | pensa sozinho com mais frequência: o intervalo vai de 1,7× (tédio 0) a 0,7× (tédio 1) |
+
+No árbitro, o sonolento é a fonte `ENERGY`, entre o humor e a iniciativa:
+o humor (prioridade 2) < energia (3) < iniciativa (4) < tudo o mais.
+`self.mood.get` passa a dizer a energia e o tédio.
 
 ## 4. Personalidade local
 

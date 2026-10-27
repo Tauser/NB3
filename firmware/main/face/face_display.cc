@@ -1,5 +1,6 @@
 #include "face_display.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 
@@ -517,6 +518,11 @@ void FaceDisplay::SetTheme(Theme* theme) {
     }
 }
 
+void FaceDisplay::SetEnergy(float arousal, bool sleeping) {
+    energy_arousal_ = arousal;
+    sleeping_ = sleeping;
+}
+
 void FaceDisplay::OnTimer(lv_timer_t* timer) {
     static_cast<FaceDisplay*>(lv_timer_get_user_data(timer))->Tick();
 }
@@ -532,10 +538,14 @@ void FaceDisplay::Tick() {
     const uint32_t now = NowMs();
     // At rest (nothing proposed, or only the mood) the robot looks around in
     // the manner of its mood; any reaction brings the eyes back to the user.
+    // A tired robot looks around as calmly as its energy, whatever the mood.
     const nb_affect_vec_t mood = mood_.Mood();
-    nb_gaze_set_mood(&gaze_, mood.valence, mood.arousal);
+    const bool sleeping = sleeping_;
+    nb_gaze_set_mood(&gaze_, mood.valence, std::min(mood.arousal, energy_arousal_.load()));
     nb_gaze_tick(&gaze_, now - last_tick_ms_);
-    const bool wander = winner == NB_SOURCE_COUNT || winner == NB_SOURCE_MOOD;
+    const bool wander = !sleeping && (winner == NB_SOURCE_COUNT || winner == NB_SOURCE_MOOD ||
+                                      winner == NB_SOURCE_ENERGY);
+    nb_avatar_core_set_blink_override(&avatar_, 0.12f, sleeping);
     const nb_avatar_look_t look = nb_gaze_look(&gaze_);
     nb_avatar_core_set_look(&avatar_, &look, wander);
     nb_avatar_core_set_blink_pace(&avatar_, wander ? nb_gaze_blink_pace(&gaze_) : 1.0f);

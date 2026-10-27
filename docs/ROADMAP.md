@@ -307,7 +307,19 @@ os núcleos integralmente.
 
 - [ ] Arcos com desfecho: birra e perdão (taps repetidos), reconciliação
   (humor negativo + carinho), procura com o olhar após tédio.
-- [ ] Energia e tédio; circadiano (requer fonte de hora e fuso explícito).
+- [~] **Energia, tédio e circadiano** (`core/nb_energy`,
+  `behavior/energy_modifier`, VIDA.md §3.3): energia segue a hora do dia
+  (1 de dia, 0,15 de madrugada, rampas às 20–23 h e 6–8 h; 0,8 sem hora
+  sincronizada) com constante de 15 min, e sobe 0,25 quando alguém chama o
+  robô; tédio cresce no repouso (cheio em 20 min) e cai com companhia. Sem
+  mexer no humor: o olhar fica no ritmo mais calmo entre humor e energia;
+  sonolento (< 0,35) mostra a face sonolenta em repouso (fonte `ENERGY`,
+  prioridade 3; humor desceu para 2) e corta o pensar sozinho; o tédio
+  encurta o intervalo dos pensamentos (1,7× a 0,7×); energia < 0,25 com
+  10 min de silêncio dorme (`SLEEPING`, olhos quase fechados, sem olhar em
+  volta), e toque ou wake word acordam. `self.mood.get` diz energia, tédio,
+  sonolento e dormindo. 6 host-tests. Falta ver em bancada: a noite
+  chegando (sonolento, sono) e o acordar.
 - [~] **Idle autônomo guiado pelo humor** (`core/nb_gaze`, FACE.md "Olhar
   autônomo"): a coreografia fixa de 8 olhares saiu. Cada olhar sorteia
   direção (8 mais o centro, nunca uma das duas últimas), alcance, ida e

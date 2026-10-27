@@ -26,12 +26,16 @@ typedef struct {
     uint32_t next_ms;     // when the next thought starts
     uint32_t until_ms;    // when the current one ends
     uint32_t duration_ms; // of the current one
+    float gap_scale;      // from the energy: 0 = no thoughts, >1 rarer, <1 more often
     bool thinking;
 } nb_initiative_t;
 
 void nb_initiative_init(nb_initiative_t *t, float initiative, uint32_t seed, uint32_t now_ms);
 
 nb_initiative_event_t nb_initiative_update(nb_initiative_t *t, bool at_rest, uint32_t now_ms);
+
+// Scales the gaps from the next one on; 0 stops new thoughts (drowsy).
+void nb_initiative_set_gap_scale(nb_initiative_t *t, float scale);
 
 // Quiet needed before the first thought, and the mean gap between them.
 uint32_t nb_initiative_quiet_ms(float initiative);

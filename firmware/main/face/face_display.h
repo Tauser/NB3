@@ -1,6 +1,7 @@
 #ifndef NB3_FACE_DISPLAY_H
 #define NB3_FACE_DISPLAY_H
 
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -47,6 +48,10 @@ public:
     void SetHideSubtitle(bool) override {}
     void SetTheme(Theme* theme) override;
 
+    // From the energy: the calmest arousal the gaze may show, and sleep
+    // (eyes nearly shut, no looking around).
+    void SetEnergy(float arousal, bool sleeping);
+
 private:
     static void OnTimer(lv_timer_t* timer);
     static void OnDraw(lv_event_t* event);
@@ -57,6 +62,8 @@ private:
     ExpressionArbiter& arbiter_;
     MoodModifier& mood_;
     const AudioLevels& levels_;
+    std::atomic<float> energy_arousal_{1.0f};
+    std::atomic<bool> sleeping_{false};
 
     // Owned by the LVGL task.
     lv_obj_t* face_ = nullptr;
