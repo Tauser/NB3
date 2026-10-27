@@ -321,8 +321,8 @@ os núcleos integralmente.
   sonolento e dormindo. 6 host-tests. Visto em bancada à meia-noite: uma
   conversa até 186 s, dois pensamentos sozinhos (395 s e 1140 s), sonolento
   aos 1370 s (energia 0,35) e dormindo aos 1994 s (0,25). Dormindo ganhou o
-  overlay "Zzz" (três Z subindo, pedido do usuário). Falta ver: o "Zzz" na
-  tela e o acordar com toque e wake word.
+  overlay "Zzz" (três Z subindo, pedido do usuário), aprovado na tela.
+  Falta ver: o acordar com toque e wake word.
 - [~] **Idle autônomo guiado pelo humor** (`core/nb_gaze`, FACE.md "Olhar
   autônomo"): a coreografia fixa de 8 olhares saiu. Cada olhar sorteia
   direção (8 mais o centro, nunca uma das duas últimas), alcance, ida e
