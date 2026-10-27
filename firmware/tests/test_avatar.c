@@ -171,9 +171,11 @@ static void test_look_fades_in_and_out(void)
         nb_avatar_core_tick(&state, 20u);
     }
     nb_avatar_core_get_frame(&state, &frame);
-    // With the 2.5D cue a full look down moves the eyes ~140 units.
-    NB_CHECK(frame.pose.left_eye.y > rest_y + 40.0f);
-    NB_CHECK(frame.pose.left_eye.y < rest_y + 110.0f);
+    nb_avatar_core_state_t full_state;
+    nb_avatar_core_init(&full_state, 6u);
+    const float full = look_frame(&full_state, look_down, true).pose.left_eye.y - rest_y;
+    NB_CHECK(frame.pose.left_eye.y > rest_y + full * 0.25f);
+    NB_CHECK(frame.pose.left_eye.y < rest_y + full * 0.75f);
     // A reaction turns the wandering off: the eyes come back to the center.
     const nb_avatar_render_frame_t back = look_frame(&state, look_down, false);
     NB_CHECK(fabsf(back.pose.left_eye.y - rest_y) < 10.0f);

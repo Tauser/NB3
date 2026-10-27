@@ -319,10 +319,11 @@ os núcleos integralmente.
   volta ao centro com transição de 0,4 s. O avatar recebe o olhar pronto
   (`nb_avatar_core_set_look`) e o ritmo do piscar. Projeção 3D no lugar do
   2.5D de deslocamentos fixos: olhos sobre uma cabeça esférica (raio 520,
-  câmera a 1800, giro a 60% do ângulo da cabeça) em perspectiva; olhando a
-  27° para o lado o olho de perto vai a ~120% da largura e o de longe a
-  ~65%; para cima ou para baixo os olhos andam ~140, achatam ~10% e se
-  inclinam ~3° um para o outro. As microssacadas continuam. 6 host-tests novos do olhar, 2 do avatar e 1 do árbitro
+  câmera a 1300, giro a 85% do ângulo da cabeça; reforçado depois da
+  primeira olhada na tela) em perspectiva; olhando a 27° para o lado o olho
+  de perto vai a ~130% da largura e o de longe a ~36%; para cima ou para
+  baixo os olhos andam ~180, achatam ~20% e se inclinam ~7° um para o
+  outro. As microssacadas continuam. 6 host-tests novos do olhar, 2 do avatar e 1 do árbitro
   (vencedor). Falta ver em bancada: o olhar em repouso não parecer ciclo,
   calmo vs alerta, contente olhando para cima, e a volta ao centro numa
   reação.

@@ -344,8 +344,8 @@ static float micro_saccade(uint32_t now_ms, float seed)
  * lines converge. HEAD_TURN maps the head angle to the sphere's rotation;
  * below 1 it keeps the eyes on the screen at the widest looks. */
 #define HEAD_RADIUS 520.0f
-#define CAMERA_DISTANCE 1800.0f
-#define HEAD_TURN 0.6f
+#define CAMERA_DISTANCE 1300.0f
+#define HEAD_TURN 0.85f
 #define TANGENT_STEP 10.0f
 
 typedef struct {
