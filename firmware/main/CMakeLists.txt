@@ -173,6 +173,13 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
         PRIVATE TEXT_FONT_SIZE=${CMAKE_MATCH_1} TEXT_FONT_BPP=${CMAKE_MATCH_2}
     )
 
+    # Bench build only (idf.py -DNB3_POWER_CUT_TEST=1 build): the card is
+    # written nonstop so power can be cut mid-write (memory/power_cut_test).
+    # The value stays in the CMake cache: pass =0 to go back.
+    if(NB3_POWER_CUT_TEST)
+        target_compile_definitions(${COMPONENT_LIB} PRIVATE NB3_POWER_CUT_TEST=1)
+    endif()
+
     # NB3's own code builds warning-free; xiaozhi sources keep their flags.
     set_source_files_properties(${NB3_SOURCES} PROPERTIES COMPILE_OPTIONS "-Wall;-Wextra;-Werror")
 

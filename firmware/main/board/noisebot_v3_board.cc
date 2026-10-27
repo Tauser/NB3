@@ -17,6 +17,7 @@
 #include "mcp/memory_tools.h"
 #include "memory/clock_service.h"
 #include "memory/memory_service.h"
+#include "memory/power_cut_test.h"
 #include "memory/store_service.h"
 #include "core/nb_hpf.h"
 #include "core/nb_personality.h"
@@ -198,6 +199,8 @@ public:
         });
         RegisterFaceTools(arbiter_);
         RegisterMemoryTools(memory_, mood_, behavior_);
+        static PowerCutTest power_cut(store_, display_);  // bench builds only
+        power_cut.Start();
         static TouchModifier touch(BODY_TOUCH_CHANNEL, arbiter_, mood_, behavior_, memory_);
         static MoodLights mood_lights(MOOD_LED_GPIO, MOOD_LED_COUNT, MOOD_LED_MAX_BRIGHTNESS,
                                       arbiter_);

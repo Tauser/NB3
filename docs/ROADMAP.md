@@ -13,7 +13,7 @@ D-010 (vida própria e memória local antes do movimento).
 |---|---|---|---|
 | 0 | xiaozhi em board customizada NB3 na Waveshare N32R16V | conversa em PT-BR agrada; wake word funciona | **concluída** |
 | 1 | Firmware NB3 próprio: face, emoções, toque, LED | o robô "vive" e conversa | **concluída** |
-| 2 | Vida própria: humor contínuo, estados comportamentais, personalidade e memória local mínima no microSD, com MCP | humor sobrevive ao IDLE; lembra de um fato depois de reiniciar; esquece quando pedido | prova vista em bancada; faltam cortes de energia e compactação no cartão |
+| 2 | Vida própria: humor contínuo, estados comportamentais, personalidade e memória local mínima no microSD, com MCP | humor sobrevive ao IDLE; lembra de um fato depois de reiniciar; esquece quando pedido | prova e cortes de energia vistos em bancada; falta conferir as durações do humor (item 2) |
 | 3 | Arcos, energia, circadiano e iniciativa | reage com sequência e desfecho; desacelera à noite; toma iniciativa sem exagero | não iniciada |
 | 4 | Servos SCS + `motion_safety` + ferramentas MCP de movimento (entrega própria) | olha e acena; safety corta com carga real | **núcleos prontos**; falta a parte que toca o hardware |
 | 5 | Agenda, timers e comportamentos offline como ferramentas do dispositivo | funciona sem nuvem para o que é local | não iniciada |
@@ -217,7 +217,7 @@ ausência); sem microSD o robô funciona e avisa.
    corrigido no mesmo boot e no seguinte, fuso ±1…±14 h, tempo desligado).
    Visto em bancada: boot 1 → 2, último instante lido de volta, sincroniza
    6–10 s após o boot. Ninguém usa os carimbos ainda: a memória (item 8).
-7. [~] **microSD** (`core/nb_store`, `memory/store_service`, `d8fc87c`):
+7. [x] **microSD** (`core/nb_store`, `memory/store_service`, `d8fc87c`):
    SDMMC 1-bit nos GPIO 6/15/16, task única dona do cartão, dois slots com
    CRC sobre cabeçalho e conteúdo, log de quadros com `seq` lido até o
    primeiro quadro ruim e cauda rasgada truncada antes de anexar, toda
@@ -234,9 +234,8 @@ ausência); sem microSD o robô funciona e avisa.
    5 min; na tela ele aparece rápido e os avisos do xiaozhi o cobrem, o que
    ficou aceito assim. Cartão inserido com o robô ligado: montou na
    tentativa dos 30 s e o probe passou; a personalidade do cartão só vale
-   no próximo boot. Falta ver: cortes de energia durante escrita (com a
-   memória do item 8 gravando de verdade).
-8. [~] **Memória média e longa**: episódios com importância calculada pela
+   no próximo boot. Cortes de energia: ver o teste de bancada no item 8b.
+8. [x] **Memória média e longa**: episódios com importância calculada pela
    idade, perfil/fatos/preferências, viés de humor limitado, esquecimento
    que remove derivados (VIDA.md §5, §5.3). Host-test do roteiro de §8.
    - [x] 8a, núcleo (`core/nb_memory`, `core/nb_json`): perfil com chave,
@@ -247,7 +246,7 @@ ausência); sem microSD o robô funciona e avisa.
      memória, 6 de JSON) com cartão simulado que perde energia em qualquer
      escrita: roteiro de §8, corte em cada escrita do esquecimento e do boot
      que o conclui, cauda rasgada do log, registros malformados.
-   - [~] 8b, casca: `memory/memory_service`, task única dona da memória,
+   - [x] 8b, casca: `memory/memory_service`, task única dona da memória,
      sobre o `StoreService`; carrega quando o cartão aparece e desliga quando
      ele some. Carinho de 3 s ou mais e conversa de 5 s ou mais (de sair do
      repouso até voltar) viram episódios; a conversa leva o desvio que deixou
@@ -257,8 +256,16 @@ ausência); sem microSD o robô funciona e avisa.
      episódio (v +0,63, importância 0,52), viés +0,033 no humor; depois de
      reiniciar, o episódio voltou do log e o viés voltou após a sincronização.
      Carinhos de 23 s e 46 s viraram episódios (importância 0,61 e 0,70);
-     com eles o viés chegou ao teto de +0,15. Falta ver: compactação no cartão, ciclo de cortes
-     de energia durante escrita (pendente do item 7). A falha do dispositivo
+     com eles o viés chegou ao teto de +0,15.
+     Teste de cortes (`memory/power_cut_test`, só em build de bancada com
+     `-DNB3_POWER_CUT_TEST=1`): memória própria em `cortes_*`, escrita sem
+     parar (episódios, fatos, esquecimentos, compactação a cada ~50
+     operações), conferida a cada boot. Resultado: 48.600 operações e 975
+     compactações sem erro; 7 boots após corte no meio da escrita (4 cortes
+     de energia, 3 resets) com 0 falhas: nada rasgado, nenhum esquecimento
+     pela metade, último fato confirmado presente e último esquecimento
+     confirmado ausente. A memória do robô não foi tocada; os arquivos
+     `cortes_*` ficaram no cartão e podem ser apagados. A falha do dispositivo
      não vira episódio: hoje ela é erro de rede, não mágoa.
 9. [x] **MCP** (`mcp/memory_tools`): `self.mood.get`, `self.mood.stimulate`,
    `self.memory.recall`/`remember`/`correct`/`forget`, com descrições ricas.
