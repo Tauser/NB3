@@ -104,9 +104,12 @@ static nb_personality_t LoadPersonality(StoreService& store) {
         ESP_LOGI(TAG, "no personality file: firmware defaults");
         return personality;
     }
-    const nb_personality_parse_result_t r = nb_personality_parse(text.c_str(), &personality);
-    ESP_LOGI(TAG, "personality file: %d applied, %d clamped, %d rejected, %d unknown",
-             r.applied, r.clamped, r.rejected, r.unknown);
+    std::vector<char> decoded(text.size() + 1);
+    nb_personality_text(reinterpret_cast<const uint8_t*>(text.data()), text.size(),
+                        decoded.data(), decoded.size());
+    const nb_personality_parse_result_t r = nb_personality_parse(decoded.data(), &personality);
+    ESP_LOGI(TAG, "personality file (%u bytes): %d applied, %d clamped, %d rejected, %d unknown",
+             static_cast<unsigned>(text.size()), r.applied, r.clamped, r.rejected, r.unknown);
     return personality;
 }
 

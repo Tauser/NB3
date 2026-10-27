@@ -128,6 +128,53 @@ static void test_null_is_safe(void) {
     NB_CHECK(NEAR(a.reactivity, 1.0f));
 }
 
+static void test_files_from_any_editor_read_the_same(void) {
+    static const char kIni[] = "# calmo\r\nreactivity = 0.6\r\nrecovery_s = 300\r\n";
+    uint8_t utf16le[2 + 2 * sizeof(kIni)], utf16be[2 + 2 * sizeof(kIni)], bom8[3 + sizeof(kIni)];
+    utf16le[0] = 0xFF;
+    utf16le[1] = 0xFE;
+    utf16be[0] = 0xFE;
+    utf16be[1] = 0xFF;
+    for (size_t i = 0; i < sizeof(kIni) - 1; i++) {
+        utf16le[2 + 2 * i] = (uint8_t)kIni[i];
+        utf16le[3 + 2 * i] = 0;
+        utf16be[2 + 2 * i] = 0;
+        utf16be[3 + 2 * i] = (uint8_t)kIni[i];
+    }
+    const size_t wide_len = 2 + 2 * (sizeof(kIni) - 1);
+    bom8[0] = 0xEF;
+    bom8[1] = 0xBB;
+    bom8[2] = 0xBF;
+    memcpy(bom8 + 3, kIni, sizeof(kIni) - 1);
+    const struct {
+        const uint8_t *bytes;
+        size_t len;
+    } files[] = {
+        {(const uint8_t *)kIni, sizeof(kIni) - 1},
+        {bom8, 3 + sizeof(kIni) - 1},
+        {utf16le, wide_len},
+        {utf16be, wide_len},
+        {utf16le + 2, wide_len - 2},  // no BOM: told by the zero bytes
+    };
+    for (size_t f = 0; f < sizeof(files) / sizeof(files[0]); f++) {
+        char text[256];
+        nb_personality_text(files[f].bytes, files[f].len, text, sizeof(text));
+        nb_personality_t p = nb_personality_default();
+        const nb_personality_parse_result_t r = nb_personality_parse(text, &p);
+        NB_CHECK_EQ_INT(2, r.applied);
+        NB_CHECK_EQ_INT(0, r.unknown);
+        NB_CHECK(p.reactivity > 0.59f && p.reactivity < 0.61f);
+    }
+    // Accents become '?', never a broken byte; tiny buffers stay terminated.
+    char text[8];
+    const uint8_t accented[] = {'c', 0xC3, 0xA1, 'f', 0xC3, 0xA9};
+    NB_CHECK_EQ_INT(4, nb_personality_text(accented, sizeof(accented), text, sizeof(text)));
+    NB_CHECK(strcmp(text, "c?f?") == 0);
+    NB_CHECK_EQ_INT(2, nb_personality_text((const uint8_t *)"abcdef", 6, text, 3));
+    NB_CHECK(strcmp(text, "ab") == 0);
+    NB_CHECK_EQ_INT(0, nb_personality_text(NULL, 4, text, sizeof(text)));
+}
+
 int main(void) {
     NB_RUN(test_default_is_todays_noise);
     NB_RUN(test_a_full_file_overrides_everything);
@@ -138,5 +185,6 @@ int main(void) {
     NB_RUN(test_overlong_line_does_not_overflow);
     NB_RUN(test_affect_view_carries_the_mood_fields);
     NB_RUN(test_null_is_safe);
+    NB_RUN(test_files_from_any_editor_read_the_same);
     NB_TEST_MAIN_END();
 }

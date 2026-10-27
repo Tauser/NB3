@@ -102,6 +102,61 @@ static bool known(const char *key) {
     return false;
 }
 
+size_t nb_personality_text(const uint8_t *bytes, size_t len, char *out, size_t cap) {
+    if (out == NULL || cap == 0) {
+        return 0;
+    }
+    size_t n = 0;
+    if (bytes == NULL) {
+        out[0] = '\0';
+        return 0;
+    }
+    // 0 = UTF-8, 1 = UTF-16LE, 2 = UTF-16BE.
+    int wide = 0;
+    size_t at = 0;
+    if (len >= 2 && bytes[0] == 0xFF && bytes[1] == 0xFE) {
+        wide = 1;
+        at = 2;
+    } else if (len >= 2 && bytes[0] == 0xFE && bytes[1] == 0xFF) {
+        wide = 2;
+        at = 2;
+    } else if (len >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) {
+        at = 3;
+    } else if (len >= 2 && bytes[0] != 0 && bytes[1] == 0) {
+        wide = 1;
+    } else if (len >= 2 && bytes[0] == 0 && bytes[1] != 0) {
+        wide = 2;
+    }
+    while (at < len && n + 1 < cap) {
+        unsigned c;
+        if (wide == 0) {
+            c = bytes[at];
+            at++;
+            if (c >= 0x80) {
+                while (at < len && (bytes[at] & 0xC0) == 0x80) {
+                    at++;  // the rest of a multi-byte character
+                }
+                c = '?';
+            }
+        } else {
+            if (at + 1 >= len) {
+                break;
+            }
+            c = wide == 1 ? (unsigned)bytes[at] | ((unsigned)bytes[at + 1] << 8)
+                          : ((unsigned)bytes[at] << 8) | (unsigned)bytes[at + 1];
+            at += 2;
+            if (c >= 0x80) {
+                c = '?';
+            }
+        }
+        if (c != 0) {
+            out[n++] = (char)c;
+        }
+    }
+    out[n] = '\0';
+    return n;
+}
+
 nb_personality_parse_result_t nb_personality_parse(const char *text, nb_personality_t *p) {
     nb_personality_parse_result_t r = {0, 0, 0, 0};
     if (text == NULL || p == NULL) {

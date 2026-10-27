@@ -101,8 +101,14 @@ bool ClearLog(void* ctx) {
 // The firmware never writes personalidade.ini, yet cuts in the old layout
 // damaged it: it must read the same as the first time this test saw it.
 std::string CheckPersonality(StoreService& store, Counters* c) {
+    // An empty file is not watched yet: the person may still be writing it.
+    // Its CRC here is 1, so a stored 1 means nothing was watched.
+    constexpr uint32_t kEmpty = 1u;
+    if (c->ini_crc == kEmpty) {
+        c->ini_crc = 0;
+    }
     std::string text;
-    if (!store.ReadText("personalidade.ini", &text)) {
+    if (!store.ReadText("personalidade.ini", &text) || text.empty()) {
         return c->ini_crc == 0 ? "" : "personalidade.ini gone";
     }
     const uint32_t crc = nb_store_crc32(0, text.data(), text.size()) | 1u;  // never 0

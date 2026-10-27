@@ -162,7 +162,8 @@ override por um arquivo de texto no SD:
 | `initiative` | frequência de comportamentos espontâneos no IDLE (etapa 3) | 0,5 | 0 … 1 |
 
 Formato (D-012): INI, `noise/personalidade.ini` no cartão, porque é
-editado por uma pessoa no PC. Uma linha `chave = valor` por parâmetro, `#`
+editado por uma pessoa no PC (UTF-8, com ou sem BOM, ou UTF-16 como o
+"Unicode" do Bloco de Notas). Uma linha `chave = valor` por parâmetro, `#`
 começa comentário, o que o arquivo não diz fica no padrão. Valor fora da faixa é preso nela;
 número inválido e chave desconhecida são ignorados e contados, para o boot
 dizer o que aconteceu. Um arquivo ruim deixa o robô mais calmo ou mais

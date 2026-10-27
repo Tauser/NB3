@@ -2,6 +2,7 @@
 #define NB_PERSONALITY_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "nb_affect.h"
@@ -41,6 +42,12 @@ typedef struct {
 // they are. '#' starts a comment. Keys: temperament_valence,
 // temperament_arousal, reactivity, recovery_s, negative_slowdown, initiative.
 nb_personality_parse_result_t nb_personality_parse(const char *text, nb_personality_t *p);
+
+// The file as an editor on the PC saved it, as text for the parser: UTF-8
+// with or without BOM, or UTF-16 (Windows Notepad's "Unicode", with BOM or
+// recognised by its zero bytes). Characters outside ASCII become '?' (keys
+// and numbers are ASCII). Always NUL-terminates out; returns its length.
+size_t nb_personality_text(const uint8_t *bytes, size_t len, char *out, size_t cap);
 
 // The part the mood uses.
 nb_affect_personality_t nb_personality_affect(const nb_personality_t *p);
