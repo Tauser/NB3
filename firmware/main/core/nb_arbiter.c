@@ -42,6 +42,11 @@ static bool expired(const nb_slot_t *slot, uint32_t now_ms) {
 }
 
 nb_expression_t nb_arbiter_resolve(nb_arbiter_t *arbiter, uint32_t now_ms) {
+    return nb_arbiter_resolve_source(arbiter, now_ms, NULL);
+}
+
+nb_expression_t nb_arbiter_resolve_source(nb_arbiter_t *arbiter, uint32_t now_ms,
+                                          nb_source_t *source) {
     const nb_slot_t *winner = NULL;
     for (size_t i = 0; i < NB_SOURCE_COUNT; i++) {
         nb_slot_t *slot = &arbiter->slots[i];
@@ -57,6 +62,9 @@ nb_expression_t nb_arbiter_resolve(nb_arbiter_t *arbiter, uint32_t now_ms) {
              (int32_t)(slot->seq - winner->seq) > 0)) {
             winner = slot;
         }
+    }
+    if (source != NULL) {
+        *source = winner != NULL ? (nb_source_t)(winner - arbiter->slots) : NB_SOURCE_COUNT;
     }
     return winner != NULL ? winner->proposal.expression : arbiter->baseline;
 }

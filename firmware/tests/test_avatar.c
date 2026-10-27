@@ -98,32 +98,30 @@ static void test_gaze_target_moves_face_in_both_axes(void)
     NB_CHECK(up_center_y < -30.0f);
 }
 
+static nb_avatar_render_frame_t look_frame(nb_avatar_core_state_t *state,
+                                           nb_avatar_look_t look, bool active)
+{
+    nb_avatar_render_frame_t frame;
+    nb_avatar_core_set_look(state, &look, active);
+    for (uint32_t elapsed = 0u; elapsed < 1000u; elapsed += 20u) {
+        nb_avatar_core_tick(state, 20u);
+    }
+    nb_avatar_core_get_frame(state, &frame);
+    return frame;
+}
+
 static void test_idle_keeps_visible_2_5d_attention(void)
 {
     nb_avatar_core_state_t state;
-    nb_avatar_render_frame_t early;
-    nb_avatar_render_frame_t up;
-    nb_avatar_render_frame_t side;
-    nb_avatar_render_frame_t down;
     nb_avatar_core_init(&state, 6u);
-    for (uint32_t elapsed = 0u; elapsed < 1000u; elapsed += 20u) {
-        nb_avatar_core_tick(&state, 20u);
-    }
-    nb_avatar_core_get_frame(&state, &early);
-    for (uint32_t elapsed = 1000u; elapsed < 5000u; elapsed += 20u) {
-        nb_avatar_core_tick(&state, 20u);
-    }
-    nb_avatar_core_get_frame(&state, &up);
-
-    for (uint32_t elapsed = 5000u; elapsed < 12000u; elapsed += 20u) {
-        nb_avatar_core_tick(&state, 20u);
-    }
-    nb_avatar_core_get_frame(&state, &down);
-
-    for (uint32_t elapsed = 12000u; elapsed < 18000u; elapsed += 20u) {
-        nb_avatar_core_tick(&state, 20u);
-    }
-    nb_avatar_core_get_frame(&state, &side);
+    const nb_avatar_look_t center = {0, 0, 0, 0, 0};
+    const nb_avatar_look_t look_up = {0, -26, 0, 0, -82};
+    const nb_avatar_look_t look_down = {0, 26, 0, 0, 82};
+    const nb_avatar_look_t look_side = {24, -10, 4.8f, 12, -5};
+    const nb_avatar_render_frame_t early = look_frame(&state, center, true);
+    const nb_avatar_render_frame_t up = look_frame(&state, look_up, true);
+    const nb_avatar_render_frame_t down = look_frame(&state, look_down, true);
+    const nb_avatar_render_frame_t side = look_frame(&state, look_side, true);
 
     const float early_center_y = (early.pose.left_eye.y + early.pose.right_eye.y) * 0.5f;
     const float up_center_y = (up.pose.left_eye.y + up.pose.right_eye.y) * 0.5f;
@@ -137,6 +135,52 @@ static void test_idle_keeps_visible_2_5d_attention(void)
     NB_CHECK(down.pose.left_eye.height < early.pose.left_eye.height * 0.94f);
     NB_CHECK(down.pose.face_scale > early.pose.face_scale * 1.04f);
     NB_CHECK(down.pose.left_eye.angle * down.pose.right_eye.angle < 0.0f);
+}
+
+static void test_look_fades_in_and_out(void)
+{
+    nb_avatar_core_state_t state;
+    nb_avatar_core_init(&state, 6u);
+    const nb_avatar_look_t look_down = {0, 26, 0, 0, 82};
+    nb_avatar_render_frame_t frame;
+    nb_avatar_core_get_frame(&state, &frame);
+    const float rest_y = frame.pose.left_eye.y;
+    // Halfway through the fade the eyes are partway there: no jolt.
+    nb_avatar_core_set_look(&state, &look_down, true);
+    for (uint32_t t = 0u; t < NB_AVATAR_LOOK_FADE_MS / 2u; t += 20u) {
+        nb_avatar_core_tick(&state, 20u);
+    }
+    nb_avatar_core_get_frame(&state, &frame);
+    // With the 2.5D cue a full look down moves the eyes ~140 units.
+    NB_CHECK(frame.pose.left_eye.y > rest_y + 40.0f);
+    NB_CHECK(frame.pose.left_eye.y < rest_y + 110.0f);
+    // A reaction turns the wandering off: the eyes come back to the center.
+    const nb_avatar_render_frame_t back = look_frame(&state, look_down, false);
+    NB_CHECK(fabsf(back.pose.left_eye.y - rest_y) < 10.0f);
+}
+
+static void test_blink_pace_slows_blinks(void)
+{
+    // Count blinks over a minute at each pace.
+    int counts[2];
+    const float paces[2] = {0.8f, 1.6f};
+    for (int i = 0; i < 2; i++) {
+        nb_avatar_core_state_t state;
+        nb_avatar_core_init(&state, 9u);
+        nb_avatar_core_set_blink_pace(&state, paces[i]);
+        counts[i] = 0;
+        bool closed = false;
+        for (uint32_t t = 0u; t < 60000u; t += 10u) {
+            nb_avatar_core_tick(&state, 10u);
+            nb_avatar_render_frame_t frame;
+            nb_avatar_core_get_frame(&state, &frame);
+            const bool now_closed = frame.blink_scale < 0.5f;
+            counts[i] += now_closed && !closed;
+            closed = now_closed;
+        }
+    }
+    NB_CHECK(counts[0] > counts[1] + 3);
+    NB_CHECK(counts[1] >= 5);
 }
 
 static void test_external_blink_modulates_without_replacing_expression(void)
@@ -393,6 +437,8 @@ int main(void) {
     NB_RUN(test_once_expression_returns_to_current_base);
     NB_RUN(test_gaze_target_moves_face_in_both_axes);
     NB_RUN(test_idle_keeps_visible_2_5d_attention);
+    NB_RUN(test_look_fades_in_and_out);
+    NB_RUN(test_blink_pace_slows_blinks);
     NB_RUN(test_external_blink_modulates_without_replacing_expression);
     NB_RUN(test_sleepy_holds_until_product_state_requests_idle);
     NB_RUN(test_pingpong_keeps_expression_active);

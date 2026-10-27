@@ -12,6 +12,7 @@
 #include "core/nb_overlay.h"
 #include "face/audio_levels.h"
 #include "core/nb_avatar.h"
+#include "core/nb_gaze.h"
 #include "core/nb_banner.h"
 #include "display/lcd_display.h"
 #include "display/lvgl_display/lvgl_font.h"
@@ -60,6 +61,7 @@ private:
     // Owned by the LVGL task.
     lv_obj_t* face_ = nullptr;
     nb_avatar_core_state_t avatar_;
+    nb_gaze_t gaze_;  // LVGL task only
     nb_avatar_render_frame_t frame_;
     nb_expression_t shown_ = NB_EXPR_NEUTRAL;
     uint32_t last_tick_ms_ = 0;

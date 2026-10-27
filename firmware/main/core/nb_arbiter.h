@@ -60,6 +60,10 @@ void nb_arbiter_enter_idle(nb_arbiter_t *arbiter);
 // Drops expired proposals and returns the winning expression.
 nb_expression_t nb_arbiter_resolve(nb_arbiter_t *arbiter, uint32_t now_ms);
 
+// Same, and says who won: a source, or NB_SOURCE_COUNT for the baseline.
+nb_expression_t nb_arbiter_resolve_source(nb_arbiter_t *arbiter, uint32_t now_ms,
+                                          nb_source_t *winner);
+
 #ifdef __cplusplus
 }
 #endif

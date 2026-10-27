@@ -41,6 +41,7 @@ public:
         uint32_t recent_age_ms;
     };
     Snapshot Read();
+    nb_affect_vec_t Mood();  // cheap, for every frame
 
     // Shift of the resting point from the memory's recent episodes.
     void SetBias(float valence, float arousal);

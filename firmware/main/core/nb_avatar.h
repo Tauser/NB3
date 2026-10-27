@@ -61,6 +61,16 @@ typedef struct {
     float head_roll;
 } nb_avatar_pose_t;
 
+// Where the face is looking: head turn (degrees) and eye slide inside the
+// face (design units). Comes from outside (core/nb_gaze at rest).
+typedef struct {
+    float yaw;
+    float pitch;
+    float roll;
+    float eye_x;
+    float eye_y;
+} nb_avatar_look_t;
+
 typedef struct {
     bool enabled;
     bool dizzy_overlay;
@@ -113,6 +123,10 @@ typedef struct {
     float head_yaw_velocity;
     float head_pitch_velocity;
     float head_roll_velocity;
+    nb_avatar_look_t look;
+    float look_weight;         // 0..1, eased toward look_target
+    float look_target;
+    float blink_pace;          // multiplies blink intervals and durations
     nb_avatar_pose_t from_pose;
     nb_avatar_pose_t pose;
 } nb_avatar_core_state_t;
@@ -140,6 +154,16 @@ bool nb_avatar_core_release(nb_avatar_core_state_t *state, nb_avatar_expression_
 // Normalized gaze target in [-1, 1]; eyes and head follow with springs.
 void nb_avatar_core_set_gaze_target(nb_avatar_core_state_t *state, float normalized_x,
                                     float normalized_y, bool enabled);
+
+// The look to wander with, and whether it applies now. Turning it on or off
+// fades over NB_AVATAR_LOOK_FADE_MS, so a reaction never jolts the eyes.
+// The head turn, the 2.5D depth cue and the micro-saccades come with it.
+#define NB_AVATAR_LOOK_FADE_MS 400u
+void nb_avatar_core_set_look(nb_avatar_core_state_t *state, const nb_avatar_look_t *look,
+                             bool active);
+
+// Blink rhythm: >1 blinks less often and more slowly (0.5..2).
+void nb_avatar_core_set_blink_pace(nb_avatar_core_state_t *state, float pace);
 
 // External blink modulation (slow blinks); does not restart the timeline.
 void nb_avatar_core_set_blink_override(nb_avatar_core_state_t *state, float scale,

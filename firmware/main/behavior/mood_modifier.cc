@@ -104,6 +104,11 @@ MoodModifier::Snapshot MoodModifier::Read() {
             recent_.empty() ? 0 : NowMs() - recent_ms_};
 }
 
+nb_affect_vec_t MoodModifier::Mood() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return affect_.mood;
+}
+
 void MoodModifier::SetBias(float valence, float arousal) {
     std::lock_guard<std::mutex> lock(mutex_);
     nb_affect_set_bias(&affect_, valence, arousal);

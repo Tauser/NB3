@@ -25,7 +25,7 @@ void ExpressionArbiter::EnterIdle() {
     nb_arbiter_enter_idle(&arbiter_);
 }
 
-nb_expression_t ExpressionArbiter::Resolve() {
+nb_expression_t ExpressionArbiter::Resolve(nb_source_t* winner) {
     std::lock_guard<std::mutex> lock(mutex_);
-    return nb_arbiter_resolve(&arbiter_, NowMs());
+    return nb_arbiter_resolve_source(&arbiter_, NowMs(), winner);
 }

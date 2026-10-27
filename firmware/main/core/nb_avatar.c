@@ -53,16 +53,6 @@ typedef struct {
     bool persistent;
 } nb_avatar_spec_t;
 
-typedef struct {
-    float yaw;
-    float pitch;
-    float roll;
-    float eye_x;
-    float eye_y;
-    uint16_t hold_ms;
-    uint16_t transition_ms;
-} nb_avatar_attention_t;
-
 #define EYE(x_, y_, w_, h_, round_, upper_, upper_tilt_, lower_, brow_y_, brow_tilt_,         \
             brow_opacity_, angle_)                                                             \
     {                                                                                            \
@@ -307,22 +297,6 @@ static const nb_avatar_spec_t s_specs[NB_AVATAR_EXPR_COUNT] = {
                 OSC(1, .003f, .8f, 0), 300, 400), false),
 };
 
-static const nb_avatar_attention_t s_idle_attention[] = {
-    /* Autonomous IDLE choreography. Vertical looks come early in the cycle
-     * and hold long enough to be noticed; they change no state. */
-    {0, 0, 0, 0, 0, 2600, 450},
-    /* Pure vertical looks, which the reference avatar drives from an IMU;
-     * here they are part of the choreography instead. */
-    {0, -26, 0, 0, -82, 4500, 550},
-    {0, 0, 0, 0, 0, 1800, 450},
-    /* A downward fixation in the same vocabulary as the side/diagonal ones. */
-    {0, 26, 0, 0, 82, 4500, 550},
-    {24, -10, 4.8f, 12, -5, 5200, 560},
-    {-20, 14, -5.5f, -10, 7, 3600, 520},
-    {11, -16, 2.2f, 6, -8, 4500, 500},
-    {-27, -4, -4, -12, 1, 5000, 640},
-};
-
 static float clamp01(float value)
 {
     return value < 0.0f ? 0.0f : (value > 1.0f ? 1.0f : value);
@@ -344,45 +318,6 @@ static float easing(nb_avatar_easing_t kind, float progress)
 static float mixf(float from, float to, float amount)
 {
     return from + (to - from) * amount;
-}
-
-static nb_avatar_attention_t mix_attention(const nb_avatar_attention_t *a,
-                                           const nb_avatar_attention_t *b, float t)
-{
-    nb_avatar_attention_t out = {
-        .yaw = mixf(a->yaw, b->yaw, t),
-        .pitch = mixf(a->pitch, b->pitch, t),
-        .roll = mixf(a->roll, b->roll, t),
-        .eye_x = mixf(a->eye_x, b->eye_x, t),
-        .eye_y = mixf(a->eye_y, b->eye_y, t),
-        .hold_ms = 0,
-        .transition_ms = 0,
-    };
-    return out;
-}
-
-static nb_avatar_attention_t sample_idle_attention(uint32_t now_ms)
-{
-    const size_t count = sizeof(s_idle_attention) / sizeof(s_idle_attention[0]);
-    uint32_t cycle_ms = 0u;
-    for (size_t i = 0; i < count; ++i) {
-        cycle_ms += s_idle_attention[i].hold_ms + s_idle_attention[i].transition_ms;
-    }
-    uint32_t cursor = cycle_ms == 0u ? 0u : now_ms % cycle_ms;
-    for (size_t i = 0; i < count; ++i) {
-        const nb_avatar_attention_t *pose = &s_idle_attention[i];
-        if (cursor < pose->hold_ms) {
-            return *pose;
-        }
-        cursor -= pose->hold_ms;
-        if (cursor < pose->transition_ms) {
-            const float t = easing(NB_AVATAR_EASING_SMOOTH,
-                                   (float)cursor / (float)pose->transition_ms);
-            return mix_attention(pose, &s_idle_attention[(i + 1u) % count], t);
-        }
-        cursor -= pose->transition_ms;
-    }
-    return s_idle_attention[0];
 }
 
 static float attention_hash(uint32_t value, float seed)
@@ -469,6 +404,16 @@ static uint32_t random_next(nb_avatar_core_state_t *state)
     return state->rng_state;
 }
 
+static uint32_t blink_close_ms(const nb_avatar_core_state_t *state)
+{
+    return (uint32_t)((float)s_specs[state->expression].blink.close_ms * state->blink_pace);
+}
+
+static uint32_t blink_open_ms(const nb_avatar_core_state_t *state)
+{
+    return (uint32_t)((float)s_specs[state->expression].blink.open_ms * state->blink_pace);
+}
+
 static void schedule_blink(nb_avatar_core_state_t *state, bool initial)
 {
     const nb_avatar_blink_t *blink = &s_specs[state->expression].blink;
@@ -480,7 +425,8 @@ static void schedule_blink(nb_avatar_core_state_t *state, bool initial)
     uint32_t delay = blink->initial_delay_ms;
     if (!initial) {
         const uint32_t span = (uint32_t)blink->max_interval_ms - blink->min_interval_ms + 1u;
-        delay = blink->min_interval_ms + random_next(state) % span;
+        delay = (uint32_t)((float)(blink->min_interval_ms + random_next(state) % span) *
+                           state->blink_pace);
     }
     state->next_blink_ms = state->now_ms + delay;
 }
@@ -508,6 +454,7 @@ void nb_avatar_core_init(nb_avatar_core_state_t *state, uint32_t seed)
     state->playback_direction = 1;
     state->rng_state = seed == 0u ? 0x4e423200u : seed;
     state->blink_override_scale = 1.0f;
+    state->blink_pace = 1.0f;
     state->pose = s_idle[0].pose;
     state->from_pose = state->pose;
     schedule_blink(state, true);
@@ -599,6 +546,26 @@ void nb_avatar_core_set_gaze_target(nb_avatar_core_state_t *state, float normali
     state->gaze_target_y = enabled ? fmaxf(-1.0f, fminf(1.0f, normalized_y)) : 0.0f;
 }
 
+void nb_avatar_core_set_look(nb_avatar_core_state_t *state, const nb_avatar_look_t *look,
+                             bool active)
+{
+    if (state == NULL) {
+        return;
+    }
+    if (look != NULL) {
+        state->look = *look;
+    }
+    state->look_target = active ? 1.0f : 0.0f;
+}
+
+void nb_avatar_core_set_blink_pace(nb_avatar_core_state_t *state, float pace)
+{
+    if (state == NULL) {
+        return;
+    }
+    state->blink_pace = fmaxf(0.5f, fminf(2.0f, pace));
+}
+
 void nb_avatar_core_set_blink_override(nb_avatar_core_state_t *state, float scale,
                                        bool enabled)
 {
@@ -650,9 +617,13 @@ void nb_avatar_core_tick(nb_avatar_core_state_t *state, uint32_t dt_ms)
     }
     state->now_ms += dt_ms;
     update_gaze_spring(state, dt_ms);
+    const float fade = (float)dt_ms / (float)NB_AVATAR_LOOK_FADE_MS;
+    state->look_weight = state->look_weight < state->look_target
+                             ? fminf(state->look_target, state->look_weight + fade)
+                             : fmaxf(state->look_target, state->look_weight - fade);
     const nb_avatar_blink_t *blink = &s_specs[state->expression].blink;
     if (blink->enabled && state->blink_started_ms != 0u) {
-        const uint32_t blink_duration = (uint32_t)blink->close_ms + blink->open_ms;
+        const uint32_t blink_duration = blink_close_ms(state) + blink_open_ms(state);
         if (state->now_ms - state->blink_started_ms >= blink_duration) {
             schedule_blink(state, false);
         }
@@ -721,18 +692,17 @@ static float blink_scale(const nb_avatar_core_state_t *state)
         return 1.0f;
     }
     const uint32_t elapsed = state->now_ms - state->blink_started_ms;
-    const uint32_t duration = (uint32_t)blink->close_ms + blink->open_ms;
-    if (duration == 0u || elapsed >= duration) {
+    const uint32_t close_ms = blink_close_ms(state);
+    const uint32_t open_ms = blink_open_ms(state);
+    if (close_ms + open_ms == 0u || elapsed >= close_ms + open_ms) {
         return 1.0f;
     }
     const float closed = 0.08f;
-    if (elapsed < blink->close_ms) {
-        return mixf(1.0f, closed,
-                    easing(NB_AVATAR_EASING_SMOOTH, (float)elapsed / blink->close_ms));
+    if (elapsed < close_ms) {
+        return mixf(1.0f, closed, easing(NB_AVATAR_EASING_SMOOTH, (float)elapsed / close_ms));
     }
     return mixf(closed, 1.0f,
-                easing(NB_AVATAR_EASING_SMOOTH,
-                       (float)(elapsed - blink->close_ms) / blink->open_ms));
+                easing(NB_AVATAR_EASING_SMOOTH, (float)(elapsed - close_ms) / open_ms));
 }
 
 void nb_avatar_core_get_frame(const nb_avatar_core_state_t *state,
@@ -798,18 +768,17 @@ void nb_avatar_core_get_frame(const nb_avatar_core_state_t *state,
     out->pose.right_eye.x += eye_x;
     out->pose.right_eye.y += eye_y;
 
-    const bool autonomous_attention = state->expression == NB_AVATAR_EXPR_IDLE;
-    float attention_weight = 1.0f;
+    float attention_weight = state->look_weight;
     if (state->gaze_enabled) {
         const float magnitude = fminf(
             1.0f, sqrtf(state->gaze_target_x * state->gaze_target_x +
                         state->gaze_target_y * state->gaze_target_y));
         /* A weak external gaze is a subtle variation; only a strong explicit
          * direction suppresses the 2.5D choreography. */
-        attention_weight = 1.0f - clamp01((magnitude - 0.45f) / 0.35f) * 0.90f;
+        attention_weight *= 1.0f - clamp01((magnitude - 0.45f) / 0.35f) * 0.90f;
     }
-    if (autonomous_attention) {
-        nb_avatar_attention_t attention = sample_idle_attention(state->now_ms);
+    if (attention_weight > 0.0f) {
+        nb_avatar_look_t attention = state->look;
         attention.eye_x += micro_saccade(state->now_ms, 17.29f) * 3.8f;
         attention.eye_y += micro_saccade(state->now_ms, 31.73f) * 2.3f;
         out->pose.left_eye.x += attention.eye_x * attention_weight;

@@ -162,6 +162,24 @@ static void test_invalid_input_is_rejected(void) {
     NB_CHECK_EQ_INT(NB_EXPR_NEUTRAL, nb_arbiter_resolve(&a, 1));
 }
 
+static void test_resolve_says_who_won(void) {
+    nb_arbiter_t a;
+    nb_arbiter_init(&a, NB_EXPR_NEUTRAL);
+    nb_source_t winner = NB_SOURCE_STATE;
+    NB_CHECK_EQ_INT(NB_EXPR_NEUTRAL, nb_arbiter_resolve_source(&a, 0, &winner));
+    NB_CHECK_EQ_INT(NB_SOURCE_COUNT, winner);  // the baseline
+    nb_proposal_t mood = proposal(NB_EXPR_CONTENT, 3, 0, false);
+    nb_proposal_t touch = proposal(NB_EXPR_HAPPY, 40, 1000, true);
+    nb_arbiter_propose(&a, NB_SOURCE_MOOD, &mood, 0);
+    NB_CHECK_EQ_INT(NB_EXPR_CONTENT, nb_arbiter_resolve_source(&a, 0, &winner));
+    NB_CHECK_EQ_INT(NB_SOURCE_MOOD, winner);
+    nb_arbiter_propose(&a, NB_SOURCE_TOUCH, &touch, 0);
+    nb_arbiter_resolve_source(&a, 10, &winner);
+    NB_CHECK_EQ_INT(NB_SOURCE_TOUCH, winner);
+    nb_arbiter_resolve_source(&a, 2000, &winner);  // the touch expired
+    NB_CHECK_EQ_INT(NB_SOURCE_MOOD, winner);
+}
+
 int main(void) {
     NB_RUN(test_baseline_when_nothing_proposed);
     NB_RUN(test_higher_priority_wins);
@@ -176,5 +194,6 @@ int main(void) {
     NB_RUN(test_listening_attention_lapses_into_mood);
     NB_RUN(test_withdraw_removes_only_that_source);
     NB_RUN(test_invalid_input_is_rejected);
+    NB_RUN(test_resolve_says_who_won);
     NB_TEST_MAIN_END();
 }

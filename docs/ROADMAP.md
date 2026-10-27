@@ -308,14 +308,20 @@ os núcleos integralmente.
 - [ ] Arcos com desfecho: birra e perdão (taps repetidos), reconciliação
   (humor negativo + carinho), procura com o olhar após tédio.
 - [ ] Energia e tédio; circadiano (requer fonte de hora e fuso explícito).
-- [ ] **Idle autônomo guiado pelo humor**: hoje o olhar em repouso é uma
-  coreografia fixa de 8 olhares em ciclo, e as poses do humor ficam paradas.
-  Trocar por olhares sorteados (destino, duração e pausa ao acaso, dentro de
-  limites, sem repetir o ciclo), com o humor mudando o jeito: ativação alta
-  olha mais rápido e amplo, baixa olha devagar e pisca lento; valência
-  positiva olha para cima e para os lados, negativa para baixo e desvia. O
-  olhar passa a correr também por cima de contente, triste e das outras
-  poses do humor. Núcleo C17 com host-test.
+- [~] **Idle autônomo guiado pelo humor** (`core/nb_gaze`, FACE.md "Olhar
+  autônomo"): a coreografia fixa de 8 olhares saiu. Cada olhar sorteia
+  direção (8 mais o centro, nunca uma das duas últimas), alcance, ida e
+  tempo parado; ~1 em 4 volta ao centro. Ativação muda ritmo, alcance e
+  piscar (calmo: 3,5–7 s parado, piscar 1,5× mais lento; alerta: 1,2–3 s,
+  0,8×); valência positiva puxa para cima e para os lados, negativa para
+  baixo e com menos centro. Vale no repouso e por cima das poses do humor
+  (vencedor do árbitro = humor ou nada); qualquer reação traz o olhar de
+  volta ao centro com transição de 0,4 s. O avatar recebe o olhar pronto
+  (`nb_avatar_core_set_look`) e o ritmo do piscar; o 2.5D e as microssacadas
+  continuam. 6 host-tests novos do olhar, 2 do avatar e 1 do árbitro
+  (vencedor). Falta ver em bancada: o olhar em repouso não parecer ciclo,
+  calmo vs alerta, contente olhando para cima, e a volta ao centro numa
+  reação.
 - [ ] "Pensar sozinho" no repouso: sem interação há alguns minutos, o
   pensando aparece ~5 s ao acaso e some (FACE.md); primeiro gesto da
   iniciativa.

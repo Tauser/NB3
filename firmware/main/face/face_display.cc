@@ -378,6 +378,7 @@ FaceDisplay::FaceDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handl
     nb_overlay_init(&overlay_);
     nb_banner_init(&banner_);
     nb_avatar_core_init(&avatar_, esp_random());
+    nb_gaze_init(&gaze_, esp_random());
     nb_avatar_core_get_frame(&avatar_, &frame_);
 }
 
@@ -521,13 +522,23 @@ void FaceDisplay::OnTimer(lv_timer_t* timer) {
 }
 
 void FaceDisplay::Tick() {
-    nb_expression_t expression = arbiter_.Resolve();
+    nb_source_t winner = NB_SOURCE_COUNT;
+    nb_expression_t expression = arbiter_.Resolve(&winner);
     if (expression != shown_) {
         ESP_LOGI(TAG, "Expression: %s", nb_expression_name(expression));
         shown_ = expression;
         nb_face_link_show(&avatar_, expression);
     }
     const uint32_t now = NowMs();
+    // At rest (nothing proposed, or only the mood) the robot looks around in
+    // the manner of its mood; any reaction brings the eyes back to the user.
+    const nb_affect_vec_t mood = mood_.Mood();
+    nb_gaze_set_mood(&gaze_, mood.valence, mood.arousal);
+    nb_gaze_tick(&gaze_, now - last_tick_ms_);
+    const bool wander = winner == NB_SOURCE_COUNT || winner == NB_SOURCE_MOOD;
+    const nb_avatar_look_t look = nb_gaze_look(&gaze_);
+    nb_avatar_core_set_look(&avatar_, &look, wander);
+    nb_avatar_core_set_blink_pace(&avatar_, wander ? nb_gaze_blink_pace(&gaze_) : 1.0f);
     nb_avatar_core_tick(&avatar_, now - last_tick_ms_);
     last_tick_ms_ = now;
     nb_avatar_core_get_frame(&avatar_, &frame_);

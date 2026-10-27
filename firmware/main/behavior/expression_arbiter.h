@@ -28,7 +28,8 @@ public:
     void Propose(nb_source_t source, const nb_proposal_t& proposal);
     void Withdraw(nb_source_t source);
     void EnterIdle();
-    nb_expression_t Resolve();
+    // winner, if given, gets the source that won (NB_SOURCE_COUNT: baseline).
+    nb_expression_t Resolve(nb_source_t* winner = nullptr);
 
 private:
     static uint32_t NowMs();

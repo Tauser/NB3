@@ -65,6 +65,32 @@ interação há alguns minutos e em espera, o robô "pensa sozinho" por uns
 frequência vem do parâmetro de iniciativa da personalidade; nunca durante
 conversa, toque ou sono, e um toque ou a wake word interrompem na hora.
 
+## Olhar autônomo
+
+Em repouso o robô olha em volta sozinho, e o jeito de olhar mostra o humor
+sem trocar a expressão. Vale no neutro e por cima de qualquer pose do humor
+(contente, triste, carinhoso...). Nas reações (toque, escuta, pensando,
+emoção da conversa, comando) o olhar volta ao centro e fica no usuário.
+
+- **Sem ciclo:** cada olhar sorteia direção, distância, tempo de ida e tempo
+  parado, dentro de limites. Às vezes volta ao centro (cerca de 1 em 4). A
+  direção não repete nenhuma das duas últimas.
+- **Ativação** muda o ritmo: alta olha mais rápido, mais longe e para
+  menos tempo; baixa olha devagar, perto, demora em cada ponto e pisca
+  devagar.
+
+  | Ativação | Parado em cada ponto | Ida | Alcance | Piscar |
+  |---|---|---|---|---|
+  | −1 (calmo) | 3,5–7 s | ~0,7 s | 55% | 1,5× mais lento |
+  | +1 (alerta) | 1,2–3 s | ~0,3 s | 100% | 0,8× (mais rápido) |
+
+- **Valência** muda para onde: positiva puxa para cima e para os lados;
+  negativa puxa para baixo e desvia (pouco centro, mais diagonais baixas).
+- **Transição suave** entre olhar e não olhar (~0,4 s), para uma reação
+  não dar um tranco ao começar nem ao acabar.
+- **2.5D como hoje:** a cabeça vira junto (yaw, pitch, roll), a face chega
+  mais perto quando olha para baixo, e as microssacadas continuam.
+
 ## Implementação
 
 1. **Formas** no avatar: corte inferior curvo (crescente) como peça nova da
@@ -73,3 +99,7 @@ conversa, toque ou sono, e um toque ou a wake word interrompem na hora.
    mãos.
 3. **Ligação aos estados:** escuta → barras, pensando → pontos e mão,
    fala → balão, carinho → corações e bochechas.
+4. **Olhar autônomo:** `core/nb_gaze` (C17, semente injetada) sorteia os
+   olhares a partir do humor; o avatar recebe o olhar pronto
+   (`nb_avatar_core_set_look`) e o ritmo do piscar, e o display liga os dois
+   ao humor e ao vencedor do árbitro.
