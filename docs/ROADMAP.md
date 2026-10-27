@@ -351,6 +351,15 @@ os núcleos integralmente.
   vista em bancada: sozinho, aos 18 min de repouso (tédio 0,90), curioso
   3,5 s (3 olhadas) e suspiro 1,8 s; nenhuma outra na meia hora seguinte.
   Falta ver: a reconciliação completa depois da birra.
+- [~] **Estabilidade em uso longo**: um crash depois de ~3,6 h ligado
+  (Guru Meditation na interrupção do SPI do display, `spi_intr` →
+  `esp_intr_disable`, só código do IDF na pilha; reiniciou sozinho). Um
+  backtrace de um núcleo não diz o que o outro segurava, então o console
+  passou a imprimir core dump dos dois núcleos no crash (`b5a5c01`) e
+  o boot diz o motivo do último reset. O toque relata nível, pico e erros
+  de leitura a cada 30 s (`f0e8ca0`): numa captura sem eventos dá para ver
+  se a mão não chegou ou se a tarefa parou. Falta: pegar o próximo crash
+  com o core dump.
 - [~] **Energia, tédio e circadiano** (`core/nb_energy`,
   `behavior/energy_modifier`, VIDA.md §3.3): energia segue a hora do dia
   (1 de dia, 0,15 de madrugada, rampas às 20–23 h e 6–8 h; 0,8 sem hora
