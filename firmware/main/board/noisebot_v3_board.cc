@@ -6,6 +6,7 @@
 #include "config.h"
 #include "led/single_led.h"
 #include "behavior/arc_modifier.h"
+#include "behavior/personality_drift.h"
 #include "behavior/behavior_modifier.h"
 #include "behavior/expression_arbiter.h"
 #include "behavior/state_led.h"
@@ -207,6 +208,13 @@ public:
         InitializeSpi();
         InitializeDisplay();
         InitializeButtons();
+        static InitiativeModifier initiative(arbiter_, behavior_, personality_);
+        // Before the card listener: the memory hands its habits over once loaded.
+        static PersonalityDrift drift(personality_, mood_, initiative);
+        memory_.SetHabitsListener(
+            [](const nb_mem_patterns_t& habits, int64_t now_s, bool now_known) {
+                drift.OnHabits(habits, now_s, now_known);
+            });
         // Without a card: warn at boot, again at the first retry (the boot
         // notices tend to cover the first one), then every few minutes.
         store_.SetListener([this](bool available) {
@@ -222,7 +230,6 @@ public:
                 display_->ShowNotification("Memória indisponível: sem microSD", 8000);
             }
         });
-        static InitiativeModifier initiative(arbiter_, behavior_, personality_);
         static EnergyModifier energy(arbiter_, behavior_, clock_, initiative, display_);
         RegisterFaceTools(arbiter_);
         RegisterMemoryTools(memory_, mood_, behavior_, energy);

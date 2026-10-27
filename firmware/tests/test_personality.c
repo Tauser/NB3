@@ -175,6 +175,17 @@ static void test_files_from_any_editor_read_the_same(void) {
     NB_CHECK_EQ_INT(0, nb_personality_text(NULL, 4, text, sizeof(text)));
 }
 
+static void test_adaptation_is_read_and_kept_in_range(void) {
+    nb_personality_t p = nb_personality_default();
+    NB_CHECK(p.adaptation == 1.0f);
+    nb_personality_parse_result_t r = nb_personality_parse("adaptation = 0.3\n", &p);
+    NB_CHECK_EQ_INT(1, r.applied);
+    NB_CHECK(fabsf(p.adaptation - 0.3f) < 1e-6f);
+    r = nb_personality_parse("adaptation = 5\n", &p);
+    NB_CHECK_EQ_INT(1, r.clamped);
+    NB_CHECK(p.adaptation == 1.0f);
+}
+
 int main(void) {
     NB_RUN(test_default_is_todays_noise);
     NB_RUN(test_a_full_file_overrides_everything);
@@ -186,5 +197,6 @@ int main(void) {
     NB_RUN(test_affect_view_carries_the_mood_fields);
     NB_RUN(test_null_is_safe);
     NB_RUN(test_files_from_any_editor_read_the_same);
+    NB_RUN(test_adaptation_is_read_and_kept_in_range);
     NB_TEST_MAIN_END();
 }

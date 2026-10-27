@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <utility>
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
@@ -45,6 +46,13 @@ public:
     // with fn not run, while there is no memory: no card, or not loaded yet.
     bool Query(const std::function<void(const Access&)>& fn);
 
+    // Called on the memory task with the habits whenever the bias is
+    // refreshed (about once a minute), and with empty habits when the card
+    // goes. Set once at boot, before the card can show up.
+    using HabitsListener =
+        std::function<void(const nb_mem_patterns_t& habits, int64_t now_s, bool now_known)>;
+    void SetHabitsListener(HabitsListener fn) { habits_listener_ = std::move(fn); }
+
 private:
     struct Message;
     struct Job;
@@ -75,6 +83,7 @@ private:
     uint32_t last_bias_ms_ = 0;
     uint32_t last_flush_ms_ = 0;
     nb_affect_vec_t bias_ = {0.0f, 0.0f};
+    HabitsListener habits_listener_;
     QueueHandle_t queue_ = nullptr;
     TaskHandle_t task_ = nullptr;
 };

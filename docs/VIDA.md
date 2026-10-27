@@ -196,7 +196,8 @@ override por um arquivo de texto no SD:
 | `reactivity` | ganho aplicado aos estímulos | 1,0 | 0,25 … 2,0 |
 | `recovery_s` | tempo até o desvio do humor cair a 5% | 120 | 20 … 600 |
 | `negative_slowdown` | quantas vezes a mágoa passa mais devagar | 2,0 | 1 … 4 |
-| `initiative` | frequência de comportamentos espontâneos no IDLE (etapa 3) | 0,5 | 0 … 1 |
+| `initiative` | frequência de comportamentos espontâneos no IDLE | 0,5 | 0 … 1 |
+| `adaptation` | quanto a rotina pode deslocar o temperamento e a iniciativa (0 = nunca) | 1,0 | 0 … 1 |
 
 Formato (D-012): INI, `noise/personalidade.ini` no cartão, porque é
 editado por uma pessoa no PC (UTF-8, com ou sem BOM, ou UTF-16 como o
@@ -213,9 +214,25 @@ reactivity = 0.8
 recovery_s = 90
 ```
 
-Padrões consolidados da memória longa (§5) podem deslocar esses parâmetros
-devagar e com limites; isso entra depois que a memória média estiver
-estável.
+**A rotina desloca a personalidade** (`core/nb_drift`,
+`behavior/personality_drift`): os hábitos da memória (§5, padrões
+consolidados mais episódios vivos) deslocam o que o arquivo diz, devagar e
+com limites. O arquivo é a base e nunca é regravado; o deslocamento é
+função pura dos hábitos e da hora, recalculado a cada ~1 min, então nada é
+guardado e esquecer os episódios desfaz tudo.
+
+- **Calor:** o sentimento dos episódios com data, por dia observado (mágoa
+  pesa 2×, conversa 0,5×), move a valência do temperamento até ±0,10
+  (0,10 × tanh(calor/dia ÷ 2)).
+- **Companhia:** carinhos + conversas por dia movem a iniciativa até
+  ±0,15 (0,15 × tanh((por dia − 3) ÷ 3)): perto de 3 por dia não muda. Uma
+  iniciativa 0 no arquivo continua 0, e o aprendizado nunca a zera.
+- **Devagar:** o efeito cresce com os dias observados e só fica inteiro
+  depois de 14 dias; o primeiro dia conta como dia inteiro. Sem hora
+  sincronizada, sem nada datado ou sem cartão, vale o arquivo.
+- `adaptation` escala tudo; 0 desliga. O resultado ainda passa pelas faixas
+  seguras da tabela. O log `Drift` diz base → aprendido, dias, confiança,
+  calor e companhia por dia sempre que algo muda mais de 0,005.
 
 ## 5. Memória
 
@@ -274,7 +291,7 @@ hábitos que a IA vê (`self.memory.habits`) são as contagens mais os
 episódios vivos que contariam, então consolidar não muda nada do que ela
 vê. No snapshot, `patterns` só traz os tipos com contagem; um tipo
 malformado é descartado inteiro (e contado como rejeitado), sem atingir os
-outros. A personalidade ajustando devagar sobre esses padrões vem depois.
+outros. Sobre esses padrões a personalidade se desloca devagar (§4).
 
 Casca: `memory/memory_service`, task única dona da memória; os outros só
 avisam o que aconteceu (fila sem bloqueio). Arquivos `slot_a/memoria.bin`,

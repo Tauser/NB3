@@ -189,6 +189,10 @@ void MemoryService::Handle(const Message& msg) {
                 ESP_LOGW(TAG, "card gone: memory off until it is back");
                 loaded_ = false;
                 mood_.SetBias(0.0f, 0.0f);
+                if (habits_listener_) {
+                    nb_mem_patterns_t none = {};
+                    habits_listener_(none, 0, false);
+                }
                 bias_ = {0.0f, 0.0f};
             }
             break;
@@ -278,6 +282,13 @@ void MemoryService::UpdateBias(const nb_clock_t& clock, uint64_t now_ms) {
     }
     bias_ = bias;
     mood_.SetBias(bias.valence, bias.arousal);
+    if (habits_listener_) {
+        nb_mem_patterns_t habits;
+        nb_memory_patterns(memory_, &habits);
+        int64_t now_s = 0;
+        const bool known = nb_clock_now_s(&clock, now_ms, &now_s);
+        habits_listener_(habits, now_s, known);
+    }
 }
 
 void MemoryService::Tick() {

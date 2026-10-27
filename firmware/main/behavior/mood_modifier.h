@@ -49,6 +49,8 @@ public:
 
     // Shift of the resting point from the memory's recent episodes.
     void SetBias(float valence, float arousal);
+    // The resting point itself, as the personality drift learned it.
+    void SetTemperament(nb_affect_vec_t temperament);
     // How far the mood is from where it would rest now (temperament + bias):
     // what recent events did to it.
     nb_affect_vec_t Deviation();

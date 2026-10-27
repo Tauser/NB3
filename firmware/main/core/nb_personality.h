@@ -21,7 +21,8 @@ typedef struct {
     float reactivity;             // gain on every stimulus
     uint32_t recovery_ms;         // time for a mood deviation to fall to 5%
     float negative_slowdown;      // negative valence recovers this many times slower
-    float initiative;             // 0..1, how often it does things on its own (stage 3)
+    float initiative;             // 0..1, how often it does things on its own
+    float adaptation;             // 0..1, how much the routine may shift the rest (nb_drift)
 } nb_personality_t;
 
 // Today's Noise: slightly warm and awake, ordinary reactions, a mood that
@@ -40,7 +41,8 @@ typedef struct {
 
 // Reads "key = value" lines over *p, leaving fields the text does not set as
 // they are. '#' starts a comment. Keys: temperament_valence,
-// temperament_arousal, reactivity, recovery_s, negative_slowdown, initiative.
+// temperament_arousal, reactivity, recovery_s, negative_slowdown, initiative,
+// adaptation.
 nb_personality_parse_result_t nb_personality_parse(const char *text, nb_personality_t *p);
 
 // The file as an editor on the PC saved it, as text for the parser: UTF-8

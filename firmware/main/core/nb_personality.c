@@ -24,6 +24,7 @@ nb_personality_t nb_personality_default(void) {
     p.recovery_ms = a.recovery_ms;
     p.negative_slowdown = a.negative_slowdown;
     p.initiative = 0.5f;
+    p.adaptation = 1.0f;
     return p;
 }
 
@@ -43,6 +44,7 @@ bool nb_personality_clamp(nb_personality_t *p) {
     changed |= clamp_float(&p->reactivity, NB_PERS_REACTIVITY_MIN, NB_PERS_REACTIVITY_MAX);
     changed |= clamp_float(&p->negative_slowdown, NB_PERS_SLOWDOWN_MIN, NB_PERS_SLOWDOWN_MAX);
     changed |= clamp_float(&p->initiative, 0.0f, 1.0f);
+    changed |= clamp_float(&p->adaptation, 0.0f, 1.0f);
     const uint32_t before = p->recovery_ms;
     p->recovery_ms = p->recovery_ms < NB_PERS_RECOVERY_MIN_MS ? NB_PERS_RECOVERY_MIN_MS
                      : p->recovery_ms > NB_PERS_RECOVERY_MAX_MS ? NB_PERS_RECOVERY_MAX_MS
@@ -87,13 +89,16 @@ static void apply(nb_personality_t *p, const char *key, float v) {
         p->negative_slowdown = v;
     } else if (strcmp(key, "initiative") == 0) {
         p->initiative = v;
+    } else if (strcmp(key, "adaptation") == 0) {
+        p->adaptation = v;
     }
 }
 
 static bool known(const char *key) {
     static const char *const kKeys[] = {"temperament_valence", "temperament_arousal",
                                         "reactivity",          "recovery_s",
-                                        "negative_slowdown",   "initiative"};
+                                        "negative_slowdown",   "initiative",
+                                        "adaptation"};
     for (size_t i = 0; i < sizeof(kKeys) / sizeof(kKeys[0]); i++) {
         if (strcmp(key, kKeys[i]) == 0) {
             return true;

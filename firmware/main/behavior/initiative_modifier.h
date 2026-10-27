@@ -26,6 +26,8 @@ public:
 
     // From the energy: 0 = no thoughts, >1 rarer, <1 more often.
     void SetGapScale(float scale) { gap_scale_ = scale; }
+    // From the personality drift; used from the next gap on.
+    void SetInitiative(float initiative) { pending_initiative_ = initiative; }
 
 private:
     static void OnTimer(void* arg);
@@ -35,6 +37,7 @@ private:
     BehaviorModifier& behavior_;
     nb_initiative_t initiative_;  // esp_timer task only
     std::atomic<float> gap_scale_{1.0f};
+    std::atomic<float> pending_initiative_{-1.0f};  // < 0: nothing new
     esp_timer_handle_t timer_ = nullptr;
 };
 

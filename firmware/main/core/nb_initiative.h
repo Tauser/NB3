@@ -37,6 +37,9 @@ nb_initiative_event_t nb_initiative_update(nb_initiative_t *t, bool at_rest, uin
 // Scales the gaps from the next one on; 0 stops new thoughts (drowsy).
 void nb_initiative_set_gap_scale(nb_initiative_t *t, float scale);
 
+// A new initiative (0..1), used from the next gap drawn on.
+void nb_initiative_set_initiative(nb_initiative_t *t, float initiative);
+
 // Quiet needed before the first thought, and the mean gap between them.
 uint32_t nb_initiative_quiet_ms(float initiative);
 uint32_t nb_initiative_gap_ms(float initiative);

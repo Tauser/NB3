@@ -132,6 +132,11 @@ void MoodModifier::SetBias(float valence, float arousal) {
     nb_affect_set_bias(&affect_, valence, arousal);
 }
 
+void MoodModifier::SetTemperament(nb_affect_vec_t temperament) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    affect_.personality.temperament = temperament;
+}
+
 nb_affect_vec_t MoodModifier::Deviation() {
     std::lock_guard<std::mutex> lock(mutex_);
     const nb_affect_vec_t& rest = affect_.personality.temperament;

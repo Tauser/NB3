@@ -47,6 +47,10 @@ void InitiativeModifier::OnTimer(void* arg) {
 void InitiativeModifier::Tick() {
     const bool at_rest = behavior_.State() == NB_BEHAVIOR_IDLE;
     nb_initiative_set_gap_scale(&initiative_, gap_scale_);
+    const float initiative = pending_initiative_.exchange(-1.0f);
+    if (initiative >= 0.0f) {
+        nb_initiative_set_initiative(&initiative_, initiative);
+    }
     switch (nb_initiative_update(&initiative_, at_rest, NowMs())) {
         case NB_INITIATIVE_START: {
             ESP_LOGI(TAG, "thinking on its own for %lu ms",

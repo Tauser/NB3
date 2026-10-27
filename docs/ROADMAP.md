@@ -428,7 +428,16 @@ os núcleos integralmente.
   conversa mais à noite, sentimento médio 0,7 e 0,54, "nesses dois dias");
   a pergunta seguinte sobre conversa usou o mesmo resultado. Falta ver: a
   primeira compactação real consolidando.
-- [ ] Personalidade ajustando devagar e com limites sobre os padrões.
+- [~] **Personalidade ajustando pela rotina** (`core/nb_drift`,
+  `behavior/personality_drift`, VIDA.md §4): calor por dia (mágoa 2×,
+  conversa 0,5×) move a valência do temperamento até ±0,10 e companhia por
+  dia move a iniciativa até ±0,15 (neutra perto de 3 por dia); inteiro só
+  aos 14 dias de observação; iniciativa 0 do arquivo fica 0; chave
+  `adaptation` (0..1) no `.ini` escala ou desliga. Função pura dos hábitos,
+  nada gravado; o arquivo segue sendo a base. 5 host-tests do deslocamento e
+  1 do `.ini`. Em bancada, no boot: 1 dia observado, confiança 0,07,
+  temperamento 0,10 → 0,11 e iniciativa 0,50 → 0,51. Falta ver: o
+  deslocamento crescer ao longo dos dias sem a face parecer outra.
 
 ---
 

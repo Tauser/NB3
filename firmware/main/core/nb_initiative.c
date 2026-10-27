@@ -51,6 +51,10 @@ void nb_initiative_init(nb_initiative_t *t, float initiative, uint32_t seed, uin
     t->gap_scale = 1.0f;
 }
 
+void nb_initiative_set_initiative(nb_initiative_t *t, float initiative) {
+    t->initiative = clampf(initiative, 0.0f, 1.0f);
+}
+
 void nb_initiative_set_gap_scale(nb_initiative_t *t, float scale) {
     t->gap_scale = clampf(scale, 0.0f, 4.0f);
 }
