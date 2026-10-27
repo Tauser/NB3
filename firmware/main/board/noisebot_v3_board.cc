@@ -5,6 +5,7 @@
 #include "button.h"
 #include "config.h"
 #include "led/single_led.h"
+#include "behavior/arc_modifier.h"
 #include "behavior/behavior_modifier.h"
 #include "behavior/expression_arbiter.h"
 #include "behavior/state_led.h"
@@ -208,7 +209,8 @@ public:
         RegisterMemoryTools(memory_, mood_, behavior_, energy);
         static PowerCutTest power_cut(store_, display_);  // bench builds only
         power_cut.Start();
-        static TouchModifier touch(BODY_TOUCH_CHANNEL, arbiter_, mood_, behavior_, memory_);
+        static ArcModifier arcs(arbiter_, behavior_, mood_, energy, display_);
+        static TouchModifier touch(BODY_TOUCH_CHANNEL, arbiter_, mood_, behavior_, memory_, arcs);
         static MoodLights mood_lights(MOOD_LED_GPIO, MOOD_LED_COUNT, MOOD_LED_MAX_BRIGHTNESS,
                                       arbiter_);
     }

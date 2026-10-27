@@ -21,6 +21,7 @@ typedef enum {
     NB_SOURCE_MOOD,       // the robot's own mood, shown when nothing else is
     NB_SOURCE_ENERGY,     // drowsiness and sleep
     NB_SOURCE_INITIATIVE, // something the robot does on its own at rest
+    NB_SOURCE_ARC,        // a reaction with a beginning, middle and end
     NB_SOURCE_COUNT
 } nb_source_t;
 

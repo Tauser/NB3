@@ -33,6 +33,9 @@ public:
     // The conversation reports something that touched the robot (-1..1 per
     // axis, scaled down and capped below touch).
     void OnConversationEvent(float valence, float arousal, const std::string& reason);
+    // A turning point of an arc (core/nb_arc): the sulk, the forgiving, the
+    // making up. Not habituated: an arc already has its own cooldown.
+    void OnArc(float valence, float arousal, const char* arc);
 
     struct Snapshot {
         nb_affect_vec_t mood, temperament, bias;

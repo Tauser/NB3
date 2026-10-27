@@ -5,6 +5,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
+#include "behavior/arc_modifier.h"
 #include "behavior/behavior_modifier.h"
 #include "behavior/expression_arbiter.h"
 #include "behavior/mood_modifier.h"
@@ -14,11 +15,12 @@
 // Body touch. Its task is the only owner of the touch peripheral: it samples
 // the pad, runs nb_touch and turns taps and petting into face proposals and
 // mood stimuli (petting keeps warming the mood in pulses while it lasts).
-// A petting session, once over, becomes an episode of the memory.
+// A petting session, once over, becomes an episode of the memory. Taps and
+// petting also feed the arcs (sulking after quick taps, making up).
 class TouchModifier {
 public:
     TouchModifier(int channel, ExpressionArbiter& arbiter, MoodModifier& mood,
-                  BehaviorModifier& behavior, MemoryService& memory);
+                  BehaviorModifier& behavior, MemoryService& memory, ArcModifier& arcs);
     ~TouchModifier();
 
     TouchModifier(const TouchModifier&) = delete;
@@ -33,6 +35,7 @@ private:
     MoodModifier& mood_;
     BehaviorModifier& behavior_;
     MemoryService& memory_;
+    ArcModifier& arcs_;
     uint32_t last_pet_pulse_ms_ = 0;
     uint32_t pet_start_ms_ = 0;
     touch_sensor_handle_t sensor_ = nullptr;

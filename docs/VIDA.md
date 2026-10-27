@@ -148,6 +148,39 @@ No árbitro, o sonolento é a fonte `ENERGY`, entre o humor e a iniciativa:
 o humor (prioridade 2) < energia (3) < iniciativa (4) < tudo o mais.
 `self.mood.get` passa a dizer a energia e o tédio.
 
+### 3.4 Arcos
+
+Reações com começo, meio e fim, em vez de uma face que só aparece e some.
+Todo arco segue a mesma gramática: **orientação → execução → desfecho**, e
+nenhum termina simplesmente parando. Um arco por vez. Conversa, sono e falha
+abortam qualquer arco na hora, sem desfecho e sem empurrar o humor.
+
+| Arco | Gatilho | Sequência | Humor |
+|---|---|---|---|
+| **Birra e perdão** | 3 toques rápidos (tap) em 10 s | bravo olhando um pouco para baixo (1,5 s) → vira o rosto para um lado, bravo, com uma piscada lenta (1,5 s) → volta para a frente e sorri (1 s) | −0,6 de valência e +0,2 de ativação no começo; o perdão é só a face: a mágoa fica até alguém fazer as pazes |
+| **Reconciliação** | humor abaixo do repouso (valência 0,15 abaixo do temperamento com o viés) e carinho | olha para a frente, um pouco para cima, triste ("te olha", 0,4 s) → continua olhando, triste, enquanto o carinho segue (1,5 s) → apaixonado com corações se o carinho continua, contente se parou, com piscada lenta (2,5 s) | +0,5 de valência e −0,1 de ativação no desfecho: fazer as pazes deixa mais feliz que o repouso |
+| **Procura** | tédio ≥ 0,9 em repouso, acordado e sem sono, no máximo 1 vez por hora | curioso, olha um pouco para cima (0,5 s) → 2 a 4 olhadas para os lados num padrão (lateral, diagonal ou em volta; nunca o mesmo da vez anterior), 1 s cada → ninguém: olha para baixo, triste, com piscada lenta (1,8 s) | nenhum |
+
+- **Birra:** os toques que a provocam continuam sendo carinhos rápidos
+  (felizes) até o terceiro. Durante a birra, novos toques são ignorados;
+  depois do perdão, 60 s de intervalo antes de outra. A birra deixa o humor
+  abaixo do repouso, então um carinho logo depois vira reconciliação: o
+  ciclo provocar → emburrar → consolar → fazer as pazes. Os empurrões dos
+  arcos passam pela reatividade da personalidade como qualquer estímulo.
+- **Reconciliação:** se o carinho parar antes do desfecho, ela aborta sem
+  mexer no humor. Depois do desfecho, 30 s de intervalo.
+- **Procura:** alguém aparecer no meio (toque, conversa) tira o robô do
+  repouso e aborta a procura; quem aparece recebe a reação normal. Sem
+  câmera, o robô não "acha" ninguém sozinho: o desfecho da procura é sempre
+  o suspiro.
+- **No árbitro:** fonte `ARC`, prioridade 45, acima do toque (a birra
+  vence o feliz do tap e a reconciliação vence o apaixonado do carinho) e
+  abaixo de reflexo e falha. A proposta **não é transitória**: a volta de
+  `REACTING` para `IDLE` no meio da birra não a corta; quem encerra é o
+  próprio arco (ou conversa, sono e falha), e um prazo de segurança cobre um
+  fim perdido. Enquanto o arco vence, o olhar e a piscada lenta são os do
+  arco, e o olhar em volta (§ olhar autônomo em FACE.md) para.
+
 ## 4. Personalidade local
 
 Parâmetros pequenos, com default no firmware (`core/nb_personality`) e

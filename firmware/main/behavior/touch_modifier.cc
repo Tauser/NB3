@@ -20,8 +20,9 @@ uint32_t NowMs() {
 }  // namespace
 
 TouchModifier::TouchModifier(int channel, ExpressionArbiter& arbiter, MoodModifier& mood,
-                             BehaviorModifier& behavior, MemoryService& memory)
-    : arbiter_(arbiter), mood_(mood), behavior_(behavior), memory_(memory) {
+                             BehaviorModifier& behavior, MemoryService& memory,
+                             ArcModifier& arcs)
+    : arbiter_(arbiter), mood_(mood), behavior_(behavior), memory_(memory), arcs_(arcs) {
     nb_touch_config_t cfg = nb_touch_default_config();
     nb_touch_init(&touch_, &cfg);
 
@@ -88,6 +89,7 @@ void TouchModifier::OnEvent(nb_touch_event_t event) {
             nb_proposal_t happy = {NB_EXPR_HAPPY, priority::kTouch, kTapReactionMs, true};
             arbiter_.Propose(NB_SOURCE_TOUCH, happy);
             mood_.OnTap();
+            arcs_.OnTap();
             // A tap is known on release: the reaction starts and lingers.
             behavior_.OnTouch(true);
             behavior_.OnTouch(false);
@@ -100,11 +102,13 @@ void TouchModifier::OnEvent(nb_touch_event_t event) {
             last_pet_pulse_ms_ = NowMs();
             pet_start_ms_ = last_pet_pulse_ms_;
             mood_.OnPetting();
+            arcs_.SetPetting(true);
             behavior_.OnTouch(true);
             break;
         }
         case NB_TOUCH_RELEASE: {
             ESP_LOGI(TAG, "Released");
+            arcs_.SetPetting(false);
             // Petting lingers briefly; a medium touch just ends.
             if (touch_.hold_sent) {
                 nb_proposal_t afterglow = {NB_EXPR_LOVING, priority::kTouch, kPetAfterglowMs, true};
@@ -119,6 +123,7 @@ void TouchModifier::OnEvent(nb_touch_event_t event) {
         case NB_TOUCH_STUCK: {
             // Not a hand: drop the contact without afterglow or a memory.
             ESP_LOGW(TAG, "Contact too long; new baseline %.0f", touch_.baseline);
+            arcs_.SetPetting(false);
             arbiter_.Withdraw(NB_SOURCE_TOUCH);
             behavior_.OnTouch(false);
             break;

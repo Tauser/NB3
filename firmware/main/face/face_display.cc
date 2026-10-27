@@ -546,6 +546,13 @@ void FaceDisplay::SetEnergy(float arousal, bool sleeping) {
     sleeping_ = sleeping;
 }
 
+void FaceDisplay::SetArc(bool active, const nb_avatar_look_t& look, float eye_open) {
+    std::lock_guard<std::mutex> lock(arc_mutex_);
+    arc_active_ = active;
+    arc_look_ = look;
+    arc_eye_open_ = eye_open;
+}
+
 void FaceDisplay::OnTimer(lv_timer_t* timer) {
     static_cast<FaceDisplay*>(lv_timer_get_user_data(timer))->Tick();
 }
@@ -570,9 +577,20 @@ void FaceDisplay::Tick() {
                                       winner == NB_SOURCE_ENERGY);
     nb_avatar_core_set_eyes_closed(&avatar_, sleeping);
     nb_overlay_set_sleeping(&overlay_, sleeping);
-    const nb_avatar_look_t look = nb_gaze_look(&gaze_);
-    nb_avatar_core_set_look(&avatar_, &look, wander);
+    // An arc that wins brings its own look and slow blink.
+    bool arc;
+    nb_avatar_look_t arc_look;
+    float arc_eye_open;
+    {
+        std::lock_guard<std::mutex> lock(arc_mutex_);
+        arc = arc_active_ && winner == NB_SOURCE_ARC;
+        arc_look = arc_look_;
+        arc_eye_open = arc_eye_open_;
+    }
+    const nb_avatar_look_t look = arc ? arc_look : nb_gaze_look(&gaze_);
+    nb_avatar_core_set_look(&avatar_, &look, wander || arc);
     nb_avatar_core_set_blink_pace(&avatar_, wander ? nb_gaze_blink_pace(&gaze_) : 1.0f);
+    nb_avatar_core_set_blink_override(&avatar_, arc_eye_open, arc && arc_eye_open < 1.0f);
     nb_avatar_core_tick(&avatar_, now - last_tick_ms_);
     last_tick_ms_ = now;
     nb_avatar_core_get_frame(&avatar_, &frame_);

@@ -10,7 +10,8 @@
 // visible: a reflex beats a touch, which beats an AI command, and so on.
 // The mood is below everything else: it is what the face shows at rest.
 // Drowsiness covers the mood, and what the robot does on its own at rest
-// sits just above that, so anything else covers both.
+// sits just above that, so anything else covers both. An arc (sulk, making
+// up) covers the touch that started it; reflexes and faults still win.
 namespace priority {
 constexpr uint8_t kMood = 2;
 constexpr uint8_t kEnergy = 3;
@@ -19,6 +20,7 @@ constexpr uint8_t kState = 5;
 constexpr uint8_t kEmotion = 20;
 constexpr uint8_t kCommand = 30;
 constexpr uint8_t kTouch = 40;
+constexpr uint8_t kArc = 45;
 constexpr uint8_t kReflex = 50;
 constexpr uint8_t kFault = 60;
 }  // namespace priority

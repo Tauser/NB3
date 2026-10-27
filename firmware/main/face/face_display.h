@@ -51,6 +51,9 @@ public:
     // From the energy: the calmest arousal the gaze may show, and sleep
     // (eyes nearly shut, no looking around).
     void SetEnergy(float arousal, bool sleeping);
+    // From the arc: where to look and how open the eyes are, used while the
+    // arc's face wins the arbiter.
+    void SetArc(bool active, const nb_avatar_look_t& look, float eye_open);
 
 private:
     static void OnTimer(lv_timer_t* timer);
@@ -64,6 +67,10 @@ private:
     const AudioLevels& levels_;
     std::atomic<float> energy_arousal_{1.0f};
     std::atomic<bool> sleeping_{false};
+    std::mutex arc_mutex_;  // held for a copy
+    bool arc_active_ = false;
+    nb_avatar_look_t arc_look_ = {};
+    float arc_eye_open_ = 1.0f;
 
     // Owned by the LVGL task.
     lv_obj_t* face_ = nullptr;

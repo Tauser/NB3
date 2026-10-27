@@ -1,5 +1,7 @@
 #include "mood_modifier.h"
 
+#include <cmath>
+
 #include <esp_log.h>
 #include <esp_timer.h>
 
@@ -96,6 +98,14 @@ void MoodModifier::OnConversationEvent(float valence, float arousal, const std::
     Feel(s);
     std::lock_guard<std::mutex> lock(mutex_);
     recent_ = "conversa: " + reason;
+}
+
+void MoodModifier::OnArc(float valence, float arousal, const char* arc) {
+    // Cap high enough for a sulk and a making up inside one window.
+    const nb_affect_stimulus_t s = {"arc", valence, arousal, 2.0f, 1.0f};
+    Feel(s);
+    std::lock_guard<std::mutex> lock(mutex_);
+    recent_ = std::string("arco: ") + arc;
 }
 
 MoodModifier::Snapshot MoodModifier::Read() {
