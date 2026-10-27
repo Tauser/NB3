@@ -2,6 +2,8 @@
 
 #include <cerrno>
 #include <cstdio>
+#include <cstring>
+#include <dirent.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -17,19 +19,40 @@
 namespace {
 
 constexpr const char* kMountPoint = "/sdcard";
-constexpr const char* kDir = "/sdcard/noise";
+// Each kind of file has its own folder, and the two slots of a record live
+// in different ones: a torn directory sector damages entries of its own
+// folder only, never personalidade.ini nor both copies of a record.
+constexpr const char* kDir = "/sdcard/noise";  // personalidade.ini, read only
+constexpr const char* kSlotDirs[2] = {"/sdcard/noise/slot_a", "/sdcard/noise/slot_b"};
+constexpr const char* kLogDir = "/sdcard/noise/log";
+constexpr const char* kProbeDir = "/sdcard/noise/teste";
 // While the card is missing, mounting is retried this often.
 constexpr TickType_t kRetryTicks = pdMS_TO_TICKS(30000);
-// Logs are compacted into slots (VIDA.md §5.2), so they stay small; a log
-// larger than this is not read whole.
-constexpr long kMaxLogBytes = 1024 * 1024;
+// Fixed file sizes (core/nb_store): a slot fits the memory snapshot (96 KB of
+// scratch) with room to spare; the log is compacted every 32 episodes of a
+// few hundred bytes each.
+constexpr long kSlotFileBytes = 128 * 1024;
+constexpr long kLogFileBytes = 64 * 1024;
 
 std::string PathOf(const char* name) {
     return std::string(kDir) + "/" + name;
 }
 
 std::string SlotPath(const char* record, int slot) {
-    return PathOf(record) + (slot == 0 ? "_a.bin" : "_b.bin");
+    return std::string(kSlotDirs[slot]) + "/" + record + ".bin";
+}
+
+std::string LogPath(const char* log) {
+    return std::string(kLogDir) + "/" + log;
+}
+
+std::string ProbePath(int slot) {
+    return std::string(kProbeDir) + (slot == 0 ? "/probe_a.bin" : "/probe_b.bin");
+}
+
+bool EndsWith(const std::string& s, const char* suffix) {
+    const size_t n = strlen(suffix);
+    return s.size() > n && s.compare(s.size() - n, n, suffix) == 0;
 }
 
 // Reads a whole file. False if it cannot be opened (missing is normal) or
@@ -50,16 +73,90 @@ bool ReadFile(const std::string& path, std::vector<uint8_t>* out, long max_bytes
     return ok;
 }
 
-// Writes and forces the bytes to the card before returning.
-bool WriteFileSynced(const std::string& path, const char* mode, const void* data, size_t size) {
-    FILE* f = fopen(path.c_str(), mode);
+bool ReadAt(const std::string& path, long offset, void* out, size_t size) {
+    FILE* f = fopen(path.c_str(), "rb");
     if (f == nullptr) {
         return false;
     }
-    bool ok = size == 0 || fwrite(data, 1, size, f) == size;
+    const bool ok = fseek(f, offset, SEEK_SET) == 0 && fread(out, 1, size, f) == size;
+    fclose(f);
+    return ok;
+}
+
+// Overwrites bytes inside an existing file and forces them to the card
+// before returning. The file keeps its size and clusters.
+bool WriteAt(const std::string& path, long offset, const void* data, size_t size) {
+    FILE* f = fopen(path.c_str(), "r+b");
+    if (f == nullptr) {
+        return false;
+    }
+    bool ok = fseek(f, offset, SEEK_SET) == 0 && (size == 0 || fwrite(data, 1, size, f) == size);
     ok = fflush(f) == 0 && ok;
     ok = fsync(fileno(f)) == 0 && ok;
     return fclose(f) == 0 && ok;
+}
+
+// Creates the file zero-filled at its final size when it is missing (or has
+// another size, which only a foreign file would). This is the only place
+// that allocates clusters.
+bool EnsureFixedFile(const std::string& path, long size) {
+    struct stat st;
+    if (stat(path.c_str(), &st) == 0 && st.st_size == size) {
+        return true;
+    }
+    FILE* f = fopen(path.c_str(), "wb");
+    if (f == nullptr) {
+        return false;
+    }
+    static const uint8_t kZeros[1024] = {};
+    bool ok = true;
+    for (long done = 0; ok && done < size; done += sizeof(kZeros)) {
+        ok = fwrite(kZeros, 1, sizeof(kZeros), f) == sizeof(kZeros);
+    }
+    ok = fflush(f) == 0 && ok;
+    ok = fsync(fileno(f)) == 0 && ok;
+    ok = fclose(f) == 0 && ok;
+    ESP_LOGI(TAG, "created %s (%ld KB)", path.c_str(), size / 1024);
+    return ok;
+}
+
+// The slot at the start of a slot file, without its leftovers. False if
+// the file is missing or holds no valid slot.
+bool ReadSlotFile(const std::string& path, std::vector<uint8_t>* out, nb_slot_info_t* info,
+                  const uint8_t** payload) {
+    uint8_t header[NB_STORE_SLOT_HEADER_SIZE];
+    if (!ReadAt(path, 0, header, sizeof(header))) {
+        return false;
+    }
+    const size_t n = nb_slot_size(header, sizeof(header));
+    if (n == 0 || n > static_cast<size_t>(kSlotFileBytes)) {
+        return false;
+    }
+    out->resize(n);
+    return ReadAt(path, 0, out->data(), n) && nb_slot_decode(out->data(), n, info, payload);
+}
+
+// Writes over the older or invalid of two slot files.
+bool WriteSlotPair(const std::string paths[2], const void* payload, uint32_t length,
+                   uint32_t max_seq, uint32_t* generation) {
+    std::vector<uint8_t> files[2];
+    nb_slot_info_t infos[2];
+    bool valid[2];
+    for (int s = 0; s < 2; s++) {
+        valid[s] = ReadSlotFile(paths[s], &files[s], &infos[s], nullptr);
+    }
+    const nb_slot_choice_t choice = nb_slot_choose(valid[0], &infos[0], valid[1], &infos[1]);
+    std::vector<uint8_t> out(NB_STORE_SLOT_HEADER_SIZE + length);
+    const size_t n =
+        nb_slot_encode(choice.next_gen, max_seq, payload, length, out.data(), out.size());
+    if (n == 0) {
+        return false;
+    }
+    if (generation != nullptr) {
+        *generation = choice.next_gen;
+    }
+    return EnsureFixedFile(paths[choice.write], kSlotFileBytes) &&
+           WriteAt(paths[choice.write], 0, out.data(), n);
 }
 
 }  // namespace
@@ -179,8 +276,14 @@ bool StoreService::Mount() {
                  esp_err_to_name(err), static_cast<unsigned long>(pdTICKS_TO_MS(kRetryTicks) / 1000));
         return false;
     }
-    if (mkdir(kDir, 0775) != 0 && errno != EEXIST) {
-        Fail("mkdir");
+    for (const char* dir : {kDir, kSlotDirs[0], kSlotDirs[1], kLogDir, kProbeDir}) {
+        if (mkdir(dir, 0775) != 0 && errno != EEXIST) {
+            Fail("mkdir");
+            return false;
+        }
+    }
+    if (!MoveOldFiles()) {
+        Fail("moving old files");
         return false;
     }
     const uint64_t mb = static_cast<uint64_t>(card_->csd.capacity) * card_->csd.sector_size /
@@ -208,31 +311,87 @@ void StoreService::Fail(const char* what) {
     }
 }
 
+// Store task only: files of the earlier layout, all in noise/ and rewritten
+// whole on every save, move into their folders as fixed-size files. Each
+// old file is removed only after its copy is on the card, so a cut in the
+// middle repeats the move on the next mount.
+bool StoreService::MoveOldFiles() {
+    std::vector<std::string> names;
+    DIR* dir = opendir(kDir);
+    if (dir == nullptr) {
+        return false;
+    }
+    while (dirent* e = readdir(dir)) {
+        if (e->d_type == DT_REG) {
+            names.emplace_back(e->d_name);
+        }
+    }
+    closedir(dir);
+    for (const std::string& name : names) {
+        const std::string old_path = PathOf(name.c_str());
+        std::string new_path;
+        long size = 0;
+        std::vector<uint8_t> bytes;
+        if (EndsWith(name, "_a.bin") || EndsWith(name, "_b.bin")) {
+            const std::string record = name.substr(0, name.size() - 6);
+            if (record != "probe") {
+                new_path = SlotPath(record.c_str(), name[name.size() - 5] == 'a' ? 0 : 1);
+                size = kSlotFileBytes;
+                if (!ReadFile(old_path, &bytes, kSlotFileBytes)) {
+                    ESP_LOGE(TAG, "old %s not readable; left in place", name.c_str());
+                    continue;
+                }
+            }
+        } else if (EndsWith(name, ".log")) {
+            new_path = LogPath(name.c_str());
+            size = kLogFileBytes;
+            if (!ReadFile(old_path, &bytes, kLogFileBytes - NB_STORE_LOG_END)) {
+                ESP_LOGE(TAG, "old %s not readable; left in place", name.c_str());
+                continue;
+            }
+            // Its valid frames, then the end marker.
+            bytes.resize(nb_log_scan(bytes.data(), bytes.size(), nullptr, nullptr).valid_bytes);
+            bytes.resize(bytes.size() + NB_STORE_LOG_END, 0);
+        } else {
+            continue;  // personalidade.ini and anything the user put there
+        }
+        if (!new_path.empty() &&
+            (!EnsureFixedFile(new_path, size) ||
+             !WriteAt(new_path, 0, bytes.data(), bytes.size()))) {
+            return false;
+        }
+        if (remove(old_path.c_str()) != 0) {
+            return false;
+        }
+        ESP_LOGI(TAG, "moved %s to %s", name.c_str(),
+                 new_path.empty() ? "(dropped)" : new_path.c_str());
+    }
+    return true;
+}
+
 // Store task only: one small slot write and read-back per mount, so the log
 // says whether the card really keeps what it is given.
 void StoreService::Probe() {
-    std::vector<uint8_t> files[2];
-    nb_slot_info_t info[2];
-    bool valid[2];
-    for (int s = 0; s < 2; s++) {
-        valid[s] = ReadFile(SlotPath("probe", s), &files[s], 1024) &&
-                   nb_slot_decode(files[s].data(), files[s].size(), &info[s], nullptr);
-    }
-    const nb_slot_choice_t choice = nb_slot_choose(valid[0], &info[0], valid[1], &info[1]);
+    const std::string paths[2] = {ProbePath(0), ProbePath(1)};
     static const char kText[] = "noise";
-    uint8_t buf[NB_STORE_SLOT_HEADER_SIZE + sizeof(kText)];
-    const size_t n = nb_slot_encode(choice.next_gen, 0, kText, sizeof(kText), buf, sizeof(buf));
-    std::vector<uint8_t> back;
-    nb_slot_info_t got;
-    if (!WriteFileSynced(SlotPath("probe", choice.write), "wb", buf, n) ||
-        !ReadFile(SlotPath("probe", choice.write), &back, 1024) ||
-        !nb_slot_decode(back.data(), back.size(), &got, nullptr) ||
-        got.generation != choice.next_gen) {
+    uint32_t generation = 0;
+    std::vector<uint8_t> back[2];
+    nb_slot_info_t got[2];
+    bool valid[2];
+    if (!WriteSlotPair(paths, kText, sizeof(kText), 0, &generation)) {
         Fail("probe");
         return;
     }
-    ESP_LOGI(TAG, "probe ok: slot %c, generation %lu", choice.write == 0 ? 'A' : 'B',
-             static_cast<unsigned long>(got.generation));
+    for (int s = 0; s < 2; s++) {
+        valid[s] = ReadSlotFile(paths[s], &back[s], &got[s], nullptr);
+    }
+    const nb_slot_choice_t now = nb_slot_choose(valid[0], &got[0], valid[1], &got[1]);
+    if (now.load < 0 || got[now.load].generation != generation) {
+        Fail("probe");
+        return;
+    }
+    ESP_LOGI(TAG, "probe ok: slot %c, generation %lu", now.load == 0 ? 'A' : 'B',
+             static_cast<unsigned long>(generation));
 }
 
 bool StoreService::ReadText(const char* name, std::string* out) {
@@ -253,10 +412,8 @@ bool StoreService::ReadSlot(const char* record, std::vector<uint8_t>* payload,
         nb_slot_info_t infos[2];
         const uint8_t* data[2] = {nullptr, nullptr};
         bool valid[2];
-        const long max = NB_STORE_SLOT_HEADER_SIZE + NB_STORE_MAX_PAYLOAD;
         for (int s = 0; s < 2; s++) {
-            valid[s] = ReadFile(SlotPath(record, s), &files[s], max) &&
-                       nb_slot_decode(files[s].data(), files[s].size(), &infos[s], &data[s]);
+            valid[s] = ReadSlotFile(SlotPath(record, s), &files[s], &infos[s], &data[s]);
         }
         const nb_slot_choice_t choice = nb_slot_choose(valid[0], &infos[0], valid[1], &infos[1]);
         if (choice.load < 0) {
@@ -273,22 +430,13 @@ bool StoreService::ReadSlot(const char* record, std::vector<uint8_t>* payload,
 bool StoreService::WriteSlot(const char* record, const void* payload, uint32_t length,
                              uint32_t max_seq) {
     return Do([this, record, payload, length, max_seq]() {
-        std::vector<uint8_t> files[2];
-        nb_slot_info_t infos[2];
-        bool valid[2];
-        const long max = NB_STORE_SLOT_HEADER_SIZE + NB_STORE_MAX_PAYLOAD;
-        for (int s = 0; s < 2; s++) {
-            valid[s] = ReadFile(SlotPath(record, s), &files[s], max) &&
-                       nb_slot_decode(files[s].data(), files[s].size(), &infos[s], nullptr);
-        }
-        const nb_slot_choice_t choice = nb_slot_choose(valid[0], &infos[0], valid[1], &infos[1]);
-        std::vector<uint8_t> out(NB_STORE_SLOT_HEADER_SIZE + length);
-        const size_t n =
-            nb_slot_encode(choice.next_gen, max_seq, payload, length, out.data(), out.size());
-        if (n == 0) {
+        const std::string paths[2] = {SlotPath(record, 0), SlotPath(record, 1)};
+        if (NB_STORE_SLOT_HEADER_SIZE + static_cast<long>(length) > kSlotFileBytes) {
+            ESP_LOGE(TAG, "%s: %lu bytes do not fit a slot", record,
+                     static_cast<unsigned long>(length));
             return false;
         }
-        if (!WriteFileSynced(SlotPath(record, choice.write), "wb", out.data(), n)) {
+        if (!WriteSlotPair(paths, payload, length, max_seq, nullptr)) {
             Fail("slot write");
             return false;
         }
@@ -299,21 +447,23 @@ bool StoreService::WriteSlot(const char* record, const void* payload, uint32_t l
 bool StoreService::AppendFrame(const char* log, uint32_t seq, const void* payload,
                                uint32_t length) {
     return Do([this, log, seq, payload, length]() {
-        const std::string path = PathOf(log);
+        const std::string path = LogPath(log);
         std::vector<uint8_t> bytes;
-        if (ReadFile(path, &bytes, kMaxLogBytes)) {
-            const nb_log_scan_t scan = nb_log_scan(bytes.data(), bytes.size(), nullptr, nullptr);
-            if (scan.valid_bytes < bytes.size() &&
-                truncate(path.c_str(), static_cast<off_t>(scan.valid_bytes)) != 0) {
-                Fail("log truncate");
-                return false;
-            }
-        }
-        std::vector<uint8_t> frame(nb_frame_size(length));
-        if (nb_frame_encode(seq, payload, length, frame.data(), frame.size()) == 0) {
+        if (!EnsureFixedFile(path, kLogFileBytes) || !ReadFile(path, &bytes, kLogFileBytes)) {
+            Fail("log open");
             return false;
         }
-        if (!WriteFileSynced(path, "ab", frame.data(), frame.size())) {
+        // The entry goes over a torn tail or the end marker of the last frame.
+        const size_t at = nb_log_scan(bytes.data(), bytes.size(), nullptr, nullptr).valid_bytes;
+        std::vector<uint8_t> entry(nb_log_entry_size(length));
+        if (nb_log_entry_encode(seq, payload, length, entry.data(), entry.size()) == 0) {
+            return false;
+        }
+        if (at + entry.size() > bytes.size()) {
+            ESP_LOGE(TAG, "%s full; frame %lu not saved", log, static_cast<unsigned long>(seq));
+            return false;
+        }
+        if (!WriteAt(path, static_cast<long>(at), entry.data(), entry.size())) {
             Fail("log append");
             return false;
         }
@@ -326,7 +476,7 @@ bool StoreService::ReadLog(const char* log, nb_frame_visit_t visit, void* ctx,
     return Do([log, visit, ctx, scan]() {
         std::vector<uint8_t> bytes;
         nb_log_scan_t result = {0, 0, 0};
-        if (ReadFile(PathOf(log), &bytes, kMaxLogBytes)) {
+        if (ReadFile(LogPath(log), &bytes, kLogFileBytes)) {
             result = nb_log_scan(bytes.data(), bytes.size(), visit, ctx);
         }
         if (scan != nullptr) {
@@ -338,7 +488,9 @@ bool StoreService::ReadLog(const char* log, nb_frame_visit_t visit, void* ctx,
 
 bool StoreService::ClearLog(const char* log) {
     return Do([this, log]() {
-        if (!WriteFileSynced(PathOf(log), "wb", nullptr, 0)) {
+        static const uint8_t kEnd[NB_STORE_LOG_END] = {};
+        const std::string path = LogPath(log);
+        if (!EnsureFixedFile(path, kLogFileBytes) || !WriteAt(path, 0, kEnd, sizeof(kEnd))) {
             Fail("log clear");
             return false;
         }

@@ -226,8 +226,8 @@ nunca uma cópia do texto. Os padrões consolidados ficam para a etapa 3; até
 lá, o episódio que sai na compactação não vira contagem.
 
 Casca: `memory/memory_service`, task única dona da memória; os outros só
-avisam o que aconteceu (fila sem bloqueio). Arquivos `memoria_a.bin`,
-`memoria_b.bin` e `episodios.log` em `/sdcard/noise/`. Carinho de 3 s ou
+avisam o que aconteceu (fila sem bloqueio). Arquivos `slot_a/memoria.bin`,
+`slot_b/memoria.bin` e `log/episodios.log` em `/sdcard/noise/`. Carinho de 3 s ou
 mais vira episódio de carinho (importância 0,3 a 0,7 com a duração, até
 30 s); conversa de 5 s ou mais, de sair do repouso até voltar a ele, vira
 episódio de conversa com o desvio que deixou no humor (×2, preso em ±1) e
@@ -306,8 +306,8 @@ depende de rename:
   geração válida. O único slot válido nunca é sobrescrito.
 - **Episódios** em log de acréscimo com quadros `{magic, tamanho, seq,
   conteúdo, CRC32}`, CRC sobre tamanho, `seq` e conteúdo. Ao carregar, a
-  leitura para no primeiro quadro inválido e o final rasgado é descartado
-  (truncado na próxima escrita). A compactação grava os episódios vivos num
+  leitura para no primeiro quadro inválido; a próxima escrita grava por
+  cima do final rasgado. A compactação grava os episódios vivos num
   slot longo com a `seq` máxima e depois zera o log; se a energia cair no
   meio, quadros com `seq` já contida no slot são ignorados.
 - **Falha do cartão** (não monta, erro de E/S, cartão removido): modo
@@ -324,10 +324,21 @@ depende de rename:
   recuperando dados consistentes.
 - **Implementação:** `core/nb_store` (formatos, sem acesso a arquivo) e
   `memory/store_service` (task única dona do cartão; os outros pedem e
-  esperam). Arquivos em `/sdcard/noise/`: `<registro>_a.bin` e
-  `<registro>_b.bin` para os slots, `<log>` para os quadros,
-  `personalidade.ini` para a personalidade. Cada montagem grava e relê um
-  slot `probe`, que alterna A/B entre boots. Montagem por
+  esperam). Arquivos em `/sdcard/noise/`: `slot_a/<registro>.bin` e
+  `slot_b/<registro>.bin` para os slots, `log/<log>` para os quadros,
+  `personalidade.ini` sozinho para a personalidade. Cada montagem grava e
+  relê um slot em `teste/`, que alterna A/B entre boots.
+- **FAT intocada nas gravações:** cortes de energia em bancada estragaram
+  um arquivo que o firmware nunca escreve (o `.ini`), porque cada gravação
+  recriava o arquivo (mexendo na tabela da FAT e na pasta) e todos ficavam
+  na mesma pasta. Por isso slots (128 KB) e log (64 KB) têm tamanho fixo:
+  são criados zerados uma vez e depois só sobrescritos no lugar, sem
+  alocar nem liberar blocos. O slot fica no começo do arquivo e o cabeçalho
+  diz quanto ler; cada quadro do log é seguido de 4 bytes zero, então a
+  leitura para logo depois do mais novo, e limpar o log é zerar o começo.
+  Cada tipo de arquivo tem pasta própria e os dois slots ficam em pastas
+  diferentes: um setor de pasta rasgado só atinge a própria pasta. Os
+  arquivos do formato anterior migram para as pastas na montagem. Montagem por
   `esp_vfs_fat_sdmmc_mount`: o driver novo de SD host do IDF 6 ainda não é
   usado pela camada de protocolo SD nem pelo FATFS. Um cartão retirado com
   o robô ligado só é percebido na próxima operação.

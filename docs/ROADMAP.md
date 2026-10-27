@@ -102,6 +102,11 @@ em bancada.
 - [x] **Toque corporal** (`core/nb_touch`, GPIO2/TOUCH2, `2f445dc`): baseline
   calibrado no boot e com deriva lenta, histerese e debounce; tap → feliz
   1,5 s, segurar 1,5 s → carinho enquanto segura + 2 s. Validado com a mão.
+  Depois de ~6 h ligado o sensor ficou preso em "tocado" sem ninguém
+  encostar (carinho a cada 4 s, corações sem sair): o baseline não segue a
+  deriva enquanto há contato. Contato de mais de 60 s agora vira o novo
+  baseline (`NB_TOUCH_STUCK`: sai da face de carinho sem virar episódio).
+  Falta ver em uso se o travamento não volta.
 - [x] **LEDs de humor** (`core/nb_mood`, 2× WS2812 no GPIO21, `b46d69c`): cor
   e efeito por expressão (respirar, pulsar, arco-íris no tonto), transição
   suave, teto de brilho. Teto reduzido 60 → 16 → 6/255 (`61d745a` e o
@@ -265,9 +270,19 @@ ausência); sem microSD o robô funciona e avisa.
      compactações sem erro; 7 boots após corte no meio da escrita (4 cortes
      de energia, 3 resets) com 0 falhas: nada rasgado, nenhum esquecimento
      pela metade, último fato confirmado presente e último esquecimento
-     confirmado ausente. A memória do robô não foi tocada; os arquivos
-     `cortes_*` ficaram no cartão e podem ser apagados. A falha do dispositivo
-     não vira episódio: hoje ela é erro de rede, não mágoa.
+     confirmado ausente. A memória do robô não foi tocada. A falha do
+     dispositivo não vira episódio: hoje ela é erro de rede, não mágoa.
+     Mas o `personalidade.ini`, que o firmware nunca escreve, apareceu
+     depois com lixo binário de 1 KB: um setor rasgado da FAT ou da pasta
+     (todos os arquivos ficavam em `noise/` e cada gravação recriava o
+     arquivo) atingiu o vizinho. Correção: cada tipo de arquivo na sua
+     pasta (`noise/slot_a/`, `noise/slot_b/`, `noise/log/`, `noise/teste/`;
+     o `.ini` sozinho em `noise/`) e slots e log de tamanho fixo (128 KB e
+     64 KB), criados uma vez e depois só sobrescritos no lugar; o log
+     termina cada quadro com 4 bytes zero e limpar é zerar o começo. Os
+     arquivos antigos migram no primeiro boot. O teste de cortes passou a
+     conferir também que o `.ini` não muda. Falta repetir o teste de cortes
+     com o `.ini` no cartão.
 9. [x] **MCP** (`mcp/memory_tools`): `self.mood.get`, `self.mood.stimulate`,
    `self.memory.recall`/`remember`/`correct`/`forget`, com descrições ricas.
    As ferramentas rodam na task do app e chamam a memória na task dela

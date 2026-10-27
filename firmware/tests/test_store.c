@@ -229,6 +229,81 @@ static void test_garbage_and_null(void) {
     NB_CHECK_EQ_INT(0, nb_slot_encode(1, 0, NULL, 5, junk, sizeof(junk)));
 }
 
+static void test_slot_size_reads_the_header(void) {
+    uint8_t file[512];
+    memset(file, 0xA5, sizeof(file));  // leftovers of an older, longer slot
+    const size_t n = make_slot(4, 0, file, sizeof(file));
+    NB_CHECK_EQ_INT(n, nb_slot_size(file, NB_STORE_SLOT_HEADER_SIZE));
+    NB_CHECK(nb_slot_decode(file, nb_slot_size(file, sizeof(file)), NULL, NULL));
+    NB_CHECK_EQ_INT(0, nb_slot_size(file, NB_STORE_SLOT_HEADER_SIZE - 1));
+    uint8_t zeros[NB_STORE_SLOT_HEADER_SIZE] = {0};  // a fresh file
+    NB_CHECK_EQ_INT(0, nb_slot_size(zeros, sizeof(zeros)));
+    file[16] = 0xFF;
+    file[17] = 0xFF;
+    file[18] = 0xFF;  // a length beyond the limit
+    NB_CHECK_EQ_INT(0, nb_slot_size(file, sizeof(file)));
+    NB_CHECK_EQ_INT(0, nb_slot_size(NULL, 100));
+}
+
+// Appends entries in place the way the shell does: at the end of the valid
+// frames, over whatever the fixed-size file held there.
+static size_t append_entry(uint8_t *file, size_t cap, uint32_t seq, uint32_t len) {
+    char payload[64];
+    memset(payload, 'a' + (int)(seq % 26), sizeof(payload));
+    const size_t at = nb_log_scan(file, cap, NULL, NULL).valid_bytes;
+    const size_t n = nb_log_entry_encode(seq, payload, len, file + at, cap - at);
+    NB_CHECK(n == nb_log_entry_size(len));
+    return at + n;
+}
+
+static void test_cleared_log_never_shows_old_frames(void) {
+    uint8_t file[1024] = {0};
+    for (uint32_t seq = 1; seq <= 8; seq++) {
+        append_entry(file, sizeof(file), seq, 10 + seq * 3);
+    }
+    NB_CHECK_EQ_INT(8, nb_log_scan(file, sizeof(file), NULL, NULL).frames);
+    memset(file, 0, NB_STORE_LOG_END);  // clear
+    NB_CHECK_EQ_INT(0, nb_log_scan(file, sizeof(file), NULL, NULL).frames);
+    // New frames, shorter and the same length as old ones: only they show.
+    append_entry(file, sizeof(file), 9, 13);
+    append_entry(file, sizeof(file), 10, 4);
+    visits_t v = {{0}, 0};
+    const nb_log_scan_t r = nb_log_scan(file, sizeof(file), record, &v);
+    NB_CHECK_EQ_INT(2, r.frames);
+    NB_CHECK_EQ_INT(9, v.seqs[0]);
+    NB_CHECK_EQ_INT(10, v.seqs[1]);
+    NB_CHECK_EQ_INT(0, nb_log_entry_encode(1, "x", 1, file, NB_STORE_FRAME_OVERHEAD + 1));
+}
+
+static void test_torn_append_in_place_keeps_the_old_frames(void) {
+    // Power lost while an entry is written over leftovers: whatever part of
+    // it reached the card (its head or only its tail), the scan shows the
+    // frames before it and nothing else.
+    uint8_t base[1024] = {0};
+    for (uint32_t seq = 1; seq <= 8; seq++) {
+        append_entry(base, sizeof(base), seq, 20);
+    }
+    memset(base, 0, NB_STORE_LOG_END);
+    append_entry(base, sizeof(base), 9, 30);
+    append_entry(base, sizeof(base), 10, 30);
+    const size_t at = nb_log_scan(base, sizeof(base), NULL, NULL).valid_bytes;
+    uint8_t entry[128];
+    const size_t n = nb_log_entry_encode(11, "seq onze, nunca inteira", 23, entry, sizeof(entry));
+    for (size_t cut = 0; cut < n; cut++) {
+        uint8_t file[1024];
+        memcpy(file, base, sizeof(file));
+        memcpy(file + at, entry, cut);  // only the head
+        nb_log_scan_t r = nb_log_scan(file, sizeof(file), NULL, NULL);
+        const bool whole_frame = cut >= n - NB_STORE_LOG_END;
+        NB_CHECK_EQ_INT(whole_frame ? 3 : 2, r.frames);
+        memcpy(file, base, sizeof(file));
+        memcpy(file + at + cut, entry + cut, n - cut);  // only the tail
+        r = nb_log_scan(file, sizeof(file), NULL, NULL);
+        NB_CHECK_EQ_INT(cut == 0 ? 3 : 2, r.frames);
+        NB_CHECK_EQ_INT(cut == 0 ? 11 : 10, r.last_seq);
+    }
+}
+
 int main(void) {
     NB_RUN(test_crc32_matches_the_standard);
     NB_RUN(test_slot_round_trip);
@@ -242,5 +317,8 @@ int main(void) {
     NB_RUN(test_every_flipped_byte_stops_at_its_frame);
     NB_RUN(test_visitor_can_stop_early);
     NB_RUN(test_garbage_and_null);
+    NB_RUN(test_slot_size_reads_the_header);
+    NB_RUN(test_cleared_log_never_shows_old_frames);
+    NB_RUN(test_torn_append_in_place_keeps_the_old_frames);
     NB_TEST_MAIN_END();
 }

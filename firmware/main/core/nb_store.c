@@ -76,6 +76,15 @@ bool nb_slot_decode(const uint8_t *buf, size_t size, nb_slot_info_t *info,
     return true;
 }
 
+size_t nb_slot_size(const uint8_t *header, size_t size) {
+    if (header == NULL || size < NB_STORE_SLOT_HEADER_SIZE ||
+        get32(header) != NB_STORE_SLOT_MAGIC || get32(header + 4) != NB_STORE_FORMAT_VERSION) {
+        return 0;
+    }
+    const uint32_t length = get32(header + 16);
+    return length > NB_STORE_MAX_PAYLOAD ? 0 : NB_STORE_SLOT_HEADER_SIZE + (size_t)length;
+}
+
 nb_slot_choice_t nb_slot_choose(bool a_valid, const nb_slot_info_t *a, bool b_valid,
                                 const nb_slot_info_t *b) {
     nb_slot_choice_t c = {-1, 0, 1};
@@ -118,6 +127,23 @@ size_t nb_frame_encode(uint32_t seq, const void *payload, uint32_t length, uint8
     }
     put32(out + 12 + length, nb_store_crc32(0, out + 4, 8 + (size_t)length));
     return total;
+}
+
+size_t nb_log_entry_size(uint32_t length) {
+    return nb_frame_size(length) + NB_STORE_LOG_END;
+}
+
+size_t nb_log_entry_encode(uint32_t seq, const void *payload, uint32_t length, uint8_t *out,
+                           size_t out_cap) {
+    if (out_cap < nb_log_entry_size(length)) {
+        return 0;
+    }
+    const size_t n = nb_frame_encode(seq, payload, length, out, out_cap);
+    if (n == 0) {
+        return 0;
+    }
+    memset(out + n, 0, NB_STORE_LOG_END);
+    return n + NB_STORE_LOG_END;
 }
 
 nb_log_scan_t nb_log_scan(const uint8_t *buf, size_t size, nb_frame_visit_t visit, void *ctx) {

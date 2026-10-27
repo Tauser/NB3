@@ -26,6 +26,7 @@ struct Counters {
     uint32_t failures = 0;
     uint32_t last_kept = 0;    // id of the last fact whose save was confirmed
     uint32_t last_forgot = 0;  // id of the last fact whose forget was confirmed
+    uint32_t ini_crc = 0;      // personalidade.ini as first seen; 0 = not seen yet
 };
 
 void LoadCounters(Counters* c) {
@@ -37,6 +38,7 @@ void LoadCounters(Counters* c) {
     nvs_get_u32(nvs, "failures", &c->failures);
     nvs_get_u32(nvs, "kept", &c->last_kept);
     nvs_get_u32(nvs, "forgot", &c->last_forgot);
+    nvs_get_u32(nvs, "ini_crc", &c->ini_crc);
     nvs_close(nvs);
 }
 
@@ -51,6 +53,7 @@ void SaveCounters(const Counters& c) {
     nvs_set_u32(nvs, "failures", c.failures);
     nvs_set_u32(nvs, "kept", c.last_kept);
     nvs_set_u32(nvs, "forgot", c.last_forgot);
+    nvs_set_u32(nvs, "ini_crc", c.ini_crc);
     nvs_commit(nvs);
     nvs_close(nvs);
 }
@@ -93,6 +96,23 @@ bool ReadLog(void* ctx, nb_mem_visit_t visit, void* arg) {
 
 bool ClearLog(void* ctx) {
     return static_cast<StoreService*>(ctx)->ClearLog(kLog);
+}
+
+// The firmware never writes personalidade.ini, yet cuts in the old layout
+// damaged it: it must read the same as the first time this test saw it.
+std::string CheckPersonality(StoreService& store, Counters* c) {
+    std::string text;
+    if (!store.ReadText("personalidade.ini", &text)) {
+        return c->ini_crc == 0 ? "" : "personalidade.ini gone";
+    }
+    const uint32_t crc = nb_store_crc32(0, text.data(), text.size()) | 1u;  // never 0
+    if (c->ini_crc == 0) {
+        c->ini_crc = crc;
+        ESP_LOGI(TAG, "personalidade.ini watched from now on (%u bytes)",
+                 static_cast<unsigned>(text.size()));
+        return "";
+    }
+    return crc == c->ini_crc ? "" : "personalidade.ini changed";
 }
 
 // What a boot must find after any cut. Returns the first problem, or "".
@@ -168,7 +188,11 @@ void PowerCutTest::Run() {
     LoadCounters(&c);
     nb_memory_init(m, scratch, NB_MEM_SCRATCH_SIZE, toks, NB_MEM_TOKENS);
     const nb_mem_status_t load = nb_memory_load(m, &io);
-    const std::string problem = Check(*m, load, c);
+    std::string problem = Check(*m, load, c);
+    const std::string ini = CheckPersonality(store_, &c);
+    if (problem.empty()) {
+        problem = ini;
+    }
     c.boots++;
     if (!problem.empty()) {
         c.failures++;

@@ -16,7 +16,9 @@
 // The microSD (docs/VIDA.md §5.2). Its task is the only owner of the card:
 // every other task asks and waits for the answer. Long records live in two
 // CRC-checked slots and episodes in a framed log (core/nb_store), so an
-// interrupted write never corrupts what was there before. The card is never
+// interrupted write never corrupts what was there before. Those files have
+// a fixed size and their own folders, so saving does not rewrite the FAT
+// and a torn directory sector cannot reach personalidade.ini. The card is never
 // formatted by the firmware. Without a card, or after an I/O error, the
 // service is unavailable (degraded): calls fail fast, the listener hears
 // about it, and mounting is retried in the background.
@@ -41,7 +43,8 @@ public:
     // Writes over the older or invalid slot; never the only valid one.
     bool WriteSlot(const char* record, const void* payload, uint32_t length, uint32_t max_seq);
 
-    // Appends a frame, first dropping a torn tail left by a power loss.
+    // Appends a frame over a torn tail left by a power loss, if any. False
+    // without touching the card when the log is full.
     bool AppendFrame(const char* log, uint32_t seq, const void* payload, uint32_t length);
     // The log's valid frames, in order.
     bool ReadLog(const char* log, nb_frame_visit_t visit, void* ctx, nb_log_scan_t* scan);
@@ -55,6 +58,7 @@ private:
     bool Do(std::function<bool()> work);
     bool Mount();
     void Fail(const char* what);
+    bool MoveOldFiles();
     void Probe();
 
     QueueHandle_t queue_ = nullptr;

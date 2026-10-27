@@ -11,8 +11,9 @@
 // touched), written nonstop with episodes, remembered facts, forgets and
 // compactions, so power can be cut in the middle of any write. Every boot
 // loads it and checks that nothing is torn, no forget is left half done,
-// the last confirmed fact is there and the last confirmed forget is gone;
-// the result goes to the log and the banner. In a normal build Start() does
+// the last confirmed fact is there, the last confirmed forget is gone and
+// personalidade.ini, never written, reads as it did the first time; the
+// result goes to the log and the banner. In a normal build Start() does
 // nothing.
 class PowerCutTest {
 public:

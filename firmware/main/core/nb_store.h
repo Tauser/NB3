@@ -21,14 +21,26 @@ extern "C" {
 //   generation; loading takes the highest valid generation. The only valid
 //   slot is never overwritten.
 // - Episodes go to an append-only log of frames {magic, length, seq,
-//   payload, CRC32}. Reading stops at the first invalid frame; a torn tail
-//   is dropped (the shell truncates it before the next append).
+//   payload, CRC32}. Reading stops at the first invalid frame; the next
+//   append overwrites a torn tail.
+//
+// Files have a fixed size: the shell creates each one once at its final
+// size and afterwards only overwrites bytes inside it, so a save rewrites
+// neither the FAT nor the file's place in it (a torn FAT sector can damage
+// other files). So:
+// - A slot file holds one slot at offset 0 followed by leftovers;
+//   nb_slot_size says from the header how many bytes make the slot.
+// - The log is overwritten in place: each append is the frame followed by
+//   NB_STORE_LOG_END zero bytes (nb_log_entry_encode), so the scan stops
+//   right after the newest frame and never reads frames left over from
+//   before the last clear. Clearing zeroes the first NB_STORE_LOG_END bytes.
 
 #define NB_STORE_SLOT_MAGIC 0x4C53424Eu   // "NBSL"
 #define NB_STORE_FRAME_MAGIC 0x52464E4Eu  // "NNFR"
 #define NB_STORE_FORMAT_VERSION 1u
 #define NB_STORE_SLOT_HEADER_SIZE 24u
 #define NB_STORE_FRAME_OVERHEAD 16u
+#define NB_STORE_LOG_END 4u
 // Larger payloads are treated as corruption.
 #define NB_STORE_MAX_PAYLOAD (256u * 1024u)
 
@@ -56,6 +68,10 @@ typedef struct {
     uint32_t next_gen;  // generation for that write
 } nb_slot_choice_t;
 
+// Bytes the slot starting at header occupies (header + payload), or 0 if
+// the header is not a slot of this format. size = bytes available.
+size_t nb_slot_size(const uint8_t *header, size_t size);
+
 nb_slot_choice_t nb_slot_choose(bool a_valid, const nb_slot_info_t *a, bool b_valid,
                                 const nb_slot_info_t *b);
 
@@ -65,6 +81,11 @@ size_t nb_frame_encode(uint32_t seq, const void *payload, uint32_t length, uint8
                        size_t out_cap);
 
 // Called for each valid frame, in order. Return false to stop early.
+// A log append: the frame and its end marker. Returns the bytes, or 0.
+size_t nb_log_entry_size(uint32_t length);
+size_t nb_log_entry_encode(uint32_t seq, const void *payload, uint32_t length, uint8_t *out,
+                           size_t out_cap);
+
 typedef bool (*nb_frame_visit_t)(uint32_t seq, const uint8_t *payload, uint32_t length,
                                  void *ctx);
 
