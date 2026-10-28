@@ -16,7 +16,7 @@ safety.
 | 1 | Firmware NB3 próprio: face, emoções, toque, LED | o robô "vive" e conversa | **concluída** |
 | 2 | Vida própria: humor contínuo, estados comportamentais, personalidade e memória local mínima no microSD, com MCP | humor sobrevive ao IDLE; lembra de um fato depois de reiniciar; esquece quando pedido | **concluída**; durações do humor (item 2) em observação no uso |
 | 3 | Arcos, energia, circadiano e iniciativa | reage com sequência e desfecho; desacelera à noite; toma iniciativa sem exagero | **implementada**; arcos validados, deslocamento da personalidade e consolidação em observação no uso |
-| 4 | Servos SCS + `motion_safety` + ferramentas MCP de movimento (entrega própria) | olha e acena; safety corta com carga real | **núcleos prontos**; falta a parte que toca o hardware |
+| 4 | Servos SCS + `motion_safety` + ferramentas MCP de movimento (entrega própria) | olha e acena; safety corta com carga real | **feita com os servos soltos** (olha, acena, nega, segue o olhar, corta com a mão); falta calibrar com a cabeça montada |
 | 5 | Agenda, timers e comportamentos offline como ferramentas do dispositivo | funciona sem nuvem para o que é local | **em andamento**: timers e lembretes feitos |
 | 6 | Corpo/placa carrier com acústica tratada; CoreS3 se AEC fizer falta | só se necessário | não iniciada |
 
