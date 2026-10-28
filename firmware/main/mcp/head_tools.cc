@@ -48,7 +48,9 @@ void RegisterHeadTools(MotionService& motion) {
         "nods it up and down). state is free (servos relaxed, the head can be moved by hand), "
         "holding (servos powered, keeping a pose) or stopped_for_safety (the robot's own safety "
         "cut the power to the servos; reason says why). Also gives each servo's position in "
-        "degrees, temperature and supply voltage, and whether it answers. Use it when the user "
+        "degrees, temperature and supply voltage, and whether it answers. A servo marked "
+        "outside_safe_range was turned by hand past where the robot may move it: the head will "
+        "not move until the user turns it back toward the middle. Use it when the user "
         "asks about the head or neck (\"sua cabeça tá ok?\", \"por que você parou de mexer?\") "
         "or before recovering from a stop.",
         PropertyList(), [&motion](const PropertyList&) -> ReturnValue {
@@ -65,6 +67,9 @@ void RegisterHeadTools(MotionService& motion) {
             for (int a = 0; a < NB_MOTION_SAFETY_AXIS_COUNT; a++) {
                 cJSON* servo = cJSON_AddObjectToObject(o, kNames[a]);
                 cJSON_AddBoolToObject(servo, "answers", s.answering[a]);
+                if (s.out_of_range[a]) {
+                    cJSON_AddBoolToObject(servo, "outside_safe_range", true);
+                }
                 cJSON_AddNumberToObject(servo, "position_deg",
                                         static_cast<int>(nb_scs_counts_to_deg(s.position[a])));
                 cJSON_AddNumberToObject(servo, "temperature_c", s.temperature_c[a]);

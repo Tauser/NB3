@@ -163,6 +163,10 @@ void MotionService::PublishStatus() {
     for (int a = 0; a < NB_MOTION_SAFETY_AXIS_COUNT; a++) {
         s.answering[a] = seen_[a] && misses_[a] == last_misses_[a];
         s.position[a] = last_[a].position;
+        s.out_of_range[a] =
+            seen_[a] && nb_motion_safety_clamp_position(
+                            &safety_, static_cast<nb_motion_safety_axis_t>(a), last_[a].position) !=
+                            last_[a].position;
         s.temperature_c[a] = last_[a].temperature_c;
         s.voltage_mv[a] = static_cast<uint16_t>(nb_scs_voltage_mv(last_[a].voltage_dv));
         last_misses_[a] = misses_[a];
@@ -194,6 +198,17 @@ nb_motion_safety_fault_t MotionService::Fault() {
 // already is before the torque comes on, so holding never starts with a jump
 // to whatever goal the servo kept from before.
 bool MotionService::Arm(uint32_t now_ms) {
+    // A free servo moved by hand past its limits is not a fault: holding it
+    // there would be, so arming waits until it is put back.
+    for (int a = 0; a < NB_MOTION_SAFETY_AXIS_COUNT; a++) {
+        const auto axis = static_cast<nb_motion_safety_axis_t>(a);
+        const uint16_t here = last_[a].position;
+        if (nb_motion_safety_clamp_position(&safety_, axis, here) != here) {
+            ESP_LOGW(TAG, "not arming: %s at %u is outside its safe range %u..%u: put it back by hand",
+                     AxisName(a), here, safety_.cfg.pos_min[a], safety_.cfg.pos_max[a]);
+            return false;
+        }
+    }
     if (!nb_motion_safety_arm(&safety_, now_ms)) {
         return false;
     }
@@ -202,10 +217,9 @@ bool MotionService::Arm(uint32_t now_ms) {
         const uint16_t here = last_[a].position;
         const nb_motion_safety_cmd_result_t r = nb_motion_safety_command(&safety_, axis, here, now_ms);
         if (r != NB_MOTION_SAFETY_CMD_OK) {
-            // Outside the limits (or no longer OK): holding here would be
-            // holding somewhere the safety forbids.
+            // Moved out between the check and now, or no longer OK.
             ESP_LOGW(TAG, "not arming: %s at %u refused (%d)", AxisName(a), here, r);
-            nb_motion_safety_trip(&safety_, NB_MOTION_SAFETY_FAULT_CONFIG, axis);
+            nb_motion_safety_trip(&safety_, NB_MOTION_SAFETY_FAULT_FEEDBACK_LOST, axis);
             return false;
         }
         const nb_scs_goal_t goal = {ids_[a], here, 0, 0};

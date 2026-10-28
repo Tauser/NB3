@@ -46,6 +46,7 @@ public:
         nb_motion_safety_axis_t fault_axis = NB_MOTION_SAFETY_AXIS_PAN;
         bool answering[NB_MOTION_SAFETY_AXIS_COUNT] = {};
         uint16_t position[NB_MOTION_SAFETY_AXIS_COUNT] = {};
+        bool out_of_range[NB_MOTION_SAFETY_AXIS_COUNT] = {};  // no arming until put back
         uint8_t temperature_c[NB_MOTION_SAFETY_AXIS_COUNT] = {};
         uint16_t voltage_mv[NB_MOTION_SAFETY_AXIS_COUNT] = {};
     };
