@@ -570,8 +570,15 @@ trilho lógico) e ids conhecidos.
   host-tests. Em bancada o usuário pediu um lembrete por voz e ele tocou
   ("funcionou"; fora da captura). Falta ver: um lembrete sobrevivendo a um
   reinício e tocando atrasado.
-- [ ] Comportamentos autônomos no IDLE (sonolência à noite, reação a toque
-  sem nuvem) e modo offline explícito quando o Wi-Fi ou o servidor caem.
+- [x] Comportamentos autônomos no IDLE (sonolência à noite, reação a toque
+  sem nuvem): já vêm das etapas 2 a 4 e não dependem da nuvem.
+- [~] **Modo offline explícito** (`core/nb_link`, `behavior/link_monitor`):
+  online, sem Wi-Fi (endereço sumido por mais de 5 s) ou sem servidor
+  (erro de conexão do xiaozhi com Wi-Fi de pé, até uma conversa engatar ou
+  o Wi-Fi voltar). O banner avisa na hora, de novo 20 s depois e a cada
+  5 min, e diz "Conectado de novo" na volta; lembrete tocado offline não
+  tenta passar o texto à IA. 5 host-tests. No boot: "starting -> online"
+  logo depois do IP. Falta ver: o roteador desligado e religado.
 - [ ] Sons locais no microSD (o SD em si entra na etapa 2).
 
 ---
