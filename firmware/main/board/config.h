@@ -5,6 +5,7 @@
 // domain on this module and must never be used for 3.3 V logic.
 
 #include <driver/gpio.h>
+#include <driver/uart.h>
 
 // Mic and amp share BCLK/WS in duplex mode, so both directions run at the
 // output rate; the audio service resamples the mic down to 16 kHz.
@@ -46,6 +47,15 @@
 #define SD_CLK_PIN GPIO_NUM_15
 #define SD_CMD_PIN GPIO_NUM_16
 #define SD_D0_PIN  GPIO_NUM_6
+
+// Two Feetech SCS0009 (pan, tilt) on one half-duplex bus through an
+// FE-TTLinker, on its own power rail. Ids carried over from NB2.
+#define SERVO_UART_PORT UART_NUM_1
+#define SERVO_UART_TX   GPIO_NUM_17
+#define SERVO_UART_RX   GPIO_NUM_18
+#define SERVO_UART_BAUD 1000000
+#define SERVO_ID_PAN    1
+#define SERVO_ID_TILT   2
 
 // ST7789 2" on SPI2; RST and backlight are hardwired, reset is SWRESET.
 #define DISPLAY_SPI_HOST    SPI2_HOST

@@ -473,12 +473,19 @@ A fazer:
    `stall_tracking` aos 3 s, sem reset) e o caso contrário (servo lento,
    25 contagens/s, com alvos pulando, segue OK por 6 s); configuração com
    janela 0 é recusada. 44 testes.
-1. [ ] **Casca da UART** (`hal/`): UART half-duplex nas GPIO 17/18, retiro
-   do eco (`nb_scs_echo_len`), flush antes de cada envio, timeout e retentativa.
-2. [ ] **Task de motion**: única dona do barramento; lê feedback dos dois
-   servos a cada ciclo, alimenta o safety, faz heartbeat e só escreve goals
-   aceitos pelo veto. Em FAULT: torque off ou pose segura, e expressão de
-   falha no árbitro (prioridade `kFault`).
+1. [x] **Casca da UART** (`motion/scs_bus`): UART1 a 1 Mbaud nas GPIO 17/18,
+   flush antes de cada envio, retiro do eco (inclusive eco ainda chegando,
+   sem confundir com resposta curta), timeout de 10 ms e 3 tentativas. Em
+   bancada os dois servos respondem nos ids do NB2 (pan 1, tilt 2), 0 falhas
+   a 20 Hz. Com tick de 100 Hz, esperas de poucos ms viram 0 tick: a espera
+   do envio usa 2 ticks e a leitura não bloqueia.
+2. [~] **Task de motion** (`motion/motion_service`): única dona do
+   barramento; acha os servos (varre o barramento se um id não responde), lê
+   posição, carga, tensão e temperatura dos dois a 20 Hz, alimenta o safety
+   e faz heartbeat. **Só escuta por enquanto:** o safety nunca é armado e
+   nenhum goal ou torque é escrito. Em bancada: pan 506, tilt 511, 5,1–5,2 V,
+   23 °C, carga 0. Falta: armar, escrever goals aceitos pelo veto e, em
+   FAULT, torque off e expressão de falha no árbitro.
 3. [ ] **Calibração em bancada**: graus por contagem (0,3125 do StackChan ou
    0,293 da especificação), centro e limites reais de pan e tilt, e os
    limiares novos (tensão 4,5–6,5 V, rastreamento 20 contagens/1,5 s,
