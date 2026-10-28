@@ -230,6 +230,45 @@ static void test_large_goal_jump_restarts_tracking_window(void) {
     NB_CHECK(!nb_motion_safety_update(&ms, PAN, &fb, 3000));
 }
 
+// Goals jumping back and forth every 500 ms restart the travel window each
+// time; a servo that never moves must still fault once it made no progress.
+static void test_alternating_goals_do_not_hide_a_servo_that_never_moves(void) {
+    nb_motion_safety_t ms;
+    make_armed_no_feedback_watch(&ms);
+    nb_motion_safety_feedback_t fb = good_fb();
+    fb.position = 450;
+    bool alive = true;
+    uint32_t t = 0;
+    for (; t <= 6000 && alive; t += 100) {
+        if (t % 500 == 0) {
+            nb_motion_safety_heartbeat(&ms, t);
+            nb_motion_safety_command(&ms, PAN, (t / 500) % 2 ? 600 : 500, t);
+        }
+        alive = nb_motion_safety_update(&ms, PAN, &fb, t);
+    }
+    NB_CHECK(!alive);
+    NB_CHECK_EQ_INT(3000, t - 100);  // the progress limit, not the travel window
+    expect_fault(&ms, NB_MOTION_SAFETY_FAULT_STALL_TRACKING, PAN);
+    // Still stuck: the fault cannot be reset.
+    NB_CHECK(!nb_motion_safety_reset_fault(&ms, t));
+}
+
+static void test_a_servo_on_its_way_keeps_making_progress(void) {
+    nb_motion_safety_t ms;
+    make_armed_no_feedback_watch(&ms);
+    nb_motion_safety_feedback_t fb = good_fb();
+    fb.position = 410;
+    for (uint32_t t = 0; t <= 6000; t += 100) {
+        if (t % 500 == 0) {
+            nb_motion_safety_heartbeat(&ms, t);
+            nb_motion_safety_command(&ms, PAN, (t / 500) % 2 ? 614 : 590, t);
+        }
+        fb.position = (uint16_t)(410 + t / 40);  // 25 counts a second, slow but moving
+        NB_CHECK(nb_motion_safety_update(&ms, PAN, &fb, t));
+    }
+    NB_CHECK_EQ_INT(NB_MOTION_SAFETY_STATE_OK, nb_motion_safety_get_state(&ms));
+}
+
 static void test_heartbeat_timeout_faults(void) {
     nb_motion_safety_t ms;
     make_armed_no_feedback_watch(&ms);
@@ -551,6 +590,9 @@ static void test_invalid_config_starts_faulted_and_cannot_be_reset(void) {
     NB_CHECK(!nb_motion_safety_init(&ms, &cfg));
     cfg.feedback_timeout_ms = 0x80000000u;
     NB_CHECK(!nb_motion_safety_init(&ms, &cfg));
+    cfg = nb_motion_safety_default_cfg();
+    cfg.progress_timeout_ms = 0;
+    NB_CHECK(!nb_motion_safety_init(&ms, &cfg));
     NB_CHECK(!nb_motion_safety_init(&ms, NULL));
     expect_fault(&ms, NB_MOTION_SAFETY_FAULT_CONFIG, PAN);
 }
@@ -618,6 +660,8 @@ int main(void) {
     NB_RUN(test_arriving_at_goal_clears_tracking_timer);
     NB_RUN(test_small_goal_steps_do_not_hide_a_stalled_servo);
     NB_RUN(test_large_goal_jump_restarts_tracking_window);
+    NB_RUN(test_alternating_goals_do_not_hide_a_servo_that_never_moves);
+    NB_RUN(test_a_servo_on_its_way_keeps_making_progress);
     NB_RUN(test_heartbeat_timeout_faults);
     NB_RUN(test_heartbeat_refreshes_the_deadline);
     NB_RUN(test_arm_counts_as_first_heartbeat);

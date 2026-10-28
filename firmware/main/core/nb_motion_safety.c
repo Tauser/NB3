@@ -45,6 +45,7 @@ static bool cfg_valid(const nb_motion_safety_cfg_t *cfg) {
     // Durations must stay under half the uint32 range for the wrap-safe compare.
     return cfg->load_critical > 0 && cfg->stall_time_ms < 0x80000000u &&
            cfg->track_timeout_ms > 0 && cfg->track_timeout_ms < 0x80000000u &&
+           cfg->progress_timeout_ms > 0 && cfg->progress_timeout_ms < 0x80000000u &&
            cfg->temp_critical_c > 0 && cfg->brownout_mv > 0 &&
            cfg->overvoltage_mv > cfg->brownout_mv && cfg->heartbeat_timeout_ms > 0 &&
            cfg->heartbeat_timeout_ms < 0x80000000u && cfg->feedback_timeout_ms > 0 &&
@@ -62,6 +63,7 @@ nb_motion_safety_cfg_t nb_motion_safety_default_cfg(void) {
     cfg.stall_time_ms = 100;
     cfg.track_tolerance = 20;
     cfg.track_timeout_ms = 1500;
+    cfg.progress_timeout_ms = 3000;
     cfg.temp_critical_c = 70;
     cfg.brownout_mv = 4500;
     cfg.overvoltage_mv = 6500;
@@ -134,8 +136,19 @@ bool nb_motion_safety_update(nb_motion_safety_t *ms, nb_motion_safety_axis_t axi
             ms->track_since_ms[a] = now_ms;
         }
         ms->cond_track[a] = elapsed_ms(now_ms, ms->track_since_ms[a]) >= cfg->track_timeout_ms;
+        // The travel window above restarts on a goal jump; this one only on
+        // real movement.
+        if (!ms->progress_on[a] ||
+            abs_diff(fb->position, ms->progress_ref[a]) > cfg->track_tolerance) {
+            ms->progress_on[a] = true;
+            ms->progress_ref[a] = fb->position;
+            ms->progress_since_ms[a] = now_ms;
+        }
+        ms->cond_track[a] |=
+            elapsed_ms(now_ms, ms->progress_since_ms[a]) >= cfg->progress_timeout_ms;
     } else {
         ms->track_timer_on[a] = false;
+        ms->progress_on[a] = false;
     }
 
     if (ms->cond_temp[a]) {
@@ -259,6 +272,7 @@ bool nb_motion_safety_reset_fault(nb_motion_safety_t *ms, uint32_t now_ms) {
     memset(ms->load_timer_on, 0, sizeof(ms->load_timer_on));
     memset(ms->goal_valid, 0, sizeof(ms->goal_valid));
     memset(ms->track_timer_on, 0, sizeof(ms->track_timer_on));
+    memset(ms->progress_on, 0, sizeof(ms->progress_on));
     return true;
 }
 

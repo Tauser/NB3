@@ -4,8 +4,9 @@ Etapas, prova de sucesso de cada uma e onde o projeto está. Atualizado a cada
 entrega; a fonte da verdade do código é o git (`git log`), aqui fica o
 andamento em linguagem de produto.
 
-**Atualizado em:** 2026-10-26 — etapa 2 concluída (vida própria e memória no
-microSD, com MCP); etapa 3 começando.
+**Atualizado em:** 2026-10-28 — etapa 3 implementada (arcos, energia,
+iniciativa, hábitos e personalidade pela rotina); etapa 4 retomada pelo
+safety.
 
 ## Visão geral
 
@@ -14,7 +15,7 @@ microSD, com MCP); etapa 3 começando.
 | 0 | xiaozhi em board customizada NB3 na Waveshare N32R16V | conversa em PT-BR agrada; wake word funciona | **concluída** |
 | 1 | Firmware NB3 próprio: face, emoções, toque, LED | o robô "vive" e conversa | **concluída** |
 | 2 | Vida própria: humor contínuo, estados comportamentais, personalidade e memória local mínima no microSD, com MCP | humor sobrevive ao IDLE; lembra de um fato depois de reiniciar; esquece quando pedido | **concluída**; durações do humor (item 2) em observação no uso |
-| 3 | Arcos, energia, circadiano e iniciativa | reage com sequência e desfecho; desacelera à noite; toma iniciativa sem exagero | não iniciada |
+| 3 | Arcos, energia, circadiano e iniciativa | reage com sequência e desfecho; desacelera à noite; toma iniciativa sem exagero | **implementada**; arcos validados, deslocamento da personalidade e consolidação em observação no uso |
 | 4 | Servos SCS + `motion_safety` + ferramentas MCP de movimento (entrega própria) | olha e acena; safety corta com carga real | **núcleos prontos**; falta a parte que toca o hardware |
 | 5 | Agenda, timers e comportamentos offline como ferramentas do dispositivo | funciona sem nuvem para o que é local | não iniciada |
 | 6 | Corpo/placa carrier com acústica tratada; CoreS3 se AEC fizer falta | só se necessário | não iniciada |
@@ -323,7 +324,7 @@ ausência); sem microSD o robô funciona e avisa.
 
 ---
 
-## Etapa 3 — arcos, energia e iniciativa — não iniciada
+## Etapa 3 — arcos, energia e iniciativa — implementada
 
 Comportamentos do NB2 recuperados como modifiers sobre o árbitro, sem portar
 os núcleos integralmente.
@@ -464,10 +465,14 @@ Entregue:
 
 A fazer:
 
-0. [ ] **Tracking sem progresso**: hoje alvos alternados a cada 500 ms com a
-   posição parada renovam a janela de tracking indefinidamente e o safety
-   fica em OK. Limitar o tempo total sem progresso real da posição, com
-   regressão no host-test. Bloqueia considerar o movimento seguro.
+0. [x] **Tracking sem progresso**: alvos alternados a cada 500 ms com a
+   posição parada renovavam a janela de tracking sem fim. Agora, longe do
+   alvo, a posição precisa andar mais que a tolerância (20) a cada
+   `progress_timeout_ms` (3 s), e alvo novo não reinicia essa janela.
+   Regressão no host-test (alvos alternando com servo parado caem em
+   `stall_tracking` aos 3 s, sem reset) e o caso contrário (servo lento,
+   25 contagens/s, com alvos pulando, segue OK por 6 s); configuração com
+   janela 0 é recusada. 44 testes.
 1. [ ] **Casca da UART** (`hal/`): UART half-duplex nas GPIO 17/18, retiro
    do eco (`nb_scs_echo_len`), flush antes de cada envio, timeout e retentativa.
 2. [ ] **Task de motion**: única dona do barramento; lê feedback dos dois

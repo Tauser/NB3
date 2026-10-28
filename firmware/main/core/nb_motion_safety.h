@@ -61,6 +61,10 @@ typedef struct {
 
     uint16_t track_tolerance;  // |position - goal| within this counts as arrived
     uint32_t track_timeout_ms; // error above tolerance for this long = stalled
+    // Away from the goal, the position must move more than track_tolerance
+    // within this long. New goals do not restart it, so a stream of jumping
+    // goals cannot keep a servo that never moves looking fine.
+    uint32_t progress_timeout_ms;
 
     uint8_t temp_critical_c;   // fault at or above
     uint16_t brownout_mv;      // fault below
@@ -103,6 +107,9 @@ typedef struct {
     uint16_t goal[NB_MOTION_SAFETY_AXIS_COUNT];
     bool track_timer_on[NB_MOTION_SAFETY_AXIS_COUNT];
     uint32_t track_since_ms[NB_MOTION_SAFETY_AXIS_COUNT];
+    bool progress_on[NB_MOTION_SAFETY_AXIS_COUNT];
+    uint16_t progress_ref[NB_MOTION_SAFETY_AXIS_COUNT];  // position at the last real move
+    uint32_t progress_since_ms[NB_MOTION_SAFETY_AXIS_COUNT];
 } nb_motion_safety_t;
 
 // Defaults for the pan/tilt pair on SCS0009 servos (position 0-1023, load 0-1000).
