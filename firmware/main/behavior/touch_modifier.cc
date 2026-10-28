@@ -47,7 +47,10 @@ TouchModifier::TouchModifier(int channel, ExpressionArbiter& arbiter, MoodModifi
     ESP_ERROR_CHECK(touch_sensor_enable(sensor_));
     ESP_ERROR_CHECK(touch_sensor_start_continuous_scanning(sensor_));
 
-    xTaskCreate(TaskEntry, "nb_touch", 3072, this, 4, &task_);
+    if (xTaskCreate(TaskEntry, "nb_touch", 3072, this, 4, &task_) != pdPASS) {
+        task_ = nullptr;
+        ESP_LOGE(TAG, "task not created: the body will not feel touch");
+    }
 }
 
 TouchModifier::~TouchModifier() {

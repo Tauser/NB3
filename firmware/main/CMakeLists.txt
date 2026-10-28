@@ -188,6 +188,12 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
 
     # NB3's own code builds warning-free; xiaozhi sources keep their flags.
     set_source_files_properties(${NB3_SOURCES} PROPERTIES COMPILE_OPTIONS "-Wall;-Wextra;-Werror")
+    # NB3's C is the cores: plain C17, as in the host tests. Source options
+    # come after the IDF's own -std, so this one wins.
+    set(NB3_C_SOURCES ${NB3_SOURCES})
+    list(FILTER NB3_C_SOURCES INCLUDE REGEX "\\.c$")
+    set_source_files_properties(${NB3_C_SOURCES} PROPERTIES
+        COMPILE_OPTIONS "-Wall;-Wextra;-Werror;-std=c17")
 
     # LVGL's builtin pool lives in PSRAM, as in xiaozhi.
     idf_component_get_property(lvgl_lib lvgl__lvgl COMPONENT_LIB)

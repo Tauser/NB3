@@ -161,7 +161,9 @@ PowerCutTest::PowerCutTest(StoreService& store, FaceDisplay* display)
 
 void PowerCutTest::Start() {
 #ifdef NB3_POWER_CUT_TEST
-    xTaskCreate(TaskEntry, "nb_powercut", 6144, this, 2, nullptr);
+    if (xTaskCreate(TaskEntry, "nb_powercut", 6144, this, 2, nullptr) != pdPASS) {
+        ESP_LOGE(TAG, "task not created: no power-cut test");
+    }
 #endif
 }
 

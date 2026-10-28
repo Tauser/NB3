@@ -577,15 +577,19 @@ trilho lógico) e ids conhecidos.
 
 ## Pendências transversais
 
-- [ ] **`fetch_repos.py` aceita mudança extra no upstream**: se o patch
-  reverte limpo, o script retorna sem conferir outras diferenças contra a
-  tag. Comparar com a árvore esperada (tag + patch), incluindo staged e não
-  versionados, com testes de árvore limpa, patch aplicado, patch + mudança
-  extra e patch incompatível.
-- [ ] **Falha de `xTaskCreate` silenciosa** em `touch_modifier.cc` e
-  `mood_lights.cc`: verificar `pdPASS` e registrar falha explícita.
-- [ ] **C17 explícito no build do firmware**: as fontes próprias compilam com
-  `-std=gnu23` herdado do IDF; fixar C17 nelas sem mexer no upstream.
+- [x] **`fetch_repos.py` aceita mudança extra no upstream**: agora monta em
+  índices git descartáveis a árvore esperada (tag + patch) e a real (com
+  staged, não staged e não versionados; ignorados ficam de fora) e exige o
+  mesmo hash, sem tocar no checkout; a falha lista os caminhos diferentes.
+  7 testes com repositórios locais (`tests/test_fetch_repos.py`, no CI):
+  árvore limpa, patch aplicado, edição extra, edição dentro de arquivo do
+  patch, arquivo staged/não versionado, patch incompatível e tag errada.
+  Na árvore real do xiaozhi: "patch already applied".
+- [x] **Falha de `xTaskCreate` silenciosa**: touch, luzes do corpo e as
+  duas bancadas (motion, cortes) conferem `pdPASS` e registram a falha.
+- [x] **C17 explícito no build do firmware**: os `.c` do NB3 (os núcleos)
+  recebem `-std=c17` depois do `-std=gnu23` do IDF, que perde; o C++ e o
+  upstream ficam como estão. Confirmado no `compile_commands.json`.
 - [ ] **AEC com referência por software** (mic e amplificador no mesmo I2S):
   experimento para permitir interromper o robô falando por cima dele.
 - [ ] Mensagens de status que hoje só vão para o log (conexão, verificação de

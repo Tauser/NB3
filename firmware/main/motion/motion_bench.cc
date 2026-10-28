@@ -57,7 +57,9 @@ void Run(void* arg) {
 
 void StartMotionBench(MotionService& motion) {
 #ifdef NB3_MOTION_BENCH
-    xTaskCreate(Run, "nb_motion_bench", 3072, &motion, 2, nullptr);
+    if (xTaskCreate(Run, "nb_motion_bench", 3072, &motion, 2, nullptr) != pdPASS) {
+        ESP_LOGE(TAG, "task not created: no bench moves");
+    }
 #else
     (void)motion;
 #endif

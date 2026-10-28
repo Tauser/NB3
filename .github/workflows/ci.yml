@@ -18,6 +18,8 @@ jobs:
           cmake --build build-host-tests
       - name: Run host tests
         run: ctest --test-dir build-host-tests --output-on-failure
+      - name: Test fetch_repos.py (tag + patch, nothing else)
+        run: python3 firmware/tests/test_fetch_repos.py -v
 
   firmware:
     runs-on: ubuntu-latest

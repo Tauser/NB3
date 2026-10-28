@@ -31,7 +31,10 @@ MoodLights::MoodLights(gpio_num_t gpio, uint32_t count, uint8_t max_brightness,
     ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip_cfg, &rmt_cfg, &strip_));
     led_strip_clear(strip_);
 
-    xTaskCreate(TaskEntry, "nb_mood", 3072, this, 3, &task_);
+    if (xTaskCreate(TaskEntry, "nb_mood", 3072, this, 3, &task_) != pdPASS) {
+        task_ = nullptr;
+        ESP_LOGE(TAG, "task not created: the body lights stay off");
+    }
 }
 
 MoodLights::~MoodLights() {
