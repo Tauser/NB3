@@ -10,6 +10,7 @@
 #include "behavior/expression_arbiter.h"
 #include "behavior/head_behavior.h"
 #include "behavior/link_monitor.h"
+#include "behavior/sound_bank.h"
 #include "core/nb_reminder.h"
 #include "face/face_display.h"
 #include "memory/clock_service.h"
@@ -23,7 +24,7 @@
 class ReminderService {
 public:
     ReminderService(ClockService& clock, ExpressionArbiter& arbiter, FaceDisplay* display,
-                    HeadBehavior& head, const LinkMonitor& link);
+                    HeadBehavior& head, const LinkMonitor& link, SoundBank& sounds);
     ~ReminderService();
 
     ReminderService(const ReminderService&) = delete;
@@ -50,6 +51,7 @@ private:
     FaceDisplay* display_;
     HeadBehavior& head_;
     const LinkMonitor& link_;
+    SoundBank& sounds_;
     std::mutex mutex_;
     nb_reminders_t reminders_;
     TaskHandle_t task_ = nullptr;

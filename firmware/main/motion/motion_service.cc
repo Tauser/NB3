@@ -31,8 +31,11 @@ bool Reached(uint32_t now, uint32_t due) {
 
 }  // namespace
 
-MotionService::MotionService(uint8_t pan_id, uint8_t tilt_id, ExpressionArbiter* arbiter)
-    : bus_(SERVO_UART_PORT, SERVO_UART_TX, SERVO_UART_RX, SERVO_UART_BAUD), arbiter_(arbiter) {
+MotionService::MotionService(uint8_t pan_id, uint8_t tilt_id, ExpressionArbiter* arbiter,
+                             SoundBank* sounds)
+    : bus_(SERVO_UART_PORT, SERVO_UART_TX, SERVO_UART_RX, SERVO_UART_BAUD),
+      arbiter_(arbiter),
+      sounds_(sounds) {
     ids_[NB_MOTION_SAFETY_AXIS_PAN] = pan_id;
     ids_[NB_MOTION_SAFETY_AXIS_TILT] = tilt_id;
     const nb_motion_safety_cfg_t cfg = nb_motion_safety_default_cfg();
@@ -378,6 +381,9 @@ void MotionService::Run() {
                     // A start, not a mood: the face says it, then the robot goes on.
                     nb_proposal_t dizzy = {NB_EXPR_DIZZY, priority::kFault, kFaultFaceMs, false};
                     arbiter_->Propose(NB_SOURCE_REFLEX, dizzy);
+                }
+                if (sounds_ != nullptr) {
+                    sounds_->Play(SoundBank::kSafetyStop);
                 }
             }
             relax_asked_ = false;

@@ -10,6 +10,7 @@
 #include "behavior/link_monitor.h"
 #include "behavior/personality_drift.h"
 #include "behavior/reminder_service.h"
+#include "behavior/sound_bank.h"
 #include "mcp/reminder_tools.h"
 #include "mcp/head_tools.h"
 #include "motion/motion_bench.h"
@@ -224,8 +225,10 @@ public:
             });
         // Without a card: warn at boot, again at the first retry (the boot
         // notices tend to cover the first one), then every few minutes.
+        static SoundBank sounds(store_);
         store_.SetListener([this](bool available) {
             memory_.OnCard(available);
+            sounds.OnCard(available);
             if (available) {
                 missing_notices_ = 0;
                 return;
@@ -243,14 +246,14 @@ public:
         static PowerCutTest power_cut(store_, display_);  // bench builds only
         power_cut.Start();
         static ArcModifier arcs(arbiter_, behavior_, mood_, energy, display_);
-        static MotionService motion(SERVO_ID_PAN, SERVO_ID_TILT, &arbiter_);
+        static MotionService motion(SERVO_ID_PAN, SERVO_ID_TILT, &arbiter_, &sounds);
         static HeadBehavior head(motion, display_, behavior_, energy);
         RegisterHeadTools(motion, head);
         StartMotionBench(motion);  // bench builds only
         static TouchModifier touch(BODY_TOUCH_CHANNEL, arbiter_, mood_, behavior_, memory_, arcs,
                                    head);
-        static LinkMonitor link(display_);
-        static ReminderService reminders(clock_, arbiter_, display_, head, link);
+        static LinkMonitor link(display_, &sounds);
+        static ReminderService reminders(clock_, arbiter_, display_, head, link, sounds);
         RegisterReminderTools(reminders);
         static MoodLights mood_lights(MOOD_LED_GPIO, MOOD_LED_COUNT, MOOD_LED_MAX_BRIGHTNESS,
                                       arbiter_);

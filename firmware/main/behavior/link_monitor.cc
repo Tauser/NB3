@@ -27,7 +27,8 @@ bool WifiUp() {
 
 }  // namespace
 
-LinkMonitor::LinkMonitor(FaceDisplay* display) : display_(display) {
+LinkMonitor::LinkMonitor(FaceDisplay* display, SoundBank* sounds)
+    : display_(display), sounds_(sounds) {
     nb_link_init(&link_, NowMs());
     if (display_ != nullptr) {
         errors_seen_ = display_->ErrorsSeen();
@@ -91,6 +92,9 @@ void LinkMonitor::Tick() {
         if (link_.state == NB_LINK_ONLINE) {
             if (offline_announced_) {
                 Announce(NB_LINK_ONLINE);
+                if (sounds_ != nullptr) {
+                    sounds_->Play(SoundBank::kOnline);
+                }
             }
             offline_announced_ = false;
             offline_notices_ = 0;
@@ -104,6 +108,9 @@ void LinkMonitor::Tick() {
         const uint32_t gap = offline_notices_ < 2 ? kRepeatMs : kReminderMs;
         if (offline_notices_ == 0 || now - last_notice_ms_ >= gap) {
             Announce(link_.state);
+            if (offline_notices_ == 0 && sounds_ != nullptr) {
+                sounds_->Play(SoundBank::kOffline);  // once: the repeats are silent
+            }
             offline_notices_++;
             offline_announced_ = true;
             last_notice_ms_ = now;

@@ -9,6 +9,7 @@
 #include <freertos/task.h>
 
 #include "behavior/expression_arbiter.h"
+#include "behavior/sound_bank.h"
 #include "core/nb_head_gesture.h"
 #include "core/nb_motion_safety.h"
 #include "core/nb_scs.h"
@@ -31,7 +32,7 @@
 //   asked and the safety agrees the cause is gone.
 class MotionService {
 public:
-    MotionService(uint8_t pan_id, uint8_t tilt_id, ExpressionArbiter* arbiter);
+    MotionService(uint8_t pan_id, uint8_t tilt_id, ExpressionArbiter* arbiter, SoundBank* sounds);
     ~MotionService();
 
     MotionService(const MotionService&) = delete;
@@ -86,6 +87,7 @@ private:
 
     ScsBus bus_;
     ExpressionArbiter* arbiter_;
+    SoundBank* sounds_;
     uint8_t ids_[NB_MOTION_SAFETY_AXIS_COUNT];
     nb_head_geometry_t geometry_;
     std::mutex mutex_;  // pending_plan_, status_

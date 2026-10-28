@@ -26,6 +26,7 @@ constexpr const char* kDir = "/sdcard/noise";  // personalidade.ini, read only
 constexpr const char* kSlotDirs[2] = {"/sdcard/noise/slot_a", "/sdcard/noise/slot_b"};
 constexpr const char* kLogDir = "/sdcard/noise/log";
 constexpr const char* kProbeDir = "/sdcard/noise/teste";
+constexpr const char* kSoundDir = "/sdcard/noise/sons";  // the user's own sounds, read only
 // While the card is missing, mounting is retried this often.
 constexpr TickType_t kRetryTicks = pdMS_TO_TICKS(30000);
 // Fixed file sizes (core/nb_store): a slot fits the memory snapshot (96 KB of
@@ -276,7 +277,7 @@ bool StoreService::Mount() {
                  esp_err_to_name(err), static_cast<unsigned long>(pdTICKS_TO_MS(kRetryTicks) / 1000));
         return false;
     }
-    for (const char* dir : {kDir, kSlotDirs[0], kSlotDirs[1], kLogDir, kProbeDir}) {
+    for (const char* dir : {kDir, kSlotDirs[0], kSlotDirs[1], kLogDir, kProbeDir, kSoundDir}) {
         if (mkdir(dir, 0775) != 0 && errno != EEXIST) {
             Fail("mkdir");
             return false;
@@ -403,6 +404,10 @@ bool StoreService::ReadText(const char* name, std::string* out) {
         out->assign(bytes.begin(), bytes.end());
         return true;
     });
+}
+
+bool StoreService::ReadBytes(const char* name, std::vector<uint8_t>* out, long max_bytes) {
+    return Do([name, out, max_bytes]() { return ReadFile(PathOf(name), out, max_bytes); });
 }
 
 bool StoreService::ReadSlot(const char* record, std::vector<uint8_t>* payload,

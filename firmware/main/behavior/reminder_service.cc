@@ -7,7 +7,6 @@
 #include <nvs.h>
 
 #include "application.h"
-#include "assets/lang_config.h"
 
 #define TAG "Reminder"
 
@@ -36,8 +35,10 @@ std::string LateText(int64_t late_s) {
 }  // namespace
 
 ReminderService::ReminderService(ClockService& clock, ExpressionArbiter& arbiter,
-                                 FaceDisplay* display, HeadBehavior& head, const LinkMonitor& link)
-    : clock_(clock), arbiter_(arbiter), display_(display), head_(head), link_(link) {
+                                 FaceDisplay* display, HeadBehavior& head, const LinkMonitor& link,
+                                 SoundBank& sounds)
+    : clock_(clock), arbiter_(arbiter), display_(display), head_(head), link_(link),
+      sounds_(sounds) {
     nb_reminders_init(&reminders_);
     Load();
     // Room for the fired list and the encoded blob on the stack.
@@ -110,7 +111,7 @@ void ReminderService::Ring(const nb_reminder_fired_t& fired) {
         display_->ShowNotification(std::string("Lembrete: ") + fired.text, kBannerMs);
     }
     auto& app = Application::GetInstance();
-    app.PlaySound(Lang::Sounds::OGG_POPUP);
+    sounds_.Play(SoundBank::kReminder);
     // Online and quiet: the AI says it. Otherwise the sound and the banner
     // are the reminder (a try offline would only cover it with an error).
     if (link_.Online() && app.GetDeviceState() == kDeviceStateIdle) {

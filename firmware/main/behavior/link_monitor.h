@@ -6,6 +6,7 @@
 
 #include <esp_timer.h>
 
+#include "behavior/sound_bank.h"
 #include "core/nb_link.h"
 #include "face/face_display.h"
 
@@ -17,7 +18,7 @@
 // The rest of the robot lives the same either way.
 class LinkMonitor {
 public:
-    explicit LinkMonitor(FaceDisplay* display);
+    LinkMonitor(FaceDisplay* display, SoundBank* sounds);
     ~LinkMonitor();
 
     LinkMonitor(const LinkMonitor&) = delete;
@@ -33,6 +34,7 @@ private:
     void Announce(nb_link_state_t state);
 
     FaceDisplay* display_;
+    SoundBank* sounds_;
     std::atomic<int> state_{NB_LINK_STARTING};
     // esp_timer task only.
     nb_link_t link_;

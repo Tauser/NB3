@@ -37,6 +37,9 @@ public:
 
     // A small text file in the memory folder, e.g. the personality.
     bool ReadText(const char* name, std::string* out);
+    // A file in the memory folder ("sons/lembrete.ogg"), refused above
+    // max_bytes. Not from the store task itself (the listener).
+    bool ReadBytes(const char* name, std::vector<uint8_t>* out, long max_bytes);
 
     // Loads the newest valid of the two slots of a record.
     bool ReadSlot(const char* record, std::vector<uint8_t>* payload, nb_slot_info_t* info);
