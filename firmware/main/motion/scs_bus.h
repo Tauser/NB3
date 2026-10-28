@@ -32,6 +32,8 @@ public:
     bool ReadFeedback(uint8_t id, nb_scs_feedback_t* fb, uint8_t* error);
     // Only after nb_motion_safety_torque_allowed() said yes.
     bool WriteTorque(uint8_t id, bool enable);
+    // Only after nb_motion_safety_command() accepted the position.
+    bool WriteGoal(const nb_scs_goal_t& goal);
     bool ReadTorque(uint8_t id, bool* enabled);
 
     uint32_t timeouts() const { return timeouts_; }

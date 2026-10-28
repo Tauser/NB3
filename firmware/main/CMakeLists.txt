@@ -180,6 +180,11 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
     if(NB3_POWER_CUT_TEST)
         target_compile_definitions(${COMPONENT_LIB} PRIVATE NB3_POWER_CUT_TEST=1)
     endif()
+    # Bench build only (idf.py -DNB3_MOTION_BENCH=1 build): the servos run a
+    # small repeating look-around under motion_safety (motion/motion_bench).
+    if(NB3_MOTION_BENCH)
+        target_compile_definitions(${COMPONENT_LIB} PRIVATE NB3_MOTION_BENCH=1)
+    endif()
 
     # NB3's own code builds warning-free; xiaozhi sources keep their flags.
     set_source_files_properties(${NB3_SOURCES} PROPERTIES COMPILE_OPTIONS "-Wall;-Wextra;-Werror")

@@ -108,6 +108,13 @@ bool ScsBus::WriteTorque(uint8_t id, bool enable) {
     return n > 0 && Transact(tx, n, id, &resp);
 }
 
+bool ScsBus::WriteGoal(const nb_scs_goal_t& goal) {
+    uint8_t tx[NB_SCS_FRAME_MAX];
+    const size_t n = nb_scs_build_goal(tx, sizeof(tx), &goal);
+    nb_scs_response_t resp;
+    return n > 0 && Transact(tx, n, goal.id, &resp);
+}
+
 bool ScsBus::ReadTorque(uint8_t id, bool* enabled) {
     uint8_t tx[NB_SCS_FRAME_MAX];
     const size_t n = nb_scs_build_read(tx, sizeof(tx), id, NB_SCS_REG_TORQUE_ENABLE, 1);
