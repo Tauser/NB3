@@ -30,8 +30,9 @@ public:
     // From the MCP tools.
     void OnAiMove();
     void OnAiRelax();
-    // From the touch.
+    // From the touch, and a reminder ringing: a small nod.
     void OnTap();
+    void OnAlert() { OnTap(); }
     void SetPetting(bool petting) { petting_ = petting; }
 
 private:
