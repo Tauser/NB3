@@ -482,11 +482,19 @@ A fazer:
 2. [~] **Task de motion** (`motion/motion_service`): única dona do
    barramento; acha os servos (varre o barramento se um id não responde), lê
    posição, carga, tensão e temperatura dos dois a 20 Hz, alimenta o safety
-   e faz heartbeat. **Só escuta por enquanto:** o safety nunca é armado e
-   nenhum goal ou torque é escrito. Em bancada: pan 506, tilt 511, 5,1–5,2 V,
-   23 °C, carga 0. Falta: armar, escrever goals aceitos pelo veto e, em
-   FAULT, torque off e expressão de falha no árbitro.
-3. [ ] **Calibração em bancada**: graus por contagem (0,3125 do StackChan ou
+   e faz heartbeat. No boot solta o torque (o safety veta torque também:
+   soltar sempre pode, segurar só armado) e confirma relendo o registro.
+   Qualquer task pede um goal; o primeiro arma o safety com leituras
+   frescas, pré-carrega o goal de cada servo onde ele já está (nada pula) e
+   só então liga o torque; todo goal passa pelo veto; FAULT solta os dois
+   até o reboot. O firmware normal não pede goal: a cabeça fica solta. Build
+   de bancada `NB3_MOTION_BENCH` faz uma olhada pequena em volta. Em
+   bancada, com os servos sem a cabeça: armou segurando onde estava (pan
+   513, tilt 512), pan foi a 460 e 564 e tilt a 479 e 543 e voltaram, ~16
+   rodadas sem FAULT nem leitura perdida. Falta: expressão de falha no
+   árbitro e um jeito de sair do FAULT sem reboot.
+3. [ ] **Calibração em bancada** (espera a cabeça montada; até lá valem os
+   limites provisórios pan 410–614, tilt 461–563): graus por contagem (0,3125 do StackChan ou
    0,293 da especificação), centro e limites reais de pan e tilt, e os
    limiares novos (tensão 4,5–6,5 V, rastreamento 20 contagens/1,5 s,
    feedback 300 ms).
@@ -495,8 +503,14 @@ A fazer:
    safety; a ferramenta responde ao LLM quando o safety recusa.
 5. [ ] **Comportamentos**: olhar acompanhando a coreografia do avatar,
    reação ao toque com movimento.
-6. [ ] **Prova com carga real**: segurar a cabeça com a mão e ver o safety
-   cortar e travar; reset só depois de soltar.
+6. [~] **Prova com carga real**: segurar a cabeça com a mão e ver o safety
+   cortar e travar; reset só depois de soltar. Com os servos sem a cabeça:
+   o braço do pan segurado no caminho para 460 parou em 486 (carga 420) e
+   o safety cortou por `stall_tracking` 1,6 s depois do pedido, soltando os
+   dois; o braço ficou livre na mão e a bancada parou. Um empurrão menor no
+   tilt (14 contagens fora, carga 240 por 10 s, temperatura de 25 para
+   28 °C) ficou abaixo dos dois limites: rever tolerância ou limite de
+   carga média na calibração. Falta: repetir com a cabeça montada e o reset.
 
 Pré-requisito do usuário: servos ligados na placa (alimentação separada do
 trilho lógico) e ids conhecidos.
