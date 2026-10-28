@@ -579,7 +579,16 @@ trilho lógico) e ids conhecidos.
   5 min, e diz "Conectado de novo" na volta; lembrete tocado offline não
   tenta passar o texto à IA. 5 host-tests. No boot: "starting -> online"
   logo depois do IP. Falta ver: o roteador desligado e religado.
-- [ ] Sons locais no microSD (o SD em si entra na etapa 2).
+- [~] **Sons locais no microSD** (`behavior/sound_bank`): lembrete, sem
+  internet, conectado de novo e parada de segurança têm som embutido; um
+  OGG Opus de até 64 KB em `noise/sons/` (`lembrete.ogg`,
+  `sem_internet.ogg`, `conectado.ogg`, `parada.ogg`) o substitui. Lidos ao
+  montar o cartão numa task própria e mantidos em memória (o aviso nunca
+  espera o cartão); faltando ou não sendo OGG ("OggS" no começo), toca o
+  embutido. A pasta `sons/` é criada na montagem. O som de sem internet toca
+  só no primeiro aviso. Gravado com boot limpo. Falta ver: um arquivo do
+  usuário tocando num lembrete. Para gerar um:
+  `ffmpeg -i entrada.mp3 -c:a libopus -ar 16000 -ac 1 -frame_duration 60 saida.ogg`.
 
 ---
 

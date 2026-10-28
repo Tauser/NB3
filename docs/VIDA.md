@@ -394,7 +394,8 @@ depende de rename:
   `memory/store_service` (task única dona do cartão; os outros pedem e
   esperam). Arquivos em `/sdcard/noise/`: `slot_a/<registro>.bin` e
   `slot_b/<registro>.bin` para os slots, `log/<log>` para os quadros,
-  `personalidade.ini` sozinho para a personalidade. Cada montagem grava e
+  `personalidade.ini` sozinho para a personalidade, `sons/` com os sons do
+  usuário (só lidos, ver ROADMAP etapa 5). Cada montagem grava e
   relê um slot em `teste/`, que alterna A/B entre boots.
 - **FAT intocada nas gravações:** cortes de energia em bancada estragaram
   um arquivo que o firmware nunca escreve (o `.ini`), porque cada gravação
