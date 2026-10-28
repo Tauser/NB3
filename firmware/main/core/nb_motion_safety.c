@@ -243,6 +243,16 @@ bool nb_motion_safety_torque_allowed(nb_motion_safety_t *ms, bool enable, uint32
     return ms->state == NB_MOTION_SAFETY_STATE_OK;
 }
 
+void nb_motion_safety_released(nb_motion_safety_t *ms) {
+    if (ms == NULL) {
+        return;
+    }
+    memset(ms->goal_valid, 0, sizeof(ms->goal_valid));
+    memset(ms->track_timer_on, 0, sizeof(ms->track_timer_on));
+    memset(ms->progress_on, 0, sizeof(ms->progress_on));
+    memset(ms->cond_track, 0, sizeof(ms->cond_track));
+}
+
 void nb_motion_safety_trip(nb_motion_safety_t *ms, nb_motion_safety_fault_t reason,
                            nb_motion_safety_axis_t axis) {
     if (ms == NULL || reason == NB_MOTION_SAFETY_FAULT_NONE) {

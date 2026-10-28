@@ -541,6 +541,51 @@ static void test_reset_refused_while_overloaded_or_not_tracking(void) {
     NB_CHECK(nb_motion_safety_reset_fault(&ms, 1800));
 }
 
+// After a tracking fault the servo is let go; held away by a hand it never
+// reaches the old goal again, so releasing drops the goal instead.
+static void test_released_servos_can_be_reset_after_a_tracking_fault(void) {
+    nb_motion_safety_t ms;
+    make_armed(&ms);
+    nb_motion_safety_feedback_t fb = good_fb();
+    fb.position = 450;
+    nb_motion_safety_command(&ms, PAN, 500, 0);
+    nb_motion_safety_update(&ms, PAN, &fb, 0);
+    nb_motion_safety_update(&ms, TILT, &fb, 0);
+    nb_motion_safety_update(&ms, PAN, &fb, 1500);
+    expect_fault(&ms, NB_MOTION_SAFETY_FAULT_STALL_TRACKING, PAN);
+    NB_CHECK(!nb_motion_safety_reset_fault(&ms, 1600));
+
+    nb_motion_safety_released(&ms);
+    fb.position = 420;  // moved further by hand, free
+    nb_motion_safety_update(&ms, PAN, &fb, 1700);
+    nb_motion_safety_update(&ms, TILT, &fb, 1700);
+    NB_CHECK(nb_motion_safety_reset_fault(&ms, 1800));
+    nb_motion_safety_update(&ms, PAN, &fb, 1800);  // a reset wants fresh readings
+    nb_motion_safety_update(&ms, TILT, &fb, 1800);
+    NB_CHECK(nb_motion_safety_arm(&ms, 1800));
+    // Still blocked: the next goal finds it again.
+    NB_CHECK_EQ_INT(NB_MOTION_SAFETY_CMD_OK, nb_motion_safety_command(&ms, PAN, 500, 1800));
+    uint32_t t = 1800;
+    for (; t <= 4000 && nb_motion_safety_can_move(&ms); t += 100) {
+        nb_motion_safety_heartbeat(&ms, t);
+        nb_motion_safety_update(&ms, TILT, &fb, t);
+        nb_motion_safety_update(&ms, PAN, &fb, t);
+    }
+    NB_CHECK_EQ_INT(3300, t - 100);
+    expect_fault(&ms, NB_MOTION_SAFETY_FAULT_STALL_TRACKING, PAN);
+}
+
+static void test_releasing_does_not_excuse_heat_or_load(void) {
+    nb_motion_safety_t ms;
+    make_armed(&ms);
+    nb_motion_safety_feedback_t fb = good_fb();
+    fb.temp_c = 80;
+    nb_motion_safety_update(&ms, PAN, &fb, 10);
+    nb_motion_safety_released(&ms);
+    NB_CHECK(!nb_motion_safety_reset_fault(&ms, 20));
+    nb_motion_safety_released(NULL);  // safe
+}
+
 static void test_heartbeat_fault_reset_needs_live_heartbeat(void) {
     nb_motion_safety_t ms;
     make_armed(&ms);
@@ -680,6 +725,8 @@ int main(void) {
     NB_RUN(test_alternating_goals_do_not_hide_a_servo_that_never_moves);
     NB_RUN(test_a_servo_on_its_way_keeps_making_progress);
     NB_RUN(test_torque_release_is_always_allowed_holding_needs_arming);
+    NB_RUN(test_released_servos_can_be_reset_after_a_tracking_fault);
+    NB_RUN(test_releasing_does_not_excuse_heat_or_load);
     NB_RUN(test_heartbeat_timeout_faults);
     NB_RUN(test_heartbeat_refreshes_the_deadline);
     NB_RUN(test_arm_counts_as_first_heartbeat);

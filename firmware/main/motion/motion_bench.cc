@@ -24,7 +24,15 @@ constexpr uint32_t kHoldMs = 20000;
 void Run(void* arg) {
     auto& motion = *static_cast<MotionService*>(arg);
     vTaskDelay(pdMS_TO_TICKS(10000));
-    for (int round = 1; motion.State() != NB_MOTION_SAFETY_STATE_FAULT; round++) {
+    for (int round = 1;; round++) {
+        if (motion.State() == NB_MOTION_SAFETY_STATE_FAULT) {
+            ESP_LOGW(TAG, "stopped: %s; waiting for self.head.recover",
+                     nb_motion_safety_fault_name(motion.Fault()));
+            while (motion.State() == NB_MOTION_SAFETY_STATE_FAULT) {
+                vTaskDelay(pdMS_TO_TICKS(500));
+            }
+            ESP_LOGI(TAG, "recovered: going on");
+        }
         ESP_LOGI(TAG, "round %d", round);
         for (const Step& s : kSteps) {
             if (motion.State() == NB_MOTION_SAFETY_STATE_FAULT) {
@@ -39,8 +47,6 @@ void Run(void* arg) {
                  static_cast<unsigned long>(kHoldMs / 1000));
         vTaskDelay(pdMS_TO_TICKS(kHoldMs));
     }
-    ESP_LOGW(TAG, "stopped: %s", nb_motion_safety_fault_name(motion.Fault()));
-    vTaskDelete(nullptr);
 }
 
 }  // namespace

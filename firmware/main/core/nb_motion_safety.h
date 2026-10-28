@@ -150,6 +150,12 @@ nb_motion_safety_cmd_result_t nb_motion_safety_command(nb_motion_safety_t *ms,
 // armed, as a goal does.
 bool nb_motion_safety_torque_allowed(nb_motion_safety_t *ms, bool enable, uint32_t now_ms);
 
+// The shell released the torque of every servo: no goal is held any more, so
+// not reaching one stops being a condition (a free servo never gets back to
+// it on its own, and the next goal checks the way again). Temperature,
+// voltage and load still have to clear before a reset.
+void nb_motion_safety_released(nb_motion_safety_t *ms);
+
 // Saturates a position into the axis limits. Returns the input for a bad axis or
 // NULL instance, which command() then refuses.
 uint16_t nb_motion_safety_clamp_position(const nb_motion_safety_t *ms,

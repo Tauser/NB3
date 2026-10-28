@@ -13,6 +13,7 @@ namespace {
 
 constexpr uint32_t kPeriodMs = 50;
 constexpr uint32_t kLogPeriodMs = 5000;
+constexpr uint32_t kFaultFaceMs = 3000;
 
 uint32_t NowMs() {
     return static_cast<uint32_t>(esp_timer_get_time() / 1000);
@@ -24,8 +25,8 @@ const char* AxisName(int axis) {
 
 }  // namespace
 
-MotionService::MotionService(uint8_t pan_id, uint8_t tilt_id)
-    : bus_(SERVO_UART_PORT, SERVO_UART_TX, SERVO_UART_RX, SERVO_UART_BAUD) {
+MotionService::MotionService(uint8_t pan_id, uint8_t tilt_id, ExpressionArbiter* arbiter)
+    : bus_(SERVO_UART_PORT, SERVO_UART_TX, SERVO_UART_RX, SERVO_UART_BAUD), arbiter_(arbiter) {
     ids_[NB_MOTION_SAFETY_AXIS_PAN] = pan_id;
     ids_[NB_MOTION_SAFETY_AXIS_TILT] = tilt_id;
     const nb_motion_safety_cfg_t cfg = nb_motion_safety_default_cfg();
@@ -98,17 +99,78 @@ void MotionService::LogReadings() {
 
 // Servos power up holding their position. Until the safety is armed the head
 // is left free, which is also what lets it be moved by hand to calibrate.
-void MotionService::Relax() {
+// Only a release confirmed on both servos tells the safety no goal is held.
+bool MotionService::Relax() {
+    bool all_free = true;
     for (int a = 0; a < NB_MOTION_SAFETY_AXIS_COUNT; a++) {
         if (!nb_motion_safety_torque_allowed(&safety_, false, NowMs())) {
+            all_free = false;
             continue;
         }
         const bool written = bus_.WriteTorque(ids_[a], false);
         bool enabled = true;
         const bool read = bus_.ReadTorque(ids_[a], &enabled);
+        const bool free = written && read && !enabled;
+        all_free = all_free && free;
         ESP_LOGI(TAG, "%s torque off: %s", AxisName(a),
                  !written ? "write failed" : !read ? "not confirmed" : enabled ? "still on" : "free");
     }
+    if (all_free) {
+        nb_motion_safety_released(&safety_);
+    }
+    return all_free;
+}
+
+MotionService::Status MotionService::Read() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return status_;
+}
+
+MotionService::RecoverResult MotionService::Recover() {
+    recover_result_ = kRecoverPending;
+    recover_asked_ = true;
+    for (int i = 0; i < 50 && recover_result_ == kRecoverPending; i++) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    const int r = recover_result_.exchange(kRecoverPending);
+    return r == kRecoverPending ? RecoverResult::kNoAnswer : static_cast<RecoverResult>(r);
+}
+
+void MotionService::HandleRecover(uint32_t now_ms) {
+    if (!recover_asked_.exchange(false)) {
+        return;
+    }
+    if (nb_motion_safety_get_state(&safety_) != NB_MOTION_SAFETY_STATE_FAULT) {
+        recover_result_ = static_cast<int>(RecoverResult::kNotFaulted);
+        return;
+    }
+    const nb_motion_safety_fault_t was = nb_motion_safety_get_fault(&safety_);
+    if (!nb_motion_safety_reset_fault(&safety_, now_ms)) {
+        ESP_LOGW(TAG, "recover refused: %s still present", nb_motion_safety_fault_name(was));
+        recover_result_ = static_cast<int>(RecoverResult::kRefused);
+        return;
+    }
+    ESP_LOGI(TAG, "recovered from %s: the next goal arms again", nb_motion_safety_fault_name(was));
+    fault_logged_ = false;
+    recover_result_ = static_cast<int>(RecoverResult::kRecovered);
+}
+
+void MotionService::PublishStatus() {
+    Status s;
+    s.state = nb_motion_safety_get_state(&safety_);
+    s.fault = nb_motion_safety_get_fault(&safety_);
+    s.fault_axis = nb_motion_safety_get_fault_axis(&safety_);
+    for (int a = 0; a < NB_MOTION_SAFETY_AXIS_COUNT; a++) {
+        s.answering[a] = seen_[a] && misses_[a] == last_misses_[a];
+        s.position[a] = last_[a].position;
+        s.temperature_c[a] = last_[a].temperature_c;
+        s.voltage_mv[a] = static_cast<uint16_t>(nb_scs_voltage_mv(last_[a].voltage_dv));
+        last_misses_[a] = misses_[a];
+    }
+    state_ = s.state;
+    fault_ = s.fault;
+    std::lock_guard<std::mutex> lock(mutex_);
+    status_ = s;
 }
 
 void MotionService::RequestGoal(nb_motion_safety_axis_t axis, uint16_t position,
@@ -205,7 +267,7 @@ void MotionService::ApplyGoals(uint32_t now_ms) {
 
 void MotionService::Run() {
     FindServos();
-    Relax();
+    torque_on_ = !Relax();
     uint32_t last_log = NowMs();
     TickType_t wake = xTaskGetTickCount();
     while (true) {
@@ -235,21 +297,28 @@ void MotionService::Run() {
         nb_motion_safety_tick(&safety_, now);
         if (nb_motion_safety_get_state(&safety_) == NB_MOTION_SAFETY_STATE_FAULT) {
             if (torque_on_) {
-                Relax();
-                torque_on_ = false;
+                torque_on_ = !Relax();  // tried again every cycle until both are free
             }
             if (!fault_logged_) {
                 fault_logged_ = true;
-                ESP_LOGE(TAG, "FAULT %s on %s: servos released until a reboot",
+                ESP_LOGE(TAG, "FAULT %s on %s: servos released until recovered",
                          nb_motion_safety_fault_name(nb_motion_safety_get_fault(&safety_)),
                          AxisName(nb_motion_safety_get_fault_axis(&safety_)));
                 LogReadings();
+                if (arbiter_ != nullptr) {
+                    // A start, not a mood: the face says it, then the robot goes on.
+                    nb_proposal_t dizzy = {NB_EXPR_DIZZY, priority::kFault, kFaultFaceMs, false};
+                    arbiter_->Propose(NB_SOURCE_REFLEX, dizzy);
+                }
+            }
+            if (!torque_on_) {
+                HandleRecover(now);
             }
         } else {
+            HandleRecover(now);
             ApplyGoals(now);
         }
-        state_ = nb_motion_safety_get_state(&safety_);
-        fault_ = nb_motion_safety_get_fault(&safety_);
+        PublishStatus();
         if (now - last_log >= kLogPeriodMs) {
             LogReadings();
             last_log = now;
