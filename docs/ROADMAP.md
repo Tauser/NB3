@@ -491,8 +491,18 @@ A fazer:
    de bancada `NB3_MOTION_BENCH` faz uma olhada pequena em volta. Em
    bancada, com os servos sem a cabeça: armou segurando onde estava (pan
    513, tilt 512), pan foi a 460 e 564 e tilt a 479 e 543 e voltaram, ~16
-   rodadas sem FAULT nem leitura perdida. Falta: expressão de falha no
-   árbitro e um jeito de sair do FAULT sem reboot.
+   rodadas sem FAULT nem leitura perdida. Em FAULT a face fica tonta por
+   3 s (fonte `REFLEX`, prioridade `kFault`). Com os dois servos confirmados
+   soltos o safety esquece os goals (`nb_motion_safety_released`), então um
+   `stall_tracking` pode ser liberado enquanto calor, tensão e carga ainda
+   bloqueiam; `self.head.status` explica a parada em palavras e
+   `self.head.recover` pede a liberação, que o safety recusa se a causa
+   persiste. Servo solto girado à mão para fora da faixa não arma (sem
+   FAULT) até ser posto de volta, e o status diz qual. Em bancada: pan
+   segurado → `stall_tracking` → face tonta; "por que sua cabeça parou?" →
+   a IA leu o status e explicou; "já soltei" → recover aceito; o pan tinha
+   ficado em 342, a próxima armação esperou até ele voltar e armou sozinha
+   em 518.
 3. [ ] **Calibração em bancada** (espera a cabeça montada; até lá valem os
    limites provisórios pan 410–614, tilt 461–563): graus por contagem (0,3125 do StackChan ou
    0,293 da especificação), centro e limites reais de pan e tilt, e os
@@ -510,7 +520,8 @@ A fazer:
    dois; o braço ficou livre na mão e a bancada parou. Um empurrão menor no
    tilt (14 contagens fora, carga 240 por 10 s, temperatura de 25 para
    28 °C) ficou abaixo dos dois limites: rever tolerância ou limite de
-   carga média na calibração. Falta: repetir com a cabeça montada e o reset.
+   carga média na calibração. Reset validado (recover pela IA, item 2).
+   Falta: repetir com a cabeça montada.
 
 Pré-requisito do usuário: servos ligados na placa (alimentação separada do
 trilho lógico) e ids conhecidos.
