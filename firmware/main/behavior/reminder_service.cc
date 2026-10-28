@@ -36,8 +36,8 @@ std::string LateText(int64_t late_s) {
 }  // namespace
 
 ReminderService::ReminderService(ClockService& clock, ExpressionArbiter& arbiter,
-                                 FaceDisplay* display, HeadBehavior& head)
-    : clock_(clock), arbiter_(arbiter), display_(display), head_(head) {
+                                 FaceDisplay* display, HeadBehavior& head, const LinkMonitor& link)
+    : clock_(clock), arbiter_(arbiter), display_(display), head_(head), link_(link) {
     nb_reminders_init(&reminders_);
     Load();
     // Room for the fired list and the encoded blob on the stack.
@@ -112,8 +112,8 @@ void ReminderService::Ring(const nb_reminder_fired_t& fired) {
     auto& app = Application::GetInstance();
     app.PlaySound(Lang::Sounds::OGG_POPUP);
     // Online and quiet: the AI says it. Otherwise the sound and the banner
-    // are the reminder.
-    if (app.GetDeviceState() == kDeviceStateIdle) {
+    // are the reminder (a try offline would only cover it with an error).
+    if (link_.Online() && app.GetDeviceState() == kDeviceStateIdle) {
         app.WakeWordInvoke(std::string("Lembrete agora: ") + fired.text + late);
     }
 }

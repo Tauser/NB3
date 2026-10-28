@@ -60,6 +60,10 @@ public:
     // at the user rather than on their own. Any task.
     bool FaceLook(float* yaw, float* pitch) const;
 
+    // How many errors xiaozhi has reported (server or network failures shown
+    // as an error banner), for telling when the cloud is out of reach.
+    uint32_t ErrorsSeen() const { return errors_seen_; }
+
 private:
     static void OnTimer(lv_timer_t* timer);
     static void OnDraw(lv_event_t* event);
@@ -79,6 +83,7 @@ private:
     std::atomic<float> look_yaw_{0.0f};
     std::atomic<float> look_pitch_{0.0f};
     std::atomic<bool> look_own_{false};
+    std::atomic<uint32_t> errors_seen_{0};
 
     // Owned by the LVGL task.
     lv_obj_t* face_ = nullptr;

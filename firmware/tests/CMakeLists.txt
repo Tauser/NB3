@@ -44,6 +44,7 @@ nb_host_test(test_memory ${CORE_DIR}/nb_memory.c ${CORE_DIR}/nb_json.c ${CORE_DI
              ${CORE_DIR}/nb_store.c)
 nb_host_test(test_head_gesture ${CORE_DIR}/nb_head_gesture.c)
 nb_host_test(test_head_follow ${CORE_DIR}/nb_head_follow.c)
+nb_host_test(test_link ${CORE_DIR}/nb_link.c)
 nb_host_test(test_reminder ${CORE_DIR}/nb_reminder.c ${CORE_DIR}/nb_clock.c)
 nb_host_test(test_drift ${CORE_DIR}/nb_drift.c ${CORE_DIR}/nb_memory.c ${CORE_DIR}/nb_json.c
              ${CORE_DIR}/nb_clock.c ${CORE_DIR}/nb_personality.c ${CORE_DIR}/nb_affect.c

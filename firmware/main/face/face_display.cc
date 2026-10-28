@@ -519,6 +519,7 @@ void FaceDisplay::SetChatMessage(const char* role, const char* content) {
         nb_banner_show(&banner_, NB_BANNER_WIFI_SETUP, content, 0, NowMs());
     } else if (strcmp(status, Lang::Strings::ERROR) == 0) {
         nb_banner_show(&banner_, NB_BANNER_ERROR, content, 0, NowMs());
+        errors_seen_++;
     } else {
         nb_banner_show(&banner_, NB_BANNER_NOTICE, content, kAlertNoticeMs, NowMs());
     }
