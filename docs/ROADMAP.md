@@ -17,7 +17,7 @@ safety.
 | 2 | Vida própria: humor contínuo, estados comportamentais, personalidade e memória local mínima no microSD, com MCP | humor sobrevive ao IDLE; lembra de um fato depois de reiniciar; esquece quando pedido | **concluída**; durações do humor (item 2) em observação no uso |
 | 3 | Arcos, energia, circadiano e iniciativa | reage com sequência e desfecho; desacelera à noite; toma iniciativa sem exagero | **implementada**; arcos validados, deslocamento da personalidade e consolidação em observação no uso |
 | 4 | Servos SCS + `motion_safety` + ferramentas MCP de movimento (entrega própria) | olha e acena; safety corta com carga real | **núcleos prontos**; falta a parte que toca o hardware |
-| 5 | Agenda, timers e comportamentos offline como ferramentas do dispositivo | funciona sem nuvem para o que é local | não iniciada |
+| 5 | Agenda, timers e comportamentos offline como ferramentas do dispositivo | funciona sem nuvem para o que é local | **em andamento**: timers e lembretes feitos |
 | 6 | Corpo/placa carrier com acústica tratada; CoreS3 se AEC fizer falta | só se necessário | não iniciada |
 
 Legenda dos itens: **[x]** feito e validado · **[~]** feito, falta validar em
@@ -552,13 +552,24 @@ trilho lógico) e ids conhecidos.
 
 ---
 
-## Etapa 5 — vida offline — não iniciada
+## Etapa 5 — vida offline — em andamento
 
 **Objetivo:** o que é local funciona sem nuvem.
 
 - [ ] Relógio e agenda locais (RTC por SNTP + persistência em NVS).
-- [ ] Timers e lembretes como ferramentas MCP (a IA cria, o robô executa
-  sozinho e avisa por som, face e LED).
+- [x] **Timers e lembretes** (`core/nb_reminder`,
+  `behavior/reminder_service`, `mcp/reminder_tools`): até 16, devidos no
+  tempo monotônico do boot e, com a hora sincronizada, também numa hora de
+  parede, guardada na NVS e que sobrevive a reinício (timer criado sem hora
+  e não datado até o próximo boot é descartado e contado); o que venceu com
+  o robô desligado toca no primeiro instante com hora, dizendo o atraso. Ao
+  tocar, sem nuvem: bipe, face de surpresa, texto no banner e aceno; online
+  e sem conversa, o texto vai para a IA como fala do usuário ("Lembrete
+  agora: ...") para ela anunciar. `self.reminder.set` (em minutos/segundos
+  ou "HH:MM"/"AAAA-MM-DD HH:MM" na hora local), `list` e `cancel`. 7
+  host-tests. Em bancada o usuário pediu um lembrete por voz e ele tocou
+  ("funcionou"; fora da captura). Falta ver: um lembrete sobrevivendo a um
+  reinício e tocando atrasado.
 - [ ] Comportamentos autônomos no IDLE (sonolência à noite, reação a toque
   sem nuvem) e modo offline explícito quando o Wi-Fi ou o servidor caem.
 - [ ] Sons locais no microSD (o SD em si entra na etapa 2).
