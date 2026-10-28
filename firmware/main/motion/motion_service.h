@@ -37,6 +37,9 @@ private:
     nb_scs_feedback_t last_[NB_MOTION_SAFETY_AXIS_COUNT] = {};
     uint8_t last_error_[NB_MOTION_SAFETY_AXIS_COUNT] = {};
     uint32_t misses_[NB_MOTION_SAFETY_AXIS_COUNT] = {};
+    // Range seen since boot: moving the head by hand gives the real limits.
+    uint16_t min_[NB_MOTION_SAFETY_AXIS_COUNT] = {};
+    uint16_t max_[NB_MOTION_SAFETY_AXIS_COUNT] = {};
     TaskHandle_t task_ = nullptr;
 };
 

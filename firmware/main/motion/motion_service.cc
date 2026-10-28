@@ -80,8 +80,8 @@ void MotionService::LogReadings() {
             continue;
         }
         const nb_scs_feedback_t& f = last_[a];
-        ESP_LOGI(TAG, "%s: pos %u (%.1f deg), load %d, %.1f V, %u C, error 0x%02x, %lu misses",
-                 AxisName(a), f.position, nb_scs_counts_to_deg(f.position), f.load,
+        ESP_LOGI(TAG, "%s: pos %u (seen %u..%u), load %d, %.1f V, %u C, error 0x%02x, %lu misses",
+                 AxisName(a), f.position, min_[a], max_[a], f.load,
                  nb_scs_voltage_mv(f.voltage_dv) / 1000.0, f.temperature_c, last_error_[a],
                  static_cast<unsigned long>(misses_[a]));
     }
@@ -108,6 +108,12 @@ void MotionService::Run() {
             if (!bus_.ReadFeedback(ids_[a], &f, &error)) {
                 misses_[a]++;
                 continue;
+            }
+            if (!seen_[a] || f.position < min_[a]) {
+                min_[a] = f.position;
+            }
+            if (!seen_[a] || f.position > max_[a]) {
+                max_[a] = f.position;
             }
             seen_[a] = true;
             last_[a] = f;
