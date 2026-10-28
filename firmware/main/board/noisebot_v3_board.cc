@@ -6,6 +6,7 @@
 #include "config.h"
 #include "led/single_led.h"
 #include "behavior/arc_modifier.h"
+#include "behavior/head_behavior.h"
 #include "behavior/personality_drift.h"
 #include "mcp/head_tools.h"
 #include "motion/motion_bench.h"
@@ -239,10 +240,12 @@ public:
         static PowerCutTest power_cut(store_, display_);  // bench builds only
         power_cut.Start();
         static ArcModifier arcs(arbiter_, behavior_, mood_, energy, display_);
-        static TouchModifier touch(BODY_TOUCH_CHANNEL, arbiter_, mood_, behavior_, memory_, arcs);
         static MotionService motion(SERVO_ID_PAN, SERVO_ID_TILT, &arbiter_);
-        RegisterHeadTools(motion);
+        static HeadBehavior head(motion, display_, behavior_, energy);
+        RegisterHeadTools(motion, head);
         StartMotionBench(motion);  // bench builds only
+        static TouchModifier touch(BODY_TOUCH_CHANNEL, arbiter_, mood_, behavior_, memory_, arcs,
+                                   head);
         static MoodLights mood_lights(MOOD_LED_GPIO, MOOD_LED_COUNT, MOOD_LED_MAX_BRIGHTNESS,
                                       arbiter_);
     }

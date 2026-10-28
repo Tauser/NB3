@@ -546,6 +546,12 @@ void FaceDisplay::SetEnergy(float arousal, bool sleeping) {
     sleeping_ = sleeping;
 }
 
+bool FaceDisplay::FaceLook(float* yaw, float* pitch) const {
+    *yaw = look_yaw_;
+    *pitch = look_pitch_;
+    return look_own_;
+}
+
 void FaceDisplay::SetArc(bool active, const nb_avatar_look_t& look, float eye_open) {
     std::lock_guard<std::mutex> lock(arc_mutex_);
     arc_active_ = active;
@@ -589,6 +595,9 @@ void FaceDisplay::Tick() {
     }
     const nb_avatar_look_t look = arc ? arc_look : nb_gaze_look(&gaze_);
     nb_avatar_core_set_look(&avatar_, &look, wander || arc);
+    look_yaw_ = look.yaw;
+    look_pitch_ = look.pitch;
+    look_own_ = wander || arc;
     nb_avatar_core_set_blink_pace(&avatar_, wander ? nb_gaze_blink_pace(&gaze_) : 1.0f);
     nb_avatar_core_set_blink_override(&avatar_, arc_eye_open, arc && arc_eye_open < 1.0f);
     nb_avatar_core_tick(&avatar_, now - last_tick_ms_);

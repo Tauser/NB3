@@ -39,7 +39,8 @@ const char* FaultMeaning(nb_motion_safety_fault_t fault) {
 }
 
 // Plans from where the head is and hands the plan to the motion task.
-ReturnValue Move(MotionService& motion, nb_head_move_t move, float yaw, float pitch, int times) {
+ReturnValue Move(MotionService& motion, HeadBehavior& head, nb_head_move_t move, float yaw,
+                 float pitch, int times) {
     const MotionService::Status s = motion.Read();
     if (s.state == NB_MOTION_SAFETY_STATE_FAULT) {
         return std::string("Refused: the head is stopped for safety (") + FaultMeaning(s.fault) +
@@ -52,6 +53,7 @@ ReturnValue Move(MotionService& motion, nb_head_move_t move, float yaw, float pi
                    "turn the head back toward the middle.";
         }
     }
+    head.OnAiMove();
     const nb_head_geometry_t g = motion.Geometry();
     nb_head_plan_t plan;
     if (!nb_head_plan(&g, move, yaw, pitch, times, s.position[NB_MOTION_SAFETY_AXIS_PAN],
@@ -78,7 +80,7 @@ ReturnValue Move(MotionService& motion, nb_head_move_t move, float yaw, float pi
 
 }  // namespace
 
-void RegisterHeadTools(MotionService& motion) {
+void RegisterHeadTools(MotionService& motion, HeadBehavior& head) {
     auto& mcp = McpServer::GetInstance();
     mcp.AddTool(
         "self.head.status",
@@ -128,8 +130,8 @@ void RegisterHeadTools(MotionService& motion) {
         "reply says why; do not insist.",
         PropertyList({Property("yaw_deg", kPropertyTypeInteger, 0, -90, 90),
                       Property("pitch_deg", kPropertyTypeInteger, 0, -60, 60)}),
-        [&motion](const PropertyList& p) -> ReturnValue {
-            return Move(motion, NB_HEAD_LOOK, static_cast<float>(p["yaw_deg"].value<int>()),
+        [&motion, &head](const PropertyList& p) -> ReturnValue {
+            return Move(motion, head, NB_HEAD_LOOK, static_cast<float>(p["yaw_deg"].value<int>()),
                         static_cast<float>(p["pitch_deg"].value<int>()), 1);
         });
 
@@ -144,24 +146,25 @@ void RegisterHeadTools(MotionService& motion) {
         "or stop any move: then the reply says why; do not insist.",
         PropertyList({Property("kind", kPropertyTypeString),
                       Property("times", kPropertyTypeInteger, 2, 1, NB_HEAD_REPEATS_MAX)}),
-        [&motion](const PropertyList& p) -> ReturnValue {
+        [&motion, &head](const PropertyList& p) -> ReturnValue {
             const std::string kind = p["kind"].value<std::string>();
             nb_head_move_t move = NB_HEAD_NOD;
             if (!nb_head_move_from_name(kind.c_str(), &move) || move == NB_HEAD_LOOK) {
                 return std::string("Unknown gesture '") + kind + "'. Use nod, shake or center.";
             }
-            return Move(motion, move, 0.0f, 0.0f, p["times"].value<int>());
+            return Move(motion, head, move, 0.0f, 0.0f, p["times"].value<int>());
         });
 
     mcp.AddTool(
         "self.head.relax",
-        "Let the robot's head go limp: the servos stop holding and the head can be moved by "
-        "hand. Use it when the user wants to move the head by hand (\"solta a cabeça\", "
-        "\"relaxa o pescoço\") or will not need it for a while. Always allowed; the next look "
-        "or gesture holds the head again from where it is.",
-        PropertyList(), [&motion](const PropertyList&) -> ReturnValue {
+        "Let the robot's head rest: it first goes back to straight ahead, then the servos stop "
+        "holding and the head can be moved by hand. Use it when the user wants to move the "
+        "head by hand (\"solta a cabeça\", \"relaxa o pescoço\") or will not need it for a "
+        "while. Always allowed; the next look or gesture holds the head again from where it is.",
+        PropertyList(), [&motion, &head](const PropertyList&) -> ReturnValue {
+            head.OnAiRelax();
             motion.Relax();
-            return std::string("The head is relaxed.");
+            return std::string("The head goes back to center and then relaxes.");
         });
 
     mcp.AddTool(

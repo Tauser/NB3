@@ -55,6 +55,11 @@ public:
     // arc's face wins the arbiter.
     void SetArc(bool active, const nb_avatar_look_t& look, float eye_open);
 
+    // Where the eyes look (degrees, screen convention: yaw > 0 = the robot's
+    // left, pitch > 0 = down), for the head to follow. False when they look
+    // at the user rather than on their own. Any task.
+    bool FaceLook(float* yaw, float* pitch) const;
+
 private:
     static void OnTimer(lv_timer_t* timer);
     static void OnDraw(lv_event_t* event);
@@ -71,6 +76,9 @@ private:
     bool arc_active_ = false;
     nb_avatar_look_t arc_look_ = {};
     float arc_eye_open_ = 1.0f;
+    std::atomic<float> look_yaw_{0.0f};
+    std::atomic<float> look_pitch_{0.0f};
+    std::atomic<bool> look_own_{false};
 
     // Owned by the LVGL task.
     lv_obj_t* face_ = nullptr;

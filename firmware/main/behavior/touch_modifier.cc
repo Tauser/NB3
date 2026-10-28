@@ -22,8 +22,9 @@ uint32_t NowMs() {
 
 TouchModifier::TouchModifier(int channel, ExpressionArbiter& arbiter, MoodModifier& mood,
                              BehaviorModifier& behavior, MemoryService& memory,
-                             ArcModifier& arcs)
-    : arbiter_(arbiter), mood_(mood), behavior_(behavior), memory_(memory), arcs_(arcs) {
+                             ArcModifier& arcs, HeadBehavior& head)
+    : arbiter_(arbiter), mood_(mood), behavior_(behavior), memory_(memory), arcs_(arcs),
+      head_(head) {
     nb_touch_config_t cfg = nb_touch_default_config();
     nb_touch_init(&touch_, &cfg);
 
@@ -113,6 +114,7 @@ void TouchModifier::OnEvent(nb_touch_event_t event) {
             arbiter_.Propose(NB_SOURCE_TOUCH, happy);
             mood_.OnTap();
             arcs_.OnTap();
+            head_.OnTap();
             // A tap is known on release: the reaction starts and lingers.
             behavior_.OnTouch(true);
             behavior_.OnTouch(false);
@@ -126,12 +128,14 @@ void TouchModifier::OnEvent(nb_touch_event_t event) {
             pet_start_ms_ = last_pet_pulse_ms_;
             mood_.OnPetting();
             arcs_.SetPetting(true);
+            head_.SetPetting(true);
             behavior_.OnTouch(true);
             break;
         }
         case NB_TOUCH_RELEASE: {
             ESP_LOGI(TAG, "Released");
             arcs_.SetPetting(false);
+            head_.SetPetting(false);
             // Petting lingers briefly; a medium touch just ends.
             if (touch_.hold_sent) {
                 nb_proposal_t afterglow = {NB_EXPR_LOVING, priority::kTouch, kPetAfterglowMs, true};
@@ -147,6 +151,7 @@ void TouchModifier::OnEvent(nb_touch_event_t event) {
             // Not a hand: drop the contact without afterglow or a memory.
             ESP_LOGW(TAG, "Contact too long; new baseline %.0f", touch_.baseline);
             arcs_.SetPetting(false);
+            head_.SetPetting(false);
             arbiter_.Withdraw(NB_SOURCE_TOUCH);
             behavior_.OnTouch(false);
             break;

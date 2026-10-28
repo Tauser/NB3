@@ -43,7 +43,8 @@ public:
     // Any task. False when the head is stopped for safety or has no servos;
     // otherwise the motion task plays it from its next cycle.
     bool Play(const nb_head_plan_t& plan);
-    // Releases both servos (always allowed); the next move holds again.
+    // Brings the head back to center and then releases both servos (at once
+    // when not holding); the next move holds again.
     void Relax();
     // One axis to `position` in `time_ms`, as a one-point plan (bench).
     void RequestGoal(nb_motion_safety_axis_t axis, uint16_t position, uint16_t time_ms);
@@ -103,6 +104,7 @@ private:
     int plan_step_ = 0;      // next waypoint to send
     uint32_t step_due_ms_ = 0;
     bool torque_on_ = false;
+    bool release_after_plan_ = false;  // a relax: center, then let go
     bool fault_logged_ = false;
     bool seen_[NB_MOTION_SAFETY_AXIS_COUNT] = {};
     nb_scs_feedback_t last_[NB_MOTION_SAFETY_AXIS_COUNT] = {};

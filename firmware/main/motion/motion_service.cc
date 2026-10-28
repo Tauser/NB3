@@ -260,6 +260,7 @@ void MotionService::PlayStep(uint32_t now_ms) {
         if (plan_pending_) {
             plan_ = pending_plan_;
             plan_pending_ = false;
+            release_after_plan_ = false;  // a new move cancels a pending relax
             plan_step_ = 0;
             step_due_ms_ = now_ms;
         }
@@ -380,14 +381,33 @@ void MotionService::Run() {
                 }
             }
             relax_asked_ = false;
+            release_after_plan_ = false;
             HandleRecover(now);
         } else {
             HandleRecover(now);
             if (relax_asked_.exchange(false)) {
+                // Back to center first, then let go: a head is not dropped
+                // wherever it was turned.
+                nb_head_plan_t center;
+                if (torque_on_ &&
+                    nb_head_plan(&geometry_, NB_HEAD_CENTER, 0.0f, 0.0f, 1,
+                                 last_[NB_MOTION_SAFETY_AXIS_PAN].position,
+                                 last_[NB_MOTION_SAFETY_AXIS_TILT].position, &center)) {
+                    plan_ = center;
+                    plan_step_ = 0;
+                    step_due_ms_ = now;
+                    release_after_plan_ = true;
+                } else {
+                    plan_ = {};
+                    torque_on_ = !Release();
+                }
+            }
+            PlayStep(now);
+            if (release_after_plan_ && plan_step_ >= plan_.count && Reached(now, step_due_ms_)) {
+                release_after_plan_ = false;
                 plan_ = {};
                 torque_on_ = !Release();
             }
-            PlayStep(now);
         }
         PublishStatus();
         if (now - last_log >= kLogPeriodMs) {

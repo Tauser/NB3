@@ -8,6 +8,7 @@
 #include "behavior/arc_modifier.h"
 #include "behavior/behavior_modifier.h"
 #include "behavior/expression_arbiter.h"
+#include "behavior/head_behavior.h"
 #include "behavior/mood_modifier.h"
 #include "core/nb_touch.h"
 #include "memory/memory_service.h"
@@ -16,11 +17,13 @@
 // the pad, runs nb_touch and turns taps and petting into face proposals and
 // mood stimuli (petting keeps warming the mood in pulses while it lasts).
 // A petting session, once over, becomes an episode of the memory. Taps and
-// petting also feed the arcs (sulking after quick taps, making up).
+// petting also feed the arcs (sulking after quick taps, making up) and the
+// head (a nod for a tap, leaning in while petted).
 class TouchModifier {
 public:
     TouchModifier(int channel, ExpressionArbiter& arbiter, MoodModifier& mood,
-                  BehaviorModifier& behavior, MemoryService& memory, ArcModifier& arcs);
+                  BehaviorModifier& behavior, MemoryService& memory, ArcModifier& arcs,
+                  HeadBehavior& head);
     ~TouchModifier();
 
     TouchModifier(const TouchModifier&) = delete;
@@ -36,6 +39,7 @@ private:
     BehaviorModifier& behavior_;
     MemoryService& memory_;
     ArcModifier& arcs_;
+    HeadBehavior& head_;
     uint32_t last_pet_pulse_ms_ = 0;
     uint32_t pet_start_ms_ = 0;
     touch_sensor_handle_t sensor_ = nullptr;
