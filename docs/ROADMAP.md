@@ -523,8 +523,20 @@ A fazer:
    de frente para a pessoa, "esquerda" girou para a direita dela, isto é,
    a esquerda do robô (sentido do pan certo). Falta: conferir o sentido do
    tilt com a cabeça montada.
-5. [ ] **Comportamentos**: olhar acompanhando a coreografia do avatar,
-   reação ao toque com movimento.
+5. [x] **Comportamentos** (`core/nb_head_follow`,
+   `behavior/head_behavior`): a cabeça acompanha o olhar da face quando os
+   olhos olham sozinhos (40% do yaw, 30% do pitch; só mudança de 4° ou mais,
+   no máximo a cada 1,5 s, movimento de pelo menos 0,7 s), volta para a
+   frente na conversa ou numa reação, acena uma vez num tap (no máximo a
+   cada 2 s), inclina 5° para baixo no carinho e abaixa 8° dormindo. A IA
+   vem primeiro: depois de um pedido dela a cabeça fica 6 s sem se mexer
+   sozinha, e depois de "solta a cabeça" fica solta até a IA mexer de novo.
+   `self.head.relax` agora volta ao centro antes de soltar. 7 host-tests.
+   Em bancada: no boot segurou onde o pan tinha ficado (608), foi ao centro
+   e seguiu os olhos em ±8° de pan sem FAULT; direção, ritmo, aceno no tap,
+   carinho, frente na conversa e soltar conferidos pelo usuário ("tudo ok").
+   Com o firmware normal a cabeça agora fica segurando enquanto acordado:
+   acompanhar o aquecimento no uso longo.
 6. [~] **Prova com carga real**: segurar a cabeça com a mão e ver o safety
    cortar e travar; reset só depois de soltar. Com os servos sem a cabeça:
    o braço do pan segurado no caminho para 460 parou em 486 (carga 420) e
