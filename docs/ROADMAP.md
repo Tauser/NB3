@@ -508,9 +508,21 @@ A fazer:
    0,293 da especificação), centro e limites reais de pan e tilt, e os
    limiares novos (tensão 4,5–6,5 V, rastreamento 20 contagens/1,5 s,
    feedback 300 ms).
-4. [ ] **Ferramentas MCP de movimento** com descrições ricas: olhar para uma
-   direção, acenar com a cabeça, negar, centralizar. Toda escrita passa pelo
-   safety; a ferramenta responde ao LLM quando o safety recusa.
+4. [x] **Ferramentas MCP de movimento** (`core/nb_head_gesture`,
+   `mcp/head_tools`): `self.head.look` (yaw/pitch do ponto de vista do
+   robô), `self.head.gesture` (nod, shake, center, 1 a 4 vezes),
+   `self.head.relax`, além de `status` e `recover`. O núcleo transforma o
+   pedido em pontos dentro dos limites do safety (gesto menor perto da
+   borda, nod e shake terminam onde começaram; 5 host-tests); a task de
+   motion toca os pontos pelo veto e volta a segurar depois de um relax,
+   sempre pré-carregando o goal onde o servo está. A ferramenta responde
+   ao LLM quando recusa (parada de segurança, servo fora da faixa) e quando
+   o pedido bateu no limite. Centro e sentido de cada servo em `config.h`.
+   Em bancada, por voz: olhar à esquerda, para cima, sim (×4 e ×2), não,
+   frente, soltar e olhar de novo, todos executados sem FAULT; com o servo
+   de frente para a pessoa, "esquerda" girou para a direita dela, isto é,
+   a esquerda do robô (sentido do pan certo). Falta: conferir o sentido do
+   tilt com a cabeça montada.
 5. [ ] **Comportamentos**: olhar acompanhando a coreografia do avatar,
    reação ao toque com movimento.
 6. [~] **Prova com carga real**: segurar a cabeça com a mão e ver o safety
