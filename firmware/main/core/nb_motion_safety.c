@@ -232,6 +232,17 @@ nb_motion_safety_cmd_result_t nb_motion_safety_command(nb_motion_safety_t *ms,
     return NB_MOTION_SAFETY_CMD_OK;
 }
 
+bool nb_motion_safety_torque_allowed(nb_motion_safety_t *ms, bool enable, uint32_t now_ms) {
+    if (!enable) {
+        return true;
+    }
+    if (ms == NULL) {
+        return false;
+    }
+    nb_motion_safety_tick(ms, now_ms);  // same staleness checks as a goal
+    return ms->state == NB_MOTION_SAFETY_STATE_OK;
+}
+
 void nb_motion_safety_trip(nb_motion_safety_t *ms, nb_motion_safety_fault_t reason,
                            nb_motion_safety_axis_t axis) {
     if (ms == NULL || reason == NB_MOTION_SAFETY_FAULT_NONE) {

@@ -30,6 +30,9 @@ public:
 
     bool Ping(uint8_t id);
     bool ReadFeedback(uint8_t id, nb_scs_feedback_t* fb, uint8_t* error);
+    // Only after nb_motion_safety_torque_allowed() said yes.
+    bool WriteTorque(uint8_t id, bool enable);
+    bool ReadTorque(uint8_t id, bool* enabled);
 
     uint32_t timeouts() const { return timeouts_; }
     uint32_t bad_frames() const { return bad_frames_; }

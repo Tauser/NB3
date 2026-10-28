@@ -101,6 +101,24 @@ bool ScsBus::Ping(uint8_t id) {
     return n > 0 && Transact(tx, n, id, &resp);
 }
 
+bool ScsBus::WriteTorque(uint8_t id, bool enable) {
+    uint8_t tx[NB_SCS_FRAME_MAX];
+    const size_t n = nb_scs_build_torque(tx, sizeof(tx), id, enable);
+    nb_scs_response_t resp;
+    return n > 0 && Transact(tx, n, id, &resp);
+}
+
+bool ScsBus::ReadTorque(uint8_t id, bool* enabled) {
+    uint8_t tx[NB_SCS_FRAME_MAX];
+    const size_t n = nb_scs_build_read(tx, sizeof(tx), id, NB_SCS_REG_TORQUE_ENABLE, 1);
+    nb_scs_response_t resp;
+    if (n == 0 || !Transact(tx, n, id, &resp) || resp.param_len != 1) {
+        return false;
+    }
+    *enabled = resp.params[0] != 0;
+    return true;
+}
+
 bool ScsBus::ReadFeedback(uint8_t id, nb_scs_feedback_t* fb, uint8_t* error) {
     uint8_t tx[NB_SCS_FRAME_MAX];
     const size_t n = nb_scs_build_read_feedback(tx, sizeof(tx), id);

@@ -12,9 +12,10 @@
 
 // The head's servos (docs/ROADMAP.md stage 4). Its task is the only one that
 // talks to the servo bus: every cycle it reads both servos, feeds
-// motion_safety and beats its heart. For now it only listens: the safety is
-// never armed and no goal or torque is ever written, so the head stays where
-// it is while the bus, the ids and the readings are checked on the bench.
+// motion_safety and beats its heart. For now the safety is never armed: the
+// only write is releasing the torque at boot (always allowed by the safety),
+// so the head is free while the bus, the readings and the real limits are
+// checked on the bench.
 class MotionService {
 public:
     MotionService(uint8_t pan_id, uint8_t tilt_id);
@@ -27,6 +28,7 @@ private:
     static void TaskEntry(void* arg);
     void Run();
     void FindServos();
+    void Relax();
     void LogReadings();
 
     ScsBus bus_;

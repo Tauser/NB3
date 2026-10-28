@@ -145,6 +145,11 @@ nb_motion_safety_cmd_result_t nb_motion_safety_command(nb_motion_safety_t *ms,
                                                        nb_motion_safety_axis_t axis,
                                                        uint16_t position, uint32_t now_ms);
 
+// The veto for torque writes. Releasing (enable = false) is always allowed,
+// in any state: a limp servo is the safe one. Holding needs the instance
+// armed, as a goal does.
+bool nb_motion_safety_torque_allowed(nb_motion_safety_t *ms, bool enable, uint32_t now_ms);
+
 // Saturates a position into the axis limits. Returns the input for a bad axis or
 // NULL instance, which command() then refuses.
 uint16_t nb_motion_safety_clamp_position(const nb_motion_safety_t *ms,

@@ -269,6 +269,23 @@ static void test_a_servo_on_its_way_keeps_making_progress(void) {
     NB_CHECK_EQ_INT(NB_MOTION_SAFETY_STATE_OK, nb_motion_safety_get_state(&ms));
 }
 
+static void test_torque_release_is_always_allowed_holding_needs_arming(void) {
+    nb_motion_safety_t ms;
+    nb_motion_safety_cfg_t cfg = nb_motion_safety_default_cfg();
+    nb_motion_safety_init(&ms, &cfg);
+    NB_CHECK(nb_motion_safety_torque_allowed(&ms, false, 0));
+    NB_CHECK(!nb_motion_safety_torque_allowed(&ms, true, 0));  // INIT
+    NB_CHECK(nb_motion_safety_torque_allowed(NULL, false, 0));
+    NB_CHECK(!nb_motion_safety_torque_allowed(NULL, true, 0));
+
+    make_armed(&ms);
+    NB_CHECK(nb_motion_safety_torque_allowed(&ms, true, 100));
+    // Stale feedback is caught by the veto itself, as for a goal.
+    NB_CHECK(!nb_motion_safety_torque_allowed(&ms, true, 400));
+    expect_fault(&ms, NB_MOTION_SAFETY_FAULT_FEEDBACK_LOST, PAN);
+    NB_CHECK(nb_motion_safety_torque_allowed(&ms, false, 400));
+}
+
 static void test_heartbeat_timeout_faults(void) {
     nb_motion_safety_t ms;
     make_armed_no_feedback_watch(&ms);
@@ -662,6 +679,7 @@ int main(void) {
     NB_RUN(test_large_goal_jump_restarts_tracking_window);
     NB_RUN(test_alternating_goals_do_not_hide_a_servo_that_never_moves);
     NB_RUN(test_a_servo_on_its_way_keeps_making_progress);
+    NB_RUN(test_torque_release_is_always_allowed_holding_needs_arming);
     NB_RUN(test_heartbeat_timeout_faults);
     NB_RUN(test_heartbeat_refreshes_the_deadline);
     NB_RUN(test_arm_counts_as_first_heartbeat);

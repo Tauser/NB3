@@ -96,8 +96,24 @@ void MotionService::LogReadings() {
     }
 }
 
+// Servos power up holding their position. Until the safety is armed the head
+// is left free, which is also what lets it be moved by hand to calibrate.
+void MotionService::Relax() {
+    for (int a = 0; a < NB_MOTION_SAFETY_AXIS_COUNT; a++) {
+        if (!nb_motion_safety_torque_allowed(&safety_, false, NowMs())) {
+            continue;
+        }
+        const bool written = bus_.WriteTorque(ids_[a], false);
+        bool enabled = true;
+        const bool read = bus_.ReadTorque(ids_[a], &enabled);
+        ESP_LOGI(TAG, "%s torque off: %s", AxisName(a),
+                 !written ? "write failed" : !read ? "not confirmed" : enabled ? "still on" : "free");
+    }
+}
+
 void MotionService::Run() {
     FindServos();
+    Relax();
     uint32_t last_log = NowMs();
     TickType_t wake = xTaskGetTickCount();
     while (true) {
