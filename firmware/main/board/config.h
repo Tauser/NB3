@@ -56,6 +56,12 @@
 #define SERVO_UART_BAUD 1000000
 #define SERVO_ID_PAN    1
 #define SERVO_ID_TILT   2
+// Straight ahead and which way each servo turns for the robot's left and
+// up. Provisional until the head is mounted and calibrated.
+#define SERVO_PAN_CENTER  512
+#define SERVO_TILT_CENTER 512
+#define SERVO_PAN_SIGN    1
+#define SERVO_TILT_SIGN   1
 
 // ST7789 2" on SPI2; RST and backlight are hardwired, reset is SWRESET.
 #define DISPLAY_SPI_HOST    SPI2_HOST

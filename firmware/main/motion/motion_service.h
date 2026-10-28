@@ -9,6 +9,7 @@
 #include <freertos/task.h>
 
 #include "behavior/expression_arbiter.h"
+#include "core/nb_head_gesture.h"
 #include "core/nb_motion_safety.h"
 #include "core/nb_scs.h"
 #include "motion/scs_bus.h"
@@ -18,10 +19,13 @@
 // motion_safety and beats its heart, and every write passes the safety's
 // veto first.
 //
-// - At boot the torque is released: the head is free until a goal is asked.
-// - The first goal arms the safety (fresh readings needed), preloads each
-//   servo's goal with where it already is, so nothing jumps, and only then
-//   turns the torque on.
+// - At boot the torque is released: the head is free until a move is asked.
+// - The first move arms the safety (fresh readings, both servos inside their
+//   limits). Before the torque comes on, each servo's goal is set to where it
+//   already is, so holding never starts with a jump; the same happens after
+//   Relax().
+// - Moves are plans of waypoints (core/nb_head_gesture) played one after the
+//   other; a new plan replaces the one playing.
 // - FAULT releases both servos at once (retrying until both are confirmed
 //   free), shows a dizzy face for a moment and stays until Recover() is
 //   asked and the safety agrees the cause is gone.
@@ -33,8 +37,15 @@ public:
     MotionService(const MotionService&) = delete;
     MotionService& operator=(const MotionService&) = delete;
 
-    // Asks for an axis to go to `position` in `time_ms`. Any task; the motion
-    // task applies it on its next cycle, if the safety accepts it.
+    // Where the head is, its limits and how it is mounted, for planning.
+    nb_head_geometry_t Geometry() const { return geometry_; }
+
+    // Any task. False when the head is stopped for safety or has no servos;
+    // otherwise the motion task plays it from its next cycle.
+    bool Play(const nb_head_plan_t& plan);
+    // Releases both servos (always allowed); the next move holds again.
+    void Relax();
+    // One axis to `position` in `time_ms`, as a one-point plan (bench).
     void RequestGoal(nb_motion_safety_axis_t axis, uint16_t position, uint16_t time_ms);
 
     nb_motion_safety_state_t State();
@@ -44,6 +55,8 @@ public:
         nb_motion_safety_state_t state = NB_MOTION_SAFETY_STATE_INIT;
         nb_motion_safety_fault_t fault = NB_MOTION_SAFETY_FAULT_NONE;
         nb_motion_safety_axis_t fault_axis = NB_MOTION_SAFETY_AXIS_PAN;
+        bool holding = false;   // torque on
+        bool moving = false;    // a plan is playing
         bool answering[NB_MOTION_SAFETY_AXIS_COUNT] = {};
         uint16_t position[NB_MOTION_SAFETY_AXIS_COUNT] = {};
         bool out_of_range[NB_MOTION_SAFETY_AXIS_COUNT] = {};  // no arming until put back
@@ -58,20 +71,14 @@ public:
     RecoverResult Recover();
 
 private:
-    struct Goal {
-        bool pending = false;
-        uint16_t position = 0;
-        uint16_t time_ms = 0;
-    };
-
     static void TaskEntry(void* arg);
     void Run();
     void FindServos();
-    bool Relax();
-    bool Arm(uint32_t now_ms);
+    bool Release();
+    bool Hold(uint32_t now_ms);
+    void PlayStep(uint32_t now_ms);
     void HandleRecover(uint32_t now_ms);
     void PublishStatus();
-    void ApplyGoals(uint32_t now_ms);
     void LogReadings();
 
     static constexpr int kRecoverPending = 0;
@@ -79,16 +86,22 @@ private:
     ScsBus bus_;
     ExpressionArbiter* arbiter_;
     uint8_t ids_[NB_MOTION_SAFETY_AXIS_COUNT];
-    std::mutex mutex_;  // goals_, status_
-    Goal goals_[NB_MOTION_SAFETY_AXIS_COUNT];
+    nb_head_geometry_t geometry_;
+    std::mutex mutex_;  // pending_plan_, status_
+    nb_head_plan_t pending_plan_ = {};
+    bool plan_pending_ = false;
     Status status_;
+    std::atomic<bool> relax_asked_{false};
     std::atomic<bool> recover_asked_{false};
     std::atomic<int> recover_result_{kRecoverPending};
     // The safety as other tasks see it, copied each cycle.
     std::atomic<int> state_{NB_MOTION_SAFETY_STATE_INIT};
     std::atomic<int> fault_{NB_MOTION_SAFETY_FAULT_NONE};
-    nb_motion_safety_t safety_;  // motion task only
     // Motion task only.
+    nb_motion_safety_t safety_;
+    nb_head_plan_t plan_ = {};
+    int plan_step_ = 0;      // next waypoint to send
+    uint32_t step_due_ms_ = 0;
     bool torque_on_ = false;
     bool fault_logged_ = false;
     bool seen_[NB_MOTION_SAFETY_AXIS_COUNT] = {};

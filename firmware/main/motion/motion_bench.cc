@@ -39,8 +39,11 @@ void Run(void* arg) {
                 break;
             }
             ESP_LOGI(TAG, "pan %u, tilt %u", s.pan, s.tilt);
-            motion.RequestGoal(NB_MOTION_SAFETY_AXIS_PAN, s.pan, kMoveMs);
-            motion.RequestGoal(NB_MOTION_SAFETY_AXIS_TILT, s.tilt, kMoveMs);
+            nb_head_plan_t plan = {};
+            plan.points[0] = {s.pan, s.tilt, kMoveMs};
+            plan.count = 1;
+            plan.total_ms = kMoveMs;
+            motion.Play(plan);
             vTaskDelay(pdMS_TO_TICKS(kStepGapMs));
         }
         ESP_LOGI(TAG, "holding center for %lu s: try holding a horn",

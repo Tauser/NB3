@@ -14,6 +14,8 @@ namespace {
 constexpr uint32_t kPeriodMs = 50;
 constexpr uint32_t kLogPeriodMs = 5000;
 constexpr uint32_t kFaultFaceMs = 3000;
+// A waypoint is given a little more than its travel time before the next.
+constexpr uint32_t kStepMarginMs = 60;
 
 uint32_t NowMs() {
     return static_cast<uint32_t>(esp_timer_get_time() / 1000);
@@ -21,6 +23,10 @@ uint32_t NowMs() {
 
 const char* AxisName(int axis) {
     return axis == NB_MOTION_SAFETY_AXIS_PAN ? "pan" : "tilt";
+}
+
+bool Reached(uint32_t now, uint32_t due) {
+    return static_cast<int32_t>(now - due) >= 0;
 }
 
 }  // namespace
@@ -31,11 +37,24 @@ MotionService::MotionService(uint8_t pan_id, uint8_t tilt_id, ExpressionArbiter*
     ids_[NB_MOTION_SAFETY_AXIS_TILT] = tilt_id;
     const nb_motion_safety_cfg_t cfg = nb_motion_safety_default_cfg();
     nb_motion_safety_init(&safety_, &cfg);
+    // The head's limits are the safety's: a plan never asks what the veto
+    // would refuse.
+    geometry_ = {SERVO_PAN_CENTER,
+                 SERVO_TILT_CENTER,
+                 cfg.pos_min[NB_MOTION_SAFETY_AXIS_PAN],
+                 cfg.pos_max[NB_MOTION_SAFETY_AXIS_PAN],
+                 cfg.pos_min[NB_MOTION_SAFETY_AXIS_TILT],
+                 cfg.pos_max[NB_MOTION_SAFETY_AXIS_TILT],
+                 SERVO_PAN_SIGN,
+                 SERVO_TILT_SIGN,
+                 1.0f / nb_scs_counts_to_deg(1)};
     if (!bus_.ok()) {
+        state_ = NB_MOTION_SAFETY_STATE_FAULT;
         return;
     }
     if (xTaskCreate(TaskEntry, "nb_motion", 4096, this, 5, &task_) != pdPASS) {
         task_ = nullptr;
+        state_ = NB_MOTION_SAFETY_STATE_FAULT;
         ESP_LOGE(TAG, "task not created: no servos");
     }
 }
@@ -49,6 +68,66 @@ MotionService::~MotionService() {
 void MotionService::TaskEntry(void* arg) {
     static_cast<MotionService*>(arg)->Run();
 }
+
+// --- Requests from other tasks ---------------------------------------------
+
+bool MotionService::Play(const nb_head_plan_t& plan) {
+    if (task_ == nullptr || State() == NB_MOTION_SAFETY_STATE_FAULT || plan.count <= 0) {
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    pending_plan_ = plan;
+    plan_pending_ = true;
+    return true;
+}
+
+void MotionService::Relax() {
+    relax_asked_ = true;
+}
+
+void MotionService::RequestGoal(nb_motion_safety_axis_t axis, uint16_t position,
+                                uint16_t time_ms) {
+    if (static_cast<int>(axis) < 0 || static_cast<int>(axis) >= NB_MOTION_SAFETY_AXIS_COUNT) {
+        return;
+    }
+    // The other axis stays where it is.
+    const Status s = Read();
+    nb_head_plan_t plan = {};
+    plan.count = 1;
+    plan.points[0].pan = axis == NB_MOTION_SAFETY_AXIS_PAN ? position
+                                                           : s.position[NB_MOTION_SAFETY_AXIS_PAN];
+    plan.points[0].tilt = axis == NB_MOTION_SAFETY_AXIS_TILT
+                              ? position
+                              : s.position[NB_MOTION_SAFETY_AXIS_TILT];
+    plan.points[0].time_ms = time_ms;
+    plan.total_ms = time_ms;
+    Play(plan);
+}
+
+nb_motion_safety_state_t MotionService::State() {
+    return static_cast<nb_motion_safety_state_t>(state_.load());
+}
+
+nb_motion_safety_fault_t MotionService::Fault() {
+    return static_cast<nb_motion_safety_fault_t>(fault_.load());
+}
+
+MotionService::Status MotionService::Read() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return status_;
+}
+
+MotionService::RecoverResult MotionService::Recover() {
+    recover_result_ = kRecoverPending;
+    recover_asked_ = true;
+    for (int i = 0; i < 50 && recover_result_ == kRecoverPending; i++) {
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    const int r = recover_result_.exchange(kRecoverPending);
+    return r == kRecoverPending ? RecoverResult::kNoAnswer : static_cast<RecoverResult>(r);
+}
+
+// --- Motion task -------------------------------------------------------------
 
 // Pings the configured ids; if one is silent, lists who is on the bus.
 void MotionService::FindServos() {
@@ -88,7 +167,9 @@ void MotionService::LogReadings() {
     }
     switch (nb_motion_safety_get_state(&safety_)) {
         case NB_MOTION_SAFETY_STATE_INIT: ESP_LOGI(TAG, "safety: not armed"); break;
-        case NB_MOTION_SAFETY_STATE_OK: ESP_LOGI(TAG, "safety: armed"); break;
+        case NB_MOTION_SAFETY_STATE_OK:
+            ESP_LOGI(TAG, "safety: armed, %s", torque_on_ ? "holding" : "free");
+            break;
         default:
             ESP_LOGW(TAG, "safety: FAULT %s on %s",
                      nb_motion_safety_fault_name(nb_motion_safety_get_fault(&safety_)),
@@ -97,10 +178,9 @@ void MotionService::LogReadings() {
     }
 }
 
-// Servos power up holding their position. Until the safety is armed the head
-// is left free, which is also what lets it be moved by hand to calibrate.
-// Only a release confirmed on both servos tells the safety no goal is held.
-bool MotionService::Relax() {
+// Servos power up holding their position, and Relax() lets go too. Only a
+// release confirmed on both servos tells the safety no goal is held.
+bool MotionService::Release() {
     bool all_free = true;
     for (int a = 0; a < NB_MOTION_SAFETY_AXIS_COUNT; a++) {
         if (!nb_motion_safety_torque_allowed(&safety_, false, NowMs())) {
@@ -121,19 +201,92 @@ bool MotionService::Relax() {
     return all_free;
 }
 
-MotionService::Status MotionService::Read() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return status_;
+// Ready to move: the safety armed and both servos holding where they are.
+bool MotionService::Hold(uint32_t now_ms) {
+    if (torque_on_ && nb_motion_safety_get_state(&safety_) == NB_MOTION_SAFETY_STATE_OK) {
+        return true;
+    }
+    // A free servo turned by hand past its limits is not a fault: holding it
+    // there would be, so this waits until it is put back.
+    for (int a = 0; a < NB_MOTION_SAFETY_AXIS_COUNT; a++) {
+        const auto axis = static_cast<nb_motion_safety_axis_t>(a);
+        const uint16_t here = last_[a].position;
+        if (nb_motion_safety_clamp_position(&safety_, axis, here) != here) {
+            ESP_LOGW(TAG, "not holding: %s at %u is outside its safe range %u..%u: put it back "
+                     "by hand", AxisName(a), here, safety_.cfg.pos_min[a], safety_.cfg.pos_max[a]);
+            return false;
+        }
+    }
+    if (nb_motion_safety_get_state(&safety_) == NB_MOTION_SAFETY_STATE_INIT &&
+        !nb_motion_safety_arm(&safety_, now_ms)) {
+        return false;  // readings not fresh yet
+    }
+    for (int a = 0; a < NB_MOTION_SAFETY_AXIS_COUNT; a++) {
+        const auto axis = static_cast<nb_motion_safety_axis_t>(a);
+        const uint16_t here = last_[a].position;
+        const nb_motion_safety_cmd_result_t r = nb_motion_safety_command(&safety_, axis, here, now_ms);
+        if (r != NB_MOTION_SAFETY_CMD_OK) {
+            ESP_LOGW(TAG, "not holding: %s at %u refused (%d)", AxisName(a), here, r);
+            return false;
+        }
+        const nb_scs_goal_t goal = {ids_[a], here, 0, 0};
+        if (!bus_.WriteGoal(goal)) {
+            // Armed but unable to hold: leave OK the only way there is.
+            ESP_LOGW(TAG, "not holding: %s goal preload failed", AxisName(a));
+            nb_motion_safety_trip(&safety_, NB_MOTION_SAFETY_FAULT_FEEDBACK_LOST, axis);
+            return false;
+        }
+    }
+    for (int a = 0; a < NB_MOTION_SAFETY_AXIS_COUNT; a++) {
+        if (!nb_motion_safety_torque_allowed(&safety_, true, now_ms) ||
+            !bus_.WriteTorque(ids_[a], true)) {
+            ESP_LOGW(TAG, "not holding: %s torque on refused or failed", AxisName(a));
+            nb_motion_safety_trip(&safety_, NB_MOTION_SAFETY_FAULT_FEEDBACK_LOST,
+                                  static_cast<nb_motion_safety_axis_t>(a));
+            torque_on_ = true;  // the fault path releases both
+            return false;
+        }
+    }
+    torque_on_ = true;
+    ESP_LOGI(TAG, "holding: pan %u, tilt %u", last_[NB_MOTION_SAFETY_AXIS_PAN].position,
+             last_[NB_MOTION_SAFETY_AXIS_TILT].position);
+    return true;
 }
 
-MotionService::RecoverResult MotionService::Recover() {
-    recover_result_ = kRecoverPending;
-    recover_asked_ = true;
-    for (int i = 0; i < 50 && recover_result_ == kRecoverPending; i++) {
-        vTaskDelay(pdMS_TO_TICKS(10));
+// Takes a new plan if one came, and sends the next waypoint when it is due.
+void MotionService::PlayStep(uint32_t now_ms) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (plan_pending_) {
+            plan_ = pending_plan_;
+            plan_pending_ = false;
+            plan_step_ = 0;
+            step_due_ms_ = now_ms;
+        }
     }
-    const int r = recover_result_.exchange(kRecoverPending);
-    return r == kRecoverPending ? RecoverResult::kNoAnswer : static_cast<RecoverResult>(r);
+    if (plan_step_ >= plan_.count || !Reached(now_ms, step_due_ms_)) {
+        return;
+    }
+    if (!Hold(now_ms)) {
+        plan_ = {};  // dropped: asking again is the caller's choice
+        return;
+    }
+    const nb_head_waypoint_t& w = plan_.points[plan_step_++];
+    const uint16_t target[NB_MOTION_SAFETY_AXIS_COUNT] = {w.pan, w.tilt};
+    for (int a = 0; a < NB_MOTION_SAFETY_AXIS_COUNT; a++) {
+        const auto axis = static_cast<nb_motion_safety_axis_t>(a);
+        const nb_motion_safety_cmd_result_t r =
+            nb_motion_safety_command(&safety_, axis, target[a], now_ms);
+        if (r != NB_MOTION_SAFETY_CMD_OK) {
+            ESP_LOGW(TAG, "%s to %u refused (%d)", AxisName(a), target[a], r);
+            continue;
+        }
+        const nb_scs_goal_t goal = {ids_[a], target[a], w.time_ms, 0};
+        if (!bus_.WriteGoal(goal)) {
+            ESP_LOGW(TAG, "%s to %u: write failed", AxisName(a), target[a]);
+        }
+    }
+    step_due_ms_ = now_ms + w.time_ms + kStepMarginMs;
 }
 
 void MotionService::HandleRecover(uint32_t now_ms) {
@@ -145,12 +298,12 @@ void MotionService::HandleRecover(uint32_t now_ms) {
         return;
     }
     const nb_motion_safety_fault_t was = nb_motion_safety_get_fault(&safety_);
-    if (!nb_motion_safety_reset_fault(&safety_, now_ms)) {
+    if (torque_on_ || !nb_motion_safety_reset_fault(&safety_, now_ms)) {
         ESP_LOGW(TAG, "recover refused: %s still present", nb_motion_safety_fault_name(was));
         recover_result_ = static_cast<int>(RecoverResult::kRefused);
         return;
     }
-    ESP_LOGI(TAG, "recovered from %s: the next goal arms again", nb_motion_safety_fault_name(was));
+    ESP_LOGI(TAG, "recovered from %s: the next move holds again", nb_motion_safety_fault_name(was));
     fault_logged_ = false;
     recover_result_ = static_cast<int>(RecoverResult::kRecovered);
 }
@@ -160,6 +313,8 @@ void MotionService::PublishStatus() {
     s.state = nb_motion_safety_get_state(&safety_);
     s.fault = nb_motion_safety_get_fault(&safety_);
     s.fault_axis = nb_motion_safety_get_fault_axis(&safety_);
+    s.holding = torque_on_;
+    s.moving = plan_step_ < plan_.count;
     for (int a = 0; a < NB_MOTION_SAFETY_AXIS_COUNT; a++) {
         s.answering[a] = seen_[a] && misses_[a] == last_misses_[a];
         s.position[a] = last_[a].position;
@@ -177,111 +332,9 @@ void MotionService::PublishStatus() {
     status_ = s;
 }
 
-void MotionService::RequestGoal(nb_motion_safety_axis_t axis, uint16_t position,
-                                uint16_t time_ms) {
-    if (static_cast<int>(axis) < 0 || static_cast<int>(axis) >= NB_MOTION_SAFETY_AXIS_COUNT) {
-        return;
-    }
-    std::lock_guard<std::mutex> lock(mutex_);
-    goals_[axis] = {true, position, time_ms};
-}
-
-nb_motion_safety_state_t MotionService::State() {
-    return static_cast<nb_motion_safety_state_t>(state_.load());
-}
-
-nb_motion_safety_fault_t MotionService::Fault() {
-    return static_cast<nb_motion_safety_fault_t>(fault_.load());
-}
-
-// INIT -> OK on fresh readings, then each servo's goal is set to where it
-// already is before the torque comes on, so holding never starts with a jump
-// to whatever goal the servo kept from before.
-bool MotionService::Arm(uint32_t now_ms) {
-    // A free servo moved by hand past its limits is not a fault: holding it
-    // there would be, so arming waits until it is put back.
-    for (int a = 0; a < NB_MOTION_SAFETY_AXIS_COUNT; a++) {
-        const auto axis = static_cast<nb_motion_safety_axis_t>(a);
-        const uint16_t here = last_[a].position;
-        if (nb_motion_safety_clamp_position(&safety_, axis, here) != here) {
-            ESP_LOGW(TAG, "not arming: %s at %u is outside its safe range %u..%u: put it back by hand",
-                     AxisName(a), here, safety_.cfg.pos_min[a], safety_.cfg.pos_max[a]);
-            return false;
-        }
-    }
-    if (!nb_motion_safety_arm(&safety_, now_ms)) {
-        return false;
-    }
-    for (int a = 0; a < NB_MOTION_SAFETY_AXIS_COUNT; a++) {
-        const auto axis = static_cast<nb_motion_safety_axis_t>(a);
-        const uint16_t here = last_[a].position;
-        const nb_motion_safety_cmd_result_t r = nb_motion_safety_command(&safety_, axis, here, now_ms);
-        if (r != NB_MOTION_SAFETY_CMD_OK) {
-            // Moved out between the check and now, or no longer OK.
-            ESP_LOGW(TAG, "not arming: %s at %u refused (%d)", AxisName(a), here, r);
-            nb_motion_safety_trip(&safety_, NB_MOTION_SAFETY_FAULT_FEEDBACK_LOST, axis);
-            return false;
-        }
-        const nb_scs_goal_t goal = {ids_[a], here, 0, 0};
-        if (!bus_.WriteGoal(goal)) {
-            // Armed but unable to hold: leave OK the only way there is.
-            ESP_LOGW(TAG, "not arming: %s goal preload failed", AxisName(a));
-            nb_motion_safety_trip(&safety_, NB_MOTION_SAFETY_FAULT_FEEDBACK_LOST, axis);
-            return false;
-        }
-    }
-    for (int a = 0; a < NB_MOTION_SAFETY_AXIS_COUNT; a++) {
-        if (!nb_motion_safety_torque_allowed(&safety_, true, now_ms) ||
-            !bus_.WriteTorque(ids_[a], true)) {
-            ESP_LOGW(TAG, "not arming: %s torque on refused or failed", AxisName(a));
-            nb_motion_safety_trip(&safety_, NB_MOTION_SAFETY_FAULT_FEEDBACK_LOST,
-                                  static_cast<nb_motion_safety_axis_t>(a));
-            torque_on_ = true;  // the fault path releases both
-            return false;
-        }
-    }
-    torque_on_ = true;
-    ESP_LOGI(TAG, "armed: holding pan %u, tilt %u", last_[NB_MOTION_SAFETY_AXIS_PAN].position,
-             last_[NB_MOTION_SAFETY_AXIS_TILT].position);
-    return true;
-}
-
-void MotionService::ApplyGoals(uint32_t now_ms) {
-    Goal goals[NB_MOTION_SAFETY_AXIS_COUNT];
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        for (int a = 0; a < NB_MOTION_SAFETY_AXIS_COUNT; a++) {
-            goals[a] = goals_[a];
-            goals_[a].pending = false;
-        }
-    }
-    if (!goals[0].pending && !goals[1].pending) {
-        return;
-    }
-    if (nb_motion_safety_get_state(&safety_) == NB_MOTION_SAFETY_STATE_INIT && !Arm(now_ms)) {
-        return;  // the goals are dropped: asking again is the caller's choice
-    }
-    for (int a = 0; a < NB_MOTION_SAFETY_AXIS_COUNT; a++) {
-        if (!goals[a].pending) {
-            continue;
-        }
-        const auto axis = static_cast<nb_motion_safety_axis_t>(a);
-        const nb_motion_safety_cmd_result_t r =
-            nb_motion_safety_command(&safety_, axis, goals[a].position, now_ms);
-        if (r != NB_MOTION_SAFETY_CMD_OK) {
-            ESP_LOGW(TAG, "%s to %u refused (%d)", AxisName(a), goals[a].position, r);
-            continue;
-        }
-        const nb_scs_goal_t goal = {ids_[a], goals[a].position, goals[a].time_ms, 0};
-        if (!bus_.WriteGoal(goal)) {
-            ESP_LOGW(TAG, "%s to %u: write failed", AxisName(a), goals[a].position);
-        }
-    }
-}
-
 void MotionService::Run() {
     FindServos();
-    torque_on_ = !Relax();
+    torque_on_ = !Release();
     uint32_t last_log = NowMs();
     TickType_t wake = xTaskGetTickCount();
     while (true) {
@@ -310,8 +363,9 @@ void MotionService::Run() {
         nb_motion_safety_heartbeat(&safety_, now);
         nb_motion_safety_tick(&safety_, now);
         if (nb_motion_safety_get_state(&safety_) == NB_MOTION_SAFETY_STATE_FAULT) {
+            plan_ = {};
             if (torque_on_) {
-                torque_on_ = !Relax();  // tried again every cycle until both are free
+                torque_on_ = !Release();  // tried again every cycle until both are free
             }
             if (!fault_logged_) {
                 fault_logged_ = true;
@@ -325,12 +379,15 @@ void MotionService::Run() {
                     arbiter_->Propose(NB_SOURCE_REFLEX, dizzy);
                 }
             }
-            if (!torque_on_) {
-                HandleRecover(now);
-            }
+            relax_asked_ = false;
+            HandleRecover(now);
         } else {
             HandleRecover(now);
-            ApplyGoals(now);
+            if (relax_asked_.exchange(false)) {
+                plan_ = {};
+                torque_on_ = !Release();
+            }
+            PlayStep(now);
         }
         PublishStatus();
         if (now - last_log >= kLogPeriodMs) {
