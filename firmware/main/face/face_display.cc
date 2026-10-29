@@ -666,6 +666,7 @@ void FaceDisplay::OnDraw(lv_event_t* event) {
     if (!frame.enabled) {
         return;
     }
+    const int64_t started = esp_timer_get_time();
     lv_area_t area;
     lv_obj_get_coords(self->face_, &area);
     const Painter painter = {lv_event_get_layer(event), (area.x1 + area.x2 + 1) * 0.5f,
@@ -677,4 +678,19 @@ void FaceDisplay::OnDraw(lv_event_t* event) {
         painter.Dizzy(frame.pose.left_eye, frame.pose, -1, frame.animation_ms);
         painter.Dizzy(frame.pose.right_eye, frame.pose, 1, frame.animation_ms);
     }
+    const uint32_t us = static_cast<uint32_t>(esp_timer_get_time() - started);
+    self->draw_frames_++;
+    self->draw_us_sum_ += us;
+    uint32_t seen = self->draw_us_max_;
+    while (us > seen && !self->draw_us_max_.compare_exchange_weak(seen, us)) {
+    }
+}
+
+FaceDisplay::DrawStats FaceDisplay::TakeDrawStats() {
+    DrawStats s;
+    s.frames = draw_frames_.exchange(0);
+    const uint32_t sum = draw_us_sum_.exchange(0);
+    s.avg_us = s.frames > 0 ? sum / s.frames : 0;
+    s.max_us = draw_us_max_.exchange(0);
+    return s;
 }

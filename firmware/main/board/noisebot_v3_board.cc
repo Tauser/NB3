@@ -7,6 +7,7 @@
 #include "led/single_led.h"
 #include "behavior/arc_modifier.h"
 #include "behavior/head_behavior.h"
+#include "behavior/cpu_report.h"
 #include "behavior/link_monitor.h"
 #include "behavior/personality_drift.h"
 #include "behavior/reminder_service.h"
@@ -252,6 +253,7 @@ public:
         StartMotionBench(motion);  // bench builds only
         static TouchModifier touch(BODY_TOUCH_CHANNEL, arbiter_, mood_, behavior_, memory_, arcs,
                                    head);
+        static CpuReport cpu_report(display_);
         static LinkMonitor link(display_, &sounds);
         static ReminderService reminders(clock_, arbiter_, display_, head, link, sounds);
         RegisterReminderTools(reminders);
