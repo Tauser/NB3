@@ -592,13 +592,20 @@ trilho lógico) e ids conhecidos.
   reinício e tocando atrasado.
 - [x] Comportamentos autônomos no IDLE (sonolência à noite, reação a toque
   sem nuvem): já vêm das etapas 2 a 4 e não dependem da nuvem.
-- [~] **Modo offline explícito** (`core/nb_link`, `behavior/link_monitor`):
+- [x] **Modo offline explícito** (`core/nb_link`, `behavior/link_monitor`):
   online, sem Wi-Fi (endereço sumido por mais de 5 s) ou sem servidor
   (erro de conexão do xiaozhi com Wi-Fi de pé, até uma conversa engatar ou
   o Wi-Fi voltar). O banner avisa na hora, de novo 20 s depois e a cada
   5 min, e diz "Conectado de novo" na volta; lembrete tocado offline não
   tenta passar o texto à IA. 5 host-tests. No boot: "starting -> online"
-  logo depois do IP. Falta ver: o roteador desligado e religado.
+  logo depois do IP. Validado pelo usuário com o roteador desligado e
+  religado: os dois avisos apareceram na tela ("sem Wi-Fi" e "Conectado de
+  novo"). Na primeira tentativa apareceu também "sem microSD": o cartão já
+  estava sem responder (timeout no comando de inicialização, a cada nova
+  tentativa de 30 s) e só voltou ao ser reencaixado; na repetição não houve
+  aviso de cartão. Não deu para ligar a falha à queda do Wi-Fi (a captura de
+  log não pegou o evento): se o cartão sumir de novo junto com o Wi-Fi,
+  conferir a alimentação do módulo (capacitor perto dele, fios curtos).
 - [~] **Sons locais no microSD** (`behavior/sound_bank`): lembrete, sem
   internet, conectado de novo e parada de segurança têm som embutido; um
   OGG Opus de até 64 KB em `noise/sons/` (`lembrete.ogg`,
