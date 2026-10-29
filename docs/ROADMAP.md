@@ -656,6 +656,25 @@ trilho lógico) e ids conhecidos.
   host-test de amostras simuladas e casca fina em `i2c_master`; eventos
   entram como fontes do árbitro (pegar acorda, deitar dorme). Na cabeça fica
   fora, por causa da vibração dos servos.
+- [ ] **Ferramentas MCP novas** (nenhuma escrita; toda escrita passa pelo
+  árbitro e, no movimento, pelo `motion_safety`):
+  - leitura: `self.device.status` (conexão, energia, tédio, estado, cartão,
+    uptime, motivo do último reset, memória livre), `self.device.diagnostics`
+    (CPU, fps, servos, toque), `self.clock.get`, `self.memory.stats`;
+  - luz: `self.leds.set` (cor e efeito por tempo limitado) e
+    **`self.leds.set_brightness`** (potência dos LEDs de humor, hoje fixa em
+    6/255 em `MOOD_LED_MAX_BRIGHTNESS`; a ferramenta mexe dentro de um teto
+    duro no firmware e a descrição diz à IA que o teto existe);
+  - comportamento: `self.personality.get/set` (dentro das faixas do leitor
+    do `.ini`, com limite por janela), `self.mode.set` (quieto, não perturbe
+    com prazo, dormir), `self.energy.set`;
+  - expressão: `self.sound.play` (sons do cartão por nome),
+    `self.banner.show`, `self.gaze.set`;
+  - agenda: recorrência e `snooze` em `self.reminder`;
+  - manutenção: `self.device.reboot`, só com confirmação do usuário.
+  Ordem sugerida: `device.status`, `sound.play`, `leds.set_brightness`.
+  Falta decidir: o teto duro do brilho, se o brilho vale só até o reinício ou
+  fica guardado, e o que a IA pode mudar sozinha na personalidade.
 - [ ] Mensagens de status que hoje só vão para o log (conexão, verificação de
   versão): decidir se alguma merece aparecer no NB3.
 - [ ] Workspace do VS Code compila só quando a instalação do IDF 6.1 no EIM
