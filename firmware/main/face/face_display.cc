@@ -608,6 +608,7 @@ void FaceDisplay::Tick() {
     const float level = speaking ? levels_.Speaker(now) : levels_.Mic(now);
     nb_overlay_update(&overlay_, expression, speaking, level, now, &overlay_frame_);
     lv_obj_invalidate(face_);
+    ticks_++;
     UpdateBanner();
 }
 
@@ -688,6 +689,7 @@ void FaceDisplay::OnDraw(lv_event_t* event) {
 
 FaceDisplay::DrawStats FaceDisplay::TakeDrawStats() {
     DrawStats s;
+    s.ticks = ticks_.exchange(0);
     s.frames = draw_frames_.exchange(0);
     const uint32_t sum = draw_us_sum_.exchange(0);
     s.avg_us = s.frames > 0 ? sum / s.frames : 0;

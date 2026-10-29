@@ -129,8 +129,17 @@ Validação de fechamento:
 Em aberto (não bloqueia):
 
 - [ ] Ver o banner numa mensagem de erro ou ativação (texto com acento).
-- [ ] Medir CPU/FPS da face (hoje a tela inteira é redesenhada a 30 fps;
-  otimizar para só a área dos olhos se pesar).
+- [x] Medir CPU/FPS da face (`behavior/cpu_report`, uma linha `Cpu:` no log
+  a cada 30 s, com os contadores de run-time que o build já tinha). Medido
+  com o firmware completo (movimento, lembretes, link, memória, wake word),
+  parado em repouso: **a face roda a ~15 fps, não a 30** (o timer pede 33
+  ms, mas a tela inteira em 16 bits a 40 MHz já leva ≥31 ms só no SPI), cada
+  quadro vira 12 chamadas de desenho (fatias do buffer parcial) de ~0,8 ms,
+  e a task do LVGL usa ~37% das duas CPUs (~75% de um núcleo), com ~51% das
+  duas ociosas e o resto (áudio 8%, movimento 1%, Wi-Fi 1%) pequeno. Não
+  atrapalha nada hoje, mas é o maior consumo do robô e limita a fluidez:
+  redesenhar só a região dos olhos (união da caixa anterior e da atual)
+  deve dobrar o ritmo e liberar CPU. Fica como otimização opcional.
 
 ---
 

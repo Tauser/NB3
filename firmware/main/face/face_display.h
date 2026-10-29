@@ -64,10 +64,12 @@ public:
     // as an error banner), for telling when the cloud is out of reach.
     uint32_t ErrorsSeen() const { return errors_seen_; }
 
-    // Frames drawn since the last call and what drawing the eyes took, for
-    // the CPU report. Time spent in the face's draw callback only, not in
-    // LVGL's flush to the panel.
+    // For the CPU report, since the last call: face updates (ticks), calls of
+    // the draw callback (LVGL draws a frame in several slices, so there are
+    // more of them than ticks) and what each took. Only the callback's time,
+    // not the rasterizing LVGL does afterwards nor the flush to the panel.
     struct DrawStats {
+        uint32_t ticks = 0;
         uint32_t frames = 0;
         uint32_t avg_us = 0;
         uint32_t max_us = 0;
@@ -94,6 +96,7 @@ private:
     std::atomic<float> look_pitch_{0.0f};
     std::atomic<bool> look_own_{false};
     std::atomic<uint32_t> errors_seen_{0};
+    std::atomic<uint32_t> ticks_{0};
     std::atomic<uint32_t> draw_frames_{0};
     std::atomic<uint32_t> draw_us_sum_{0};
     std::atomic<uint32_t> draw_us_max_{0};

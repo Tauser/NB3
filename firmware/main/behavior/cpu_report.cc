@@ -102,9 +102,10 @@ void CpuReport::Run() {
         if (display_ != nullptr) {
             draw = display_->TakeDrawStats();
         }
-        ESP_LOGI(TAG, "idle %.0f%% of both cores; busiest: %s; face %.1f fps, eyes %lu us avg "
-                 "%lu us max",
-                 idle, busiest, draw.frames * 1000.0 / kPeriodMs,
+        ESP_LOGI(TAG, "idle %.0f%% of both cores; busiest: %s; face %.1f fps, %.1f draw calls "
+                 "per frame, %lu us avg %lu us max each",
+                 idle, busiest, draw.ticks * 1000.0 / kPeriodMs,
+                 draw.ticks > 0 ? static_cast<double>(draw.frames) / draw.ticks : 0.0,
                  static_cast<unsigned long>(draw.avg_us), static_cast<unsigned long>(draw.max_us));
         std::swap(before, now);
     }
