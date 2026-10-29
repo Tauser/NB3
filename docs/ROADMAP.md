@@ -146,8 +146,9 @@ Em aberto (não bloqueia):
   face inteira é redesenhada de qualquer jeito, então um erro de caixa só
   poderia aparecer como mancha curta. Medido em repouso: de ~15 para ~21 fps,
   a task do LVGL de ~37% para ~18% das duas CPUs e a ociosidade de ~51% para
-  ~72%. Falta ver: manchas ou rastros nas trocas de expressão e nos
-  overlays (corações, barras, balão, Zs, mão, tonta) e no banner.
+  ~72%. Validado pelo usuário na tela: sem manchas nem rastros nas trocas
+  de expressão, nos overlays (corações, barras, balão, Zs, mão, tonta), no
+  banner, no olhar e na piscada.
 
 ---
 
