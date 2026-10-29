@@ -625,7 +625,11 @@ trilho lógico) e ids conhecidos.
   do ventilador, vedação do furo do mic).
 - [ ] Decidir AEC: referência por software nesta placa, codec com loopback
   (ES7210/ES8311) ou CoreS3.
-- [ ] Dois mics só com geometria fixa definida pelo corpo.
+- [ ] Dois mics só com geometria fixa definida pelo corpo. Pinos já
+  escolhidos (D-019): o segundo INMP441 divide DIN 39, BCLK 40 e WS 41 com o
+  primeiro, no outro slot (L/R em 3,3 V); sem pino novo. Muda a captura
+  para estéreo e o pipeline de wake word do esp-sr. Antes, medir um mic de
+  outra origem (etapa 0).
 
 ---
 
@@ -646,6 +650,12 @@ trilho lógico) e ids conhecidos.
   upstream ficam como estão. Confirmado no `compile_commands.json`.
 - [ ] **AEC com referência por software** (mic e amplificador no mesmo I2S):
   experimento para permitir interromper o robô falando por cima dele.
+- [ ] **GY-521 (MPU-6050) na base**, para pegar, sacudir, deitar e queda
+  (D-019). Pinos escolhidos, nada montado nem escrito: SDA 4, SCL 5, INT 1,
+  AD0 em GND (0x68), VCC 3,3 V. Plano: núcleo C17 puro de eventos com
+  host-test de amostras simuladas e casca fina em `i2c_master`; eventos
+  entram como fontes do árbitro (pegar acorda, deitar dorme). Na cabeça fica
+  fora, por causa da vibração dos servos.
 - [ ] Mensagens de status que hoje só vão para o log (conexão, verificação de
   versão): decidir se alguma merece aparecer no NB3.
 - [ ] Workspace do VS Code compila só quando a instalação do IDF 6.1 no EIM

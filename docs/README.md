@@ -25,6 +25,7 @@ cabe em uma.
 | D-016 | **Redesenho parcial da face**: o mesmo código de desenho roda em modo gravação (`Recorder`) e dá a caixa e o hash de cada quadro; só a união da caixa anterior com a atual é invalidada, e a face inteira a cada 10 s | uma lista de caixas à mão por elemento envelheceria a cada overlay novo; gravar o próprio desenho não pode divergir dele. Em repouso: ~15 → ~21 fps e CPU do LVGL ~37% → ~18%. Validado na tela |
 | D-017 | **Lembretes locais e modo offline explícito**: lembretes (até 16) na NVS, com hora de parede quando sincronizada; ao tocar sem nuvem, bipe, face, banner e aceno; `nb_link` distingue sem Wi-Fi de sem servidor e avisa no banner | o que é local não pode depender da nuvem; o robô precisa dizer que está sem internet em vez de parecer travado |
 | D-018 | **Sons de aviso embutidos, substituíveis pelo cartão**: OGG Opus de até 64 KB em `noise/sons/` substitui o som embutido de lembrete, sem internet, conectado e parada de segurança; lidos na montagem e mantidos em memória | o aviso nunca espera o cartão, e o usuário personaliza sem recompilar |
+| D-019 | **GY-521 na base do robô, não na cabeça**, para detectar pegar, sacudir, deitar e queda; segundo microfone só quando o corpo definir a geometria. Pinos escolhidos (ainda não montados nem no `config.h`): GY-521 no I2C 4/5 com INT no 1; 2º mic no mesmo barramento I2S, sem pino novo | na base, o sinal não leva a vibração dos servos, então os eventos são legíveis; na cabeça misturaria a aceleração do movimento. Um segundo mic do mesmo lote de INMP441 repetiria o ruído medido na etapa 0, e a direção do som só faz sentido com distância fixa entre mics |
 
 Cada decisão nova entra nesta tabela; se precisar de mais contexto, ganha um
 arquivo `D-XXX-<nome>.md` com contexto, decisão e consequências.
@@ -43,6 +44,8 @@ octais).
 | LED onboard (WS2812) | 38 | `rmt` |
 | Toque corporal | 2 (TOUCH2) | touch sensor |
 | I2C de expansão | SDA 4 · SCL 5 | `i2c_master` |
+| GY-521 (MPU-6050) na base | SDA 4 · SCL 5 (I2C de expansão) · INT 1 · AD0 em GND (endereço 0x68) · VCC 3,3 V | `i2c_master` + `gpio` |
+| 2º mic INMP441 (planejado) | sem pino novo: mesmo DIN 39, BCLK 40 e WS 41, no outro slot (L/R em 3,3 V) | `i2s_std` |
 | microSD externo | D0 6 · CLK 15 · CMD 16 | SDMMC 1-bit |
 
 Cuidados:
@@ -51,6 +54,10 @@ Cuidados:
 - GPIO35–37 ligados à PSRAM octal e GPIO33/34 não expostos: indisponíveis.
 - GPIO0 e GPIO45/46 são straps (46 nunca com sinal idle-HIGH); 43/44 console,
   19/20 USB nativo.
+- Livres e seguros para o próximo periférico: 1, 7, 8, 9 e 13. Evitar 3
+  (strap de JTAG), além de 0, 45 e 46 (straps). O GY-521 usa 1 só para a
+  interrupção, opcional; o módulo já traz pull-ups de I2C, então não se
+  soma resistor na placa.
 - Boards de referência do xiaozhi usam 47/48 para LED/botão: a board NB3 não
   herda esses pinos.
 
