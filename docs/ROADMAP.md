@@ -139,7 +139,15 @@ Em aberto (não bloqueia):
   duas ociosas e o resto (áudio 8%, movimento 1%, Wi-Fi 1%) pequeno. Não
   atrapalha nada hoje, mas é o maior consumo do robô e limita a fluidez:
   redesenhar só a região dos olhos (união da caixa anterior e da atual)
-  deve dobrar o ritmo e liberar CPU. Fica como otimização opcional.
+  deve dobrar o ritmo e liberar CPU. **Feito:** o mesmo código de desenho
+  roda também em modo gravação (`Recorder`), que dá a caixa de tudo que o
+  quadro desenha e um hash dos parâmetros; só a união da caixa anterior com
+  a atual é invalidada, e nada quando o quadro é idêntico. A cada 10 s a
+  face inteira é redesenhada de qualquer jeito, então um erro de caixa só
+  poderia aparecer como mancha curta. Medido em repouso: de ~15 para ~21 fps,
+  a task do LVGL de ~37% para ~18% das duas CPUs e a ociosidade de ~51% para
+  ~72%. Falta ver: manchas ou rastros nas trocas de expressão e nos
+  overlays (corações, barras, balão, Zs, mão, tonta) e no banner.
 
 ---
 

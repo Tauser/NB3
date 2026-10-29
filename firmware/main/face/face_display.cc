@@ -27,6 +27,7 @@ constexpr lv_opa_t kBannerOpacity = 200;  // of 255
 constexpr uint32_t kAlertNoticeMs = 6000;  // server alerts and upgrade messages
 
 constexpr uint32_t kFramePeriodMs = 33;
+constexpr uint32_t kFullRefreshMs = 10 * 1000;
 constexpr float kPi = 3.14159265358979323846f;
 
 // The avatar's 1000x1000 design space is scaled onto the 320x240 screen.
@@ -78,13 +79,55 @@ lv_color_t Dim(lv_color_t color, float alpha) {
                          static_cast<uint8_t>(color.blue * alpha));
 }
 
-// Thin wrappers over the LVGL draw API, in screen pixels.
+// What a frame would draw, without drawing it: the box that holds every
+// primitive and a hash of their parameters. The face is invalidated only
+// where two consecutive frames differ, so LVGL redraws and flushes a part of
+// the screen instead of all of it. Running the same painting code in
+// recording mode keeps the box in step with what is really drawn.
+struct Recorder {
+    bool any = false;
+    lv_area_t box = {0, 0, -1, -1};
+    uint32_t hash = 2166136261u;
+
+    void Mix(int32_t v) { hash = (hash ^ static_cast<uint32_t>(v)) * 16777619u; }
+    void MixColor(lv_color_t c) {
+        Mix(c.red);
+        Mix(c.green);
+        Mix(c.blue);
+    }
+    static int32_t Q(float v) { return static_cast<int32_t>(lroundf(v * 16.0f)); }
+    void Box(int x0, int y0, int x1, int y1) {
+        if (!any) {
+            box = {x0, y0, x1, y1};
+            any = true;
+            return;
+        }
+        box.x1 = std::min<int32_t>(box.x1, x0);
+        box.y1 = std::min<int32_t>(box.y1, y0);
+        box.x2 = std::max<int32_t>(box.x2, x1);
+        box.y2 = std::max<int32_t>(box.y2, y1);
+    }
+};
+
+// Thin wrappers over the LVGL draw API, in screen pixels. With a recorder
+// they only record.
 struct Painter {
     lv_layer_t* layer;
     float cx;  // screen position of the design-space origin
     float cy;
+    Recorder* rec = nullptr;
 
     void RoundRect(int x, int y, int w, int h, int radius, lv_color_t color) const {
+        if (rec != nullptr) {
+            rec->Box(x, y, x + w - 1, y + h - 1);
+            rec->Mix(x);
+            rec->Mix(y);
+            rec->Mix(w);
+            rec->Mix(h);
+            rec->Mix(radius);
+            rec->MixColor(color);
+            return;
+        }
         lv_draw_rect_dsc_t dsc;
         lv_draw_rect_dsc_init(&dsc);
         dsc.bg_color = color;
@@ -102,6 +145,21 @@ struct Painter {
 
     void Line(float x0, float y0, float x1, float y1, float width, lv_color_t color,
               bool round = true) const {
+        if (rec != nullptr) {
+            const float pad = width * 0.5f + 2.0f;
+            rec->Box(static_cast<int>(floorf(fminf(x0, x1) - pad)),
+                     static_cast<int>(floorf(fminf(y0, y1) - pad)),
+                     static_cast<int>(ceilf(fmaxf(x0, x1) + pad)),
+                     static_cast<int>(ceilf(fmaxf(y0, y1) + pad)));
+            rec->Mix(Recorder::Q(x0));
+            rec->Mix(Recorder::Q(y0));
+            rec->Mix(Recorder::Q(x1));
+            rec->Mix(Recorder::Q(y1));
+            rec->Mix(static_cast<int32_t>(lroundf(width)));
+            rec->Mix(round ? 1 : 0);
+            rec->MixColor(color);
+            return;
+        }
         lv_draw_line_dsc_t dsc;
         lv_draw_line_dsc_init(&dsc);
         dsc.color = color;
@@ -117,6 +175,17 @@ struct Painter {
 
     void Triangle(float x0, float y0, float x1, float y1, float x2, float y2,
                   lv_color_t color) const {
+        if (rec != nullptr) {
+            rec->Box(static_cast<int>(floorf(fminf(x0, fminf(x1, x2)) - 2.0f)),
+                     static_cast<int>(floorf(fminf(y0, fminf(y1, y2)) - 2.0f)),
+                     static_cast<int>(ceilf(fmaxf(x0, fmaxf(x1, x2)) + 2.0f)),
+                     static_cast<int>(ceilf(fmaxf(y0, fmaxf(y1, y2)) + 2.0f)));
+            for (const float v : {x0, y0, x1, y1, x2, y2}) {
+                rec->Mix(Recorder::Q(v));
+            }
+            rec->MixColor(color);
+            return;
+        }
         lv_draw_triangle_dsc_t dsc;
         lv_draw_triangle_dsc_init(&dsc);
         dsc.color = color;
@@ -252,6 +321,22 @@ struct Painter {
     }
 
     void HandImage(float left, float top, float opacity, float angle) const {
+        if (rec != nullptr) {
+            // Turning around the pivot, the image stays within the farthest
+            // corner's distance from it.
+            const float w = static_cast<float>(nb_hand_think_image.header.w);
+            const float h = static_cast<float>(nb_hand_think_image.header.h);
+            const float px = left + w / 5.0f;
+            const float py = top + h * 3.0f / 10.0f;
+            const float reach = hypotf(fmaxf(px - left, left + w - px), fmaxf(py - top, top + h - py)) + 2.0f;
+            rec->Box(static_cast<int>(floorf(px - reach)), static_cast<int>(floorf(py - reach)),
+                     static_cast<int>(ceilf(px + reach)), static_cast<int>(ceilf(py + reach)));
+            rec->Mix(Recorder::Q(left));
+            rec->Mix(Recorder::Q(top));
+            rec->Mix(Recorder::Q(opacity));
+            rec->Mix(Recorder::Q(angle));
+            return;
+        }
         lv_draw_image_dsc_t dsc;
         lv_draw_image_dsc_init(&dsc);
         dsc.src = &nb_hand_think_image;
@@ -387,6 +472,22 @@ struct Painter {
         Line(x2, y2, x3, y3, 2.0f, kEyeColor);
     }
 };
+
+// One frame of the face: for drawing, and again in recording mode to know
+// where it will draw.
+void PaintFace(const Painter& painter, const nb_avatar_render_frame_t& frame,
+               const nb_overlay_frame_t& overlay) {
+    if (!frame.enabled) {
+        return;
+    }
+    painter.Eye(frame.pose.left_eye, frame.pose, frame.blink_scale);
+    painter.Eye(frame.pose.right_eye, frame.pose, frame.blink_scale);
+    painter.Overlay(overlay, frame.pose);
+    if (frame.dizzy_overlay) {
+        painter.Dizzy(frame.pose.left_eye, frame.pose, -1, frame.animation_ms);
+        painter.Dizzy(frame.pose.right_eye, frame.pose, 1, frame.animation_ms);
+    }
+}
 
 }  // namespace
 
@@ -607,7 +708,7 @@ void FaceDisplay::Tick() {
     const bool speaking = Application::GetInstance().GetDeviceState() == kDeviceStateSpeaking;
     const float level = speaking ? levels_.Speaker(now) : levels_.Mic(now);
     nb_overlay_update(&overlay_, expression, speaking, level, now, &overlay_frame_);
-    lv_obj_invalidate(face_);
+    InvalidateChanged(now);
     ticks_++;
     UpdateBanner();
 }
@@ -663,8 +764,7 @@ void FaceDisplay::UpdateBanner() {
 
 void FaceDisplay::OnDraw(lv_event_t* event) {
     auto* self = static_cast<FaceDisplay*>(lv_event_get_user_data(event));
-    const nb_avatar_render_frame_t& frame = self->frame_;
-    if (!frame.enabled) {
+    if (!self->frame_.enabled) {
         return;
     }
     const int64_t started = esp_timer_get_time();
@@ -672,19 +772,60 @@ void FaceDisplay::OnDraw(lv_event_t* event) {
     lv_obj_get_coords(self->face_, &area);
     const Painter painter = {lv_event_get_layer(event), (area.x1 + area.x2 + 1) * 0.5f,
                              (area.y1 + area.y2 + 1) * 0.5f};
-    painter.Eye(frame.pose.left_eye, frame.pose, frame.blink_scale);
-    painter.Eye(frame.pose.right_eye, frame.pose, frame.blink_scale);
-    painter.Overlay(self->overlay_frame_, frame.pose);
-    if (frame.dizzy_overlay) {
-        painter.Dizzy(frame.pose.left_eye, frame.pose, -1, frame.animation_ms);
-        painter.Dizzy(frame.pose.right_eye, frame.pose, 1, frame.animation_ms);
-    }
+    PaintFace(painter, self->frame_, self->overlay_frame_);
     const uint32_t us = static_cast<uint32_t>(esp_timer_get_time() - started);
     self->draw_frames_++;
     self->draw_us_sum_ += us;
     uint32_t seen = self->draw_us_max_;
     while (us > seen && !self->draw_us_max_.compare_exchange_weak(seen, us)) {
     }
+}
+
+// Asks LVGL to redraw only where this frame differs from the one on the
+// screen: the box of what it will draw together with the box of the last one
+// (to wipe what has moved away). Nothing at all when the frame draws the same
+// thing. Every few seconds the whole face is redrawn anyway, so a mistake in
+// the boxes could only ever show as a short-lived smudge.
+void FaceDisplay::InvalidateChanged(uint32_t now) {
+    lv_area_t face;
+    lv_obj_get_coords(face_, &face);
+    Recorder rec;
+    const Painter painter = {nullptr, (face.x1 + face.x2 + 1) * 0.5f, (face.y1 + face.y2 + 1) * 0.5f,
+                             &rec};
+    PaintFace(painter, frame_, overlay_frame_);
+
+    const bool same = have_drawn_ && rec.any == drawn_any_ && rec.hash == drawn_hash_ &&
+                      (!rec.any || (rec.box.x1 == drawn_box_.x1 && rec.box.y1 == drawn_box_.y1 &&
+                                    rec.box.x2 == drawn_box_.x2 && rec.box.y2 == drawn_box_.y2));
+    const bool refresh = !have_drawn_ || now - last_full_ms_ >= kFullRefreshMs;
+    if (same && !refresh) {
+        return;
+    }
+    if (refresh) {
+        lv_obj_invalidate(face_);
+        last_full_ms_ = now;
+    } else {
+        lv_area_t dirty = rec.box;
+        bool any = rec.any;
+        if (drawn_any_) {
+            if (any) {
+                dirty.x1 = std::min<int32_t>(dirty.x1, drawn_box_.x1);
+                dirty.y1 = std::min<int32_t>(dirty.y1, drawn_box_.y1);
+                dirty.x2 = std::max<int32_t>(dirty.x2, drawn_box_.x2);
+                dirty.y2 = std::max<int32_t>(dirty.y2, drawn_box_.y2);
+            } else {
+                dirty = drawn_box_;
+                any = true;
+            }
+        }
+        if (any) {
+            lv_obj_invalidate_area(face_, &dirty);
+        }
+    }
+    have_drawn_ = true;
+    drawn_any_ = rec.any;
+    drawn_box_ = rec.box;
+    drawn_hash_ = rec.hash;
 }
 
 FaceDisplay::DrawStats FaceDisplay::TakeDrawStats() {

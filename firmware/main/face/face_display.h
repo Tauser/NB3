@@ -80,6 +80,7 @@ private:
     static void OnTimer(lv_timer_t* timer);
     static void OnDraw(lv_event_t* event);
     void Tick();
+    void InvalidateChanged(uint32_t now);
     void ShowBanner(nb_banner_kind_t kind, const char* text, uint32_t timeout_ms);
     void UpdateBanner();
 
@@ -110,6 +111,12 @@ private:
     uint32_t last_tick_ms_ = 0;
     nb_overlay_t overlay_;
     nb_overlay_frame_t overlay_frame_ = {};
+    // What the last invalidated frame draws (LVGL task only).
+    bool have_drawn_ = false;
+    bool drawn_any_ = false;
+    lv_area_t drawn_box_ = {0, 0, -1, -1};
+    uint32_t drawn_hash_ = 0;
+    uint32_t last_full_ms_ = 0;
 
     // System banner. xiaozhi calls arrive from other tasks and only touch
     // banner_ and last_status_ under banner_mutex_ (held for microseconds);
