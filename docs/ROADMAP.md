@@ -574,7 +574,9 @@ trilho lógico) e ids conhecidos.
 
 **Objetivo:** o que é local funciona sem nuvem.
 
-- [ ] Relógio e agenda locais (RTC por SNTP + persistência em NVS).
+- [x] Relógio e agenda locais: a hora vem do SNTP do xiaozhi com o último
+  instante visto na NVS (`core/nb_clock`, etapa 2 item 6) e a agenda são os
+  lembretes abaixo, também na NVS.
 - [x] **Timers e lembretes** (`core/nb_reminder`,
   `behavior/reminder_service`, `mcp/reminder_tools`): até 16, devidos no
   tempo monotônico do boot e, com a hora sincronizada, também numa hora de
