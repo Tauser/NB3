@@ -7,5 +7,10 @@
         "mirrors": [
             {"upstream": "main/idf_component.yml", "local": "main/idf_component.yml"}
         ]
+    },
+    {
+        "url": "https://github.com/rhasspy/pymicro-features.git",
+        "path": "pymicro-features",
+        "tag": "v2.0.2"
     }
 ]

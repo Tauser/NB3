@@ -25,7 +25,7 @@ por tag. Pastas marcadas com * ainda não existem.
 ```
 firmware/
   CMakeLists.txt    projeto; usa os sdkconfig.defaults do xiaozhi e depois os nossos
-  sdkconfig.defaults  board, PT-BR, Jarvis, flash octal 32 MB, sem auto-update
+  sdkconfig.defaults  board, PT-BR, Jarvis (reserva), flash octal 32 MB, sem auto-update
   main/
     main.cpp        boot mínimo: corpo primeiro, depois Application do xiaozhi
     CMakeLists.txt  fontes NB3 + subconjunto ESP32-S3 das fontes do xiaozhi
@@ -36,10 +36,15 @@ firmware/
     behavior/       árbitro thread-safe (prioridades num lugar só) e ganchos de estado
     face/           tela do NB3 (LVGL): desenha o avatar que o árbitro escolhe
     mcp/            ferramentas MCP do dispositivo, com descrições ricas
+    wake/           wake word "Nexo": modelo microWakeWord e a casca TFLite Micro
     hal/ *          casca de hardware (servos, LEDs, toque, SD)
+  components/
+    nb_tflite/      dependências só do NB3: esp-tflite-micro e o frontend de áudio
   tests/            host-tests dos núcleos (CMake + ctest) e utilitários compartilhados
-  patches/          patch versionado sobre o xiaozhi (board no Kconfig, auto-update opcional)
-  repos.json        dependências externas por tag fixa + arquivos espelhados
+  patches/          patch versionado sobre o xiaozhi (board no Kconfig, auto-update opcional,
+                    microWakeWord como detector do AFE)
+  repos.json        dependências externas por tag fixa + arquivos espelhados (xiaozhi e
+                    pymicro-features, o frontend com que o microWakeWord treina)
   fetch_repos.py    baixa, aplica patches e confere espelhos — falha alto
 ```
 

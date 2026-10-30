@@ -131,7 +131,7 @@ endif()
 file(GLOB COMMON_SOUNDS "${XIAOZHI_MAIN}/assets/common/*.ogg")
 
 idf_component_register(SRCS ${NB3_SOURCES} ${XIAOZHI_SOURCES}
-                    EMBED_FILES ${LANG_SOUNDS} ${COMMON_SOUNDS}
+                    EMBED_FILES ${LANG_SOUNDS} ${COMMON_SOUNDS} "wake/nexo.tflite"
                     INCLUDE_DIRS ${NB3_INCLUDE_DIRS} ${XIAOZHI_INCLUDE_DIRS}
                     WHOLE_ARCHIVE
                     PRIV_REQUIRES
@@ -160,6 +160,7 @@ idf_component_register(SRCS ${NB3_SOURCES} ${XIAOZHI_SOURCES}
                         nvs_flash
                         espcoredump
                         xiaozhi-fonts
+                        nb_tflite
                     )
 
 if(NOT CMAKE_BUILD_EARLY_EXPANSION)

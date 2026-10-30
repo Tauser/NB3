@@ -26,6 +26,7 @@ cabe em uma.
 | D-017 | **Lembretes locais e modo offline explícito**: lembretes (até 16) na NVS, com hora de parede quando sincronizada; ao tocar sem nuvem, bipe, face, banner e aceno; `nb_link` distingue sem Wi-Fi de sem servidor e avisa no banner | o que é local não pode depender da nuvem; o robô precisa dizer que está sem internet em vez de parecer travado |
 | D-018 | **Sons de aviso embutidos, substituíveis pelo cartão**: OGG Opus de até 64 KB em `noise/sons/` substitui o som embutido de lembrete, sem internet, conectado e parada de segurança; lidos na montagem e mantidos em memória | o aviso nunca espera o cartão, e o usuário personaliza sem recompilar |
 | D-019 | **GY-521 na base do robô, não na cabeça**, para detectar pegar, sacudir, deitar e queda; segundo microfone só quando o corpo definir a geometria. Pinos escolhidos (ainda não montados nem no `config.h`): GY-521 no I2C 4/5 com INT no 1; 2º mic no mesmo barramento I2S, sem pino novo | na base, o sinal não leva a vibração dos servos, então os eventos são legíveis; na cabeça misturaria a aceleração do movimento. Um segundo mic do mesmo lote de INMP441 repetiria o ruído medido na etapa 0, e a direção do som só faz sentido com distância fixa entre mics |
+| D-020 | **Wake word "Nexo" com microWakeWord** (TFLite Micro), como terceiro detector do AFE do xiaozhi, alimentado com o áudio já processado; WakeNet "Jarvis" fica de reserva por Kconfig (`NB3_MICRO_WAKE_WORD`) e assume se o modelo não carregar. Features pelo frontend do `pymicro-features` por tag; decisão (média de 5 probabilidades, cutoff, aquecimento) em núcleo C17 | o WakeNet só traz palavras prontas, e "Nexo" é o nome do robô. Usar o mesmo código de features do treino garante que o modelo veja na placa o que viu no treino. "Nexo" sozinho é palavra comum em PT-BR ("sem nexo"): o modelo atual, treinado só com vozes sintéticas e negativos em inglês, é para validar o caminho; retreinar com negativos em PT-BR |
 
 Cada decisão nova entra nesta tabela; se precisar de mais contexto, ganha um
 arquivo `D-XXX-<nome>.md` com contexto, decisão e consequências.
@@ -66,7 +67,8 @@ Cuidados:
 xiaozhi v2.5.2 com a board NB3, ativado no xiaozhi.me.
 
 - **Conversa em PT-BR:** entende bem e responde rápido. Gate de PT-BR aprovado.
-- **Wake word:** "Jarvis" (a padrão em chinês não é pronunciável para nós).
+- **Wake word:** "Jarvis" (a padrão em chinês não é pronunciável para nós);
+  depois trocada por "Nexo" (D-020).
 - **Alcance do mic:** só funciona de perto. Os módulos INMP441 em mãos têm
   piso de ruído de cerca de −40 dBFS em silêncio, uns 40 dB acima do
   esperado para um INMP441 genuíno. Três módulos deram o mesmo nível em duas

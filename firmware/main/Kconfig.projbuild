@@ -1,3 +1,15 @@
 # xiaozhi's options (language, wake word, OTA URL, ...) stay defined upstream
 # and are pulled in as-is; NB3 options get their own menu here when needed.
 rsource "../xiaozhi-esp32/main/Kconfig.projbuild"
+
+menu "NoiseBot v3"
+
+config NB3_MICRO_WAKE_WORD
+    bool "Wake on \"Nexo\" (microWakeWord on TFLite Micro)"
+    default y
+    help
+        Detect the wake word with the microWakeWord model in main/wake
+        instead of esp-sr's WakeNet. Off falls back to the WakeNet model
+        selected in the esp-sr options.
+
+endmenu

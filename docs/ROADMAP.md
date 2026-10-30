@@ -635,6 +635,20 @@ trilho lógico) e ids conhecidos.
 
 ## Pendências transversais
 
+- [~] **Wake word "Nexo" com microWakeWord** (D-020): `wake/micro_wake_word`
+  roda o modelo no TFLite Micro (`esp-tflite-micro` 1.4.1, componente
+  `nb_tflite`) com as features do `pymicro-features` v2.0.2, o mesmo código
+  do treino; `core/nb_wake_detect` decide (média de 5 probabilidades acima
+  de 0,90, ~1 s de aquecimento a cada ativação) e registra os quase-acertos
+  acima de 0,40 com o pico, para calibrar o cutoff. Entra no AFE do xiaozhi
+  como terceiro detector (patch), com o áudio já processado; "Jarvis" fica de
+  reserva por Kconfig. 12 host-tests. Na placa: memória de trabalho de 26 KB
+  em PSRAM, AFE com `detector: microWakeWord`, uma detecção logo após o boot.
+  Modelo atual: 1000 amostras de 2 vozes Piper, negativos em inglês, ROC com
+  0 rejeição e 1 falso aceite em ~5 h no cutoff 0,73. Falta ver: taxa de
+  acerto com vozes reais a 1 m e 3 m, falsos disparos com TV/conversa em
+  PT-BR ("sem nexo", "anexo") e o cutoff final; depois retreinar com
+  gravações reais e negativos em PT-BR.
 - [x] **`fetch_repos.py` aceita mudança extra no upstream**: agora monta em
   índices git descartáveis a árvore esperada (tag + patch) e a real (com
   staged, não staged e não versionados; ignorados ficam de fora) e exige o

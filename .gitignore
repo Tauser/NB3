@@ -6,7 +6,7 @@ sdkconfig.old
 
 # Dependencies fetched by fetch_repos.py (pinned in repos.json)
 xiaozhi-esp32/
-firmware/components/
+pymicro-features/
 
 # Host tests
 build-host-tests/

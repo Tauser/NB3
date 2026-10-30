@@ -46,3 +46,140 @@ index 31de205..37d1a3b 100644
  
          // No new version, mark the current version as valid
          ota_->MarkCurrentVersionValid();
+diff --git a/main/audio/engines/afe_audio_engine.cc b/main/audio/engines/afe_audio_engine.cc
+index 3823d10..5818c9e 100644
+--- a/main/audio/engines/afe_audio_engine.cc
++++ b/main/audio/engines/afe_audio_engine.cc
+@@ -12,6 +12,9 @@
+ 
+ #include "audio_service.h"
+ #include "wake_words/custom_wake_word.h"
++#if CONFIG_NB3_MICRO_WAKE_WORD
++#include "wake/micro_wake_word.h"
++#endif
+ 
+ #define TAG "AfeAudioEngine"
+ 
+@@ -25,6 +28,7 @@ AfeAudioEngine::AfeAudioEngine() { event_group_ = xEventGroupCreate(); }
+ 
+ AfeAudioEngine::~AfeAudioEngine() {
+     custom_wake_word_.reset();
++    micro_wake_word_.reset();
+     if (afe_data_ != nullptr) {
+         afe_iface_->destroy(afe_data_);
+     }
+@@ -80,7 +84,34 @@ bool AfeAudioEngine::Initialize(AudioCodec* codec, int frame_duration_ms,
+         }
+     }
+ 
+-    if (multinet_model_name != nullptr) {
++#if CONFIG_NB3_MICRO_WAKE_WORD
++    // NB3: microWakeWord replaces the esp-sr detectors; WakeNet stays as the
++    // fallback if the model fails to load.
++    micro_wake_word_ = std::make_unique<MicroWakeWord>();
++    if (micro_wake_word_->Initialize()) {
++        wake_detector_ = WakeDetector::kMicroWakeWord;
++        micro_wake_word_->OnWakeWordDetected([this](const std::string& wake_word) {
++            last_detected_wake_word_ = wake_word;
++            xEventGroupClearBits(event_group_, kWakeWordEnabled);
++            UpdateActiveState();
++            if (wake_word_detected_callback_) {
++                wake_word_detected_callback_(wake_word);
++            }
++        });
++#if CONFIG_SEND_WAKE_WORD_DATA
++        if (!wake_word_audio_cache_.Initialize(16000 * 2)) {
++            ESP_LOGW(TAG, "Wake-word audio upload disabled: PSRAM cache allocation failed");
++        }
++#endif
++    } else {
++        ESP_LOGE(TAG, "microWakeWord failed to load, falling back to esp-sr");
++        micro_wake_word_.reset();
++    }
++#endif
++
++    if (wake_detector_ == WakeDetector::kMicroWakeWord) {
++        // Set up above.
++    } else if (multinet_model_name != nullptr) {
+         wake_detector_ = WakeDetector::kMultiNet;
+         custom_wake_word_ = std::make_unique<CustomWakeWord>();
+         custom_wake_word_->OnWakeWordDetected([this](const std::string& wake_word) {
+@@ -239,7 +270,10 @@ bool AfeAudioEngine::Initialize(AudioCodec* codec, int frame_duration_ms,
+ 
+     const char* detector = wake_detector_ == WakeDetector::kWakeNet
+                                ? "WakeNet"
+-                               : (wake_detector_ == WakeDetector::kMultiNet ? "MultiNet" : "none");
++                               : (wake_detector_ == WakeDetector::kMultiNet ? "MultiNet"
++                                  : wake_detector_ == WakeDetector::kMicroWakeWord
++                                      ? "microWakeWord"
++                                      : "none");
+     ESP_LOGI(TAG, "Initialized FD AFE, detector: %s, NS: off, feed: %d, fetch: %d", detector,
+              afe_iface_->get_feed_chunksize(afe_data_), afe_iface_->get_fetch_chunksize(afe_data_));
+     ESP_LOGI(TAG, "After AFE create: free=%u min=%u largest=%u",
+@@ -280,12 +314,16 @@ void AfeAudioEngine::EnableWakeWordDetection(bool enable) {
+     if (enable) {
+         if (wake_detector_ == WakeDetector::kMultiNet) {
+             custom_wake_word_->Start();
++        } else if (wake_detector_ == WakeDetector::kMicroWakeWord) {
++            micro_wake_word_->Start();
+         }
+         xEventGroupSetBits(event_group_, kWakeWordEnabled);
+     } else {
+         xEventGroupClearBits(event_group_, kWakeWordEnabled);
+         if (wake_detector_ == WakeDetector::kMultiNet) {
+             custom_wake_word_->Stop();
++        } else if (wake_detector_ == WakeDetector::kMicroWakeWord) {
++            micro_wake_word_->Stop();
+         }
+     }
+     UpdateActiveState();
+@@ -446,6 +484,13 @@ void AfeAudioEngine::HandleWakeWordResult(const afe_fetch_result_t* result) {
+         custom_wake_word_->FeedMono(result->data, result->data_size / sizeof(int16_t));
+         return;
+     }
++    if (wake_detector_ == WakeDetector::kMicroWakeWord) {
++#if CONFIG_SEND_WAKE_WORD_DATA
++        wake_word_audio_cache_.Store(result->data, result->data_size / sizeof(int16_t));
++#endif
++        micro_wake_word_->FeedMono(result->data, result->data_size / sizeof(int16_t));
++        return;
++    }
+ 
+ #if CONFIG_SEND_WAKE_WORD_DATA
+     wake_word_audio_cache_.Store(result->data, result->data_size / sizeof(int16_t));
+diff --git a/main/audio/engines/afe_audio_engine.h b/main/audio/engines/afe_audio_engine.h
+index 789a7e6..56d11fa 100644
+--- a/main/audio/engines/afe_audio_engine.h
++++ b/main/audio/engines/afe_audio_engine.h
+@@ -19,6 +19,7 @@
+ #include "wake_words/wake_word_audio_cache.h"
+ 
+ class CustomWakeWord;
++class MicroWakeWord;
+ 
+ class AfeAudioEngine : public AudioEngine {
+ public:
+@@ -51,12 +52,14 @@ private:
+         kNone,
+         kWakeNet,
+         kMultiNet,
++        kMicroWakeWord,
+     };
+ 
+     static constexpr EventBits_t kWakeWordEnabled = 1 << 0;
+     static constexpr EventBits_t kVoiceProcessingEnabled = 1 << 1;
+     static constexpr EventBits_t kAfeActive = 1 << 2;
+-    static constexpr size_t kProcessingTaskStackSize = 4096;
++    // NB3: 8 KB, the microWakeWord inference runs in this task.
++    static constexpr size_t kProcessingTaskStackSize = 8192;
+ 
+     AudioCodec* codec_ = nullptr;
+     srmodel_list_t* models_ = nullptr;
+@@ -82,6 +85,7 @@ private:
+     WakeDetector wake_detector_ = WakeDetector::kNone;
+ 
+     std::unique_ptr<CustomWakeWord> custom_wake_word_;
++    std::unique_ptr<MicroWakeWord> micro_wake_word_;
+     std::vector<std::string> wake_words_;
+     std::string last_detected_wake_word_;
+     std::vector<int16_t> input_buffer_;

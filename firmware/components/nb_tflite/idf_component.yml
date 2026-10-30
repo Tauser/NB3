@@ -1,0 +1,5 @@
+## NB3-only dependencies. main/idf_component.yml is a literal copy of
+## xiaozhi's manifest, so what only NB3 needs is declared here.
+dependencies:
+  # TFLite Micro runs the microWakeWord model (main/wake).
+  espressif/esp-tflite-micro: "1.4.1"
