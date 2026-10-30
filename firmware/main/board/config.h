@@ -22,6 +22,12 @@
 // below 150 Hz while speech sits at 300-3400 Hz.
 #define AUDIO_INPUT_HPF_HZ 150.0f
 
+// Echo cancellation reference: how much earlier (in output-rate samples) the
+// speaker reference is handed to the AEC than the DMA timing says. The DMA
+// timing is exact to one 240-sample block; 120 (5 ms) keeps the reference
+// from ever arriving after its echo, which the AEC cannot cancel.
+#define AUDIO_AEC_REFERENCE_LEAD 120
+
 // I2S slot the INMP441 drives, set by its L/R pin (GND = left, VDD = right).
 #define AUDIO_I2S_MIC_SLOT I2S_STD_SLOT_LEFT
 

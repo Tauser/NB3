@@ -33,10 +33,14 @@
 #include "memory/power_cut_test.h"
 #include "memory/store_service.h"
 #include "core/nb_hpf.h"
+#include "core/nb_spk_ref.h"
 #include "core/nb_personality.h"
 
+#include <algorithm>
 #include <cmath>
 #include <vector>
+#include <esp_attr.h>
+#include <esp_heap_caps.h>
 #include <esp_log.h>
 #include <esp_system.h>
 #include <esp_timer.h>
@@ -52,6 +56,11 @@
 // pin, high-passes the signal and honours input_gain_ (dB) like the codecs
 // with a PGA do. It also reports how loud the mic and the speaker are, for
 // the face's listening bars and speech bubble.
+//
+// With device AEC on, each mic sample goes out paired with what the speaker
+// was playing at that moment (input format "MR"), built by core/nb_spk_ref
+// from the I2S DMA events: this board has no codec loopback to give the AEC
+// its reference.
 class NoiseBotV3AudioCodec : public NoAudioCodecDuplex {
 public:
     NoiseBotV3AudioCodec(int input_sample_rate, int output_sample_rate,
@@ -66,6 +75,9 @@ public:
             I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_32BIT, I2S_SLOT_MODE_MONO);
         slot_cfg.slot_mask = AUDIO_I2S_MIC_SLOT;
         ESP_ERROR_CHECK(i2s_channel_reconfig_std_slot(rx_handle_, &slot_cfg));
+#if CONFIG_USE_DEVICE_AEC
+        StartReference();
+#endif
     }
 
 protected:
@@ -73,24 +85,40 @@ protected:
     // the low band (fan/TV rumble, mic low-frequency noise) is large enough to
     // clip the int16 conversion, so it is filtered out before saturating.
     int Read(int16_t* dest, int samples) override {
-        raw_.resize(samples);
+        const int channels = input_channels_;
+        int frames = samples / channels;
+        raw_.resize(frames);
         size_t bytes_read = 0;
-        if (i2s_channel_read(rx_handle_, raw_.data(), samples * sizeof(int32_t), &bytes_read,
+        if (i2s_channel_read(rx_handle_, raw_.data(), frames * sizeof(int32_t), &bytes_read,
                              kReadTimeoutMs) != ESP_OK) {
             return 0;
         }
-        samples = static_cast<int>(bytes_read / sizeof(int32_t));
+        frames = static_cast<int>(bytes_read / sizeof(int32_t));
+        mic_.resize(frames);
         // Same scaling as the base codec (24-bit word >> 12); read every frame
         // so a runtime SetInputGain() takes effect.
         const float scale = powf(10.0f, input_gain_ / 20.0f);
-        for (int i = 0; i < samples; i++) {
+        for (int i = 0; i < frames; i++) {
             float value = nb_hpf_step(&hpf_, static_cast<float>(raw_[i] >> 12)) * scale;
-            dest[i] = value > INT16_MAX ? INT16_MAX
+            mic_[i] = value > INT16_MAX ? INT16_MAX
                       : value < -INT16_MAX ? -INT16_MAX
                                            : static_cast<int16_t>(value);
         }
-        levels_.SetMic(AudioLevels::FromSamples(dest, samples), NowMs());
-        return samples;
+        levels_.SetMic(AudioLevels::FromSamples(mic_.data(), frames), NowMs());
+
+        if (channels == 1) {
+            std::copy(mic_.begin(), mic_.end(), dest);
+            return frames;
+        }
+        ref_.resize(frames);
+        portENTER_CRITICAL(&ref_lock_);
+        nb_spk_ref_read(&ref_state_, ref_.data(), frames);
+        portEXIT_CRITICAL(&ref_lock_);
+        for (int i = 0; i < frames; i++) {
+            dest[2 * i] = mic_[i];
+            dest[2 * i + 1] = ref_[i];
+        }
+        return frames * 2;
     }
 
     int Write(const int16_t* data, int samples) override {
@@ -98,14 +126,102 @@ protected:
         return NoAudioCodecDuplex::Write(data, samples);
     }
 
+    void EnableInput(bool enable) override {
+        NoAudioCodecDuplex::EnableInput(enable);
+        // Enabling the RX channel empties its queue.
+        portENTER_CRITICAL(&ref_lock_);
+        nb_spk_ref_input_restarted(&ref_state_);
+        portEXIT_CRITICAL(&ref_lock_);
+    }
+
+    void EnableOutput(bool enable) override {
+        NoAudioCodecDuplex::EnableOutput(enable);
+        portENTER_CRITICAL(&ref_lock_);
+        nb_spk_ref_set_output(&ref_state_, enable);
+        portEXIT_CRITICAL(&ref_lock_);
+    }
+
 private:
     static uint32_t NowMs() { return static_cast<uint32_t>(esp_timer_get_time() / 1000); }
+
+    void StartReference() {
+        // 4096 samples is ~170 ms at 24 kHz: more than the TX DMA queue plus
+        // any reader lag the reference has to reach back over.
+        constexpr uint32_t kHistory = 4096;
+        auto* history = static_cast<int16_t*>(
+            heap_caps_malloc(kHistory * sizeof(int16_t), MALLOC_CAP_SPIRAM));
+        if (history == nullptr) {
+            ESP_LOGE(TAG, "No memory for the AEC reference: AEC stays without it");
+            return;
+        }
+        nb_spk_ref_init(&ref_state_, history, kHistory, AUDIO_AEC_REFERENCE_LEAD);
+        i2s_event_callbacks_t tx_cbs = {};
+        tx_cbs.on_sent = OnSent;
+        i2s_event_callbacks_t rx_cbs = {};
+        rx_cbs.on_recv = OnRecv;
+        rx_cbs.on_recv_q_ovf = OnRecvOverflow;
+        ESP_ERROR_CHECK(i2s_channel_register_event_callback(tx_handle_, &tx_cbs, this));
+        ESP_ERROR_CHECK(i2s_channel_register_event_callback(rx_handle_, &rx_cbs, this));
+        input_reference_ = true;
+        input_channels_ = 2;
+        ESP_LOGI(TAG, "AEC reference from the I2S DMA (lead %d samples)", AUDIO_AEC_REFERENCE_LEAD);
+    }
+
+    // The TX buffer still holds what was just played (it is cleared after
+    // this callback): the 32-bit words are the volume-scaled samples << 16.
+    // I2S ISR callbacks, defined out of the class: IRAM functions must not be
+    // inline.
+    static bool OnSent(i2s_chan_handle_t, i2s_event_data_t* event, void* ctx);
+    static bool OnRecv(i2s_chan_handle_t, i2s_event_data_t* event, void* ctx);
+    static bool OnRecvOverflow(i2s_chan_handle_t, i2s_event_data_t* event, void* ctx);
 
     static constexpr uint32_t kReadTimeoutMs = 200;  // as the base codec
     AudioLevels& levels_;
     nb_hpf_t hpf_;
     std::vector<int32_t> raw_;
+    std::vector<int16_t> mic_;
+    std::vector<int16_t> ref_;
+    nb_spk_ref_t ref_state_ = {};
+    portMUX_TYPE ref_lock_ = portMUX_INITIALIZER_UNLOCKED;
 };
+
+bool IRAM_ATTR NoiseBotV3AudioCodec::OnSent(i2s_chan_handle_t, i2s_event_data_t* event,
+                                            void* ctx) {
+    auto* self = static_cast<NoiseBotV3AudioCodec*>(ctx);
+    const int32_t* words = static_cast<const int32_t*>(event->dma_buf);
+    size_t n = event->size / sizeof(int32_t);
+    int16_t chunk[64];
+    portENTER_CRITICAL_ISR(&self->ref_lock_);
+    while (n > 0) {
+        const size_t m = n < 64 ? n : 64;
+        for (size_t i = 0; i < m; i++) {
+            chunk[i] = static_cast<int16_t>(words[i] >> 16);
+        }
+        nb_spk_ref_played(&self->ref_state_, chunk, m);
+        words += m;
+        n -= m;
+    }
+    portEXIT_CRITICAL_ISR(&self->ref_lock_);
+    return false;
+}
+
+bool IRAM_ATTR NoiseBotV3AudioCodec::OnRecv(i2s_chan_handle_t, i2s_event_data_t* event,
+                                            void* ctx) {
+    auto* self = static_cast<NoiseBotV3AudioCodec*>(ctx);
+    portENTER_CRITICAL_ISR(&self->ref_lock_);
+    nb_spk_ref_captured(&self->ref_state_, event->size / sizeof(int32_t));
+    portEXIT_CRITICAL_ISR(&self->ref_lock_);
+    return false;
+}
+
+bool IRAM_ATTR NoiseBotV3AudioCodec::OnRecvOverflow(i2s_chan_handle_t, i2s_event_data_t* event,
+                                                    void* ctx) {
+    auto* self = static_cast<NoiseBotV3AudioCodec*>(ctx);
+    portENTER_CRITICAL_ISR(&self->ref_lock_);
+    nb_spk_ref_dropped(&self->ref_state_, event->size / sizeof(int32_t));
+    portEXIT_CRITICAL_ISR(&self->ref_lock_);
+    return false;
+}
 
 // Firmware defaults, overridden by the personality file on the microSD when
 // there is one (VIDA.md §4).

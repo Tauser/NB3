@@ -12,6 +12,12 @@ CONFIG_FIRMWARE_AUTO_UPGRADE=n
 CONFIG_SR_WN_WN9_NIHAOXIAOZHI_TTS=n
 CONFIG_SR_WN_WN9_JARVIS_TTS=y
 
+# Device-side AEC, so the user can talk over the robot: the board feeds the
+# AFE a speaker reference built from the I2S DMA (no codec loopback here),
+# and xiaozhi switches to realtime listening, where the server stops talking
+# when it hears the user.
+CONFIG_USE_DEVICE_AEC=y
+
 # A crash prints a core dump of both cores on the console before rebooting:
 # a backtrace alone does not say what the other core was holding. The flash
 # has no room for a core dump partition inside the first 16 MB.

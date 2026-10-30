@@ -138,6 +138,18 @@ static void test_quantize_bad_scale_gives_zero_point(void) {
     NB_CHECK_EQ_INT(-128, nb_wake_quantize_feature(400, 0.0f, INPUT_ZP));
 }
 
+static void test_text_mentions_wake_word(void) {
+    NB_CHECK(nb_wake_text_mentions("Tchau, cuidado com o \"nexo\" ai.", "Nexo"));
+    NB_CHECK(nb_wake_text_mentions("NEXO!", "Nexo"));
+    NB_CHECK(nb_wake_text_mentions("Mandei o anexo.", "Nexo"));
+    NB_CHECK(nb_wake_text_mentions("Nexo", "Nexo"));
+    NB_CHECK(!nb_wake_text_mentions("Tudo certo por aqui.", "Nexo"));
+    NB_CHECK(!nb_wake_text_mentions("Nex", "Nexo"));
+    NB_CHECK(!nb_wake_text_mentions("", "Nexo"));
+    NB_CHECK(!nb_wake_text_mentions(NULL, "Nexo"));
+    NB_CHECK(!nb_wake_text_mentions("nexo", ""));
+}
+
 int main(void) {
     NB_RUN(test_warmup_ignores_first_steps);
     NB_RUN(test_sustained_high_wakes_with_its_average);
@@ -151,5 +163,6 @@ int main(void) {
     NB_RUN(test_quantize_matches_training_range);
     NB_RUN(test_quantize_agrees_with_integer_formula);
     NB_RUN(test_quantize_bad_scale_gives_zero_point);
+    NB_RUN(test_text_mentions_wake_word);
     NB_TEST_MAIN_END();
 }

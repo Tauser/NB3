@@ -27,6 +27,7 @@ cabe em uma.
 | D-018 | **Sons de aviso embutidos, substituíveis pelo cartão**: OGG Opus de até 64 KB em `noise/sons/` substitui o som embutido de lembrete, sem internet, conectado e parada de segurança; lidos na montagem e mantidos em memória | o aviso nunca espera o cartão, e o usuário personaliza sem recompilar |
 | D-019 | **GY-521 na base do robô, não na cabeça**, para detectar pegar, sacudir, deitar e queda; segundo microfone só quando o corpo definir a geometria. Pinos escolhidos (ainda não montados nem no `config.h`): GY-521 no I2C 4/5 com INT no 1; 2º mic no mesmo barramento I2S, sem pino novo | na base, o sinal não leva a vibração dos servos, então os eventos são legíveis; na cabeça misturaria a aceleração do movimento. Um segundo mic do mesmo lote de INMP441 repetiria o ruído medido na etapa 0, e a direção do som só faz sentido com distância fixa entre mics |
 | D-020 | **Wake word "Nexo" com microWakeWord** (TFLite Micro), como terceiro detector do AFE do xiaozhi, alimentado com o áudio já processado; WakeNet "Jarvis" fica de reserva por Kconfig (`NB3_MICRO_WAKE_WORD`) e assume se o modelo não carregar. Features pelo frontend do `pymicro-features` por tag; decisão (média de 5 probabilidades, cutoff, aquecimento) em núcleo C17 | o WakeNet só traz palavras prontas, e "Nexo" é o nome do robô. Usar o mesmo código de features do treino garante que o modelo veja na placa o que viu no treino. "Nexo" sozinho é palavra comum em PT-BR ("sem nexo"): o modelo atual, treinado só com vozes sintéticas e negativos em inglês, é para validar o caminho; retreinar com negativos em PT-BR |
+| D-021 | **AEC do esp-sr com referência do alto-falante por software**: as callbacks de DMA do I2S copiam o que sai para o amplificador e o alinhamento com o mic é feito por contadores de amostras (núcleo C17 `nb_spk_ref`); liga o modo realtime do xiaozhi (`CONFIG_USE_DEVICE_AEC`). O wake word ignora detecções enquanto o robô diz o próprio nome, pelo texto da frase | mic e amplificador estão no mesmo I2S duplex, com o mesmo clock, então o atraso entre o que sai e o que volta é fixo e dispensa codec com loopback. Sem AEC não dá para interromper o robô falando. O filtro pelo texto custa uma comparação e cobre o caso que o AEC deixa passar |
 
 Cada decisão nova entra nesta tabela; se precisar de mais contexto, ganha um
 arquivo `D-XXX-<nome>.md` com contexto, decisão e consequências.
@@ -83,8 +84,9 @@ xiaozhi v2.5.2 com a board NB3, ativado no xiaozhi.me.
 
 - **Mic I2S de qualidade** — ver resultado da etapa 0; o alcance depende de
   um mic com piso de ruído normal.
-- **Mic único sem AEC** — barge-in e wake word durante a fala do robô podem
-  falhar; mitigação é half-duplex, e o CoreS3 é o upgrade se não bastar.
+- **Mic único com AEC por software** (D-021) — depende do alinhamento por
+  contadores do I2S; se o corpo trouxer eco forte ou o atraso variar, o
+  codec com loopback ou o CoreS3 são o upgrade.
 - **Privacidade** — áudio e conversas trafegam pelos servidores do xiaozhi.me;
   a memória local fica em claro no microSD.
 - **Integridade do microSD** — queda de energia no meio de uma escrita;

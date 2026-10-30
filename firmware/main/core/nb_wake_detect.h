@@ -1,6 +1,7 @@
 #ifndef NB_WAKE_DETECT_H
 #define NB_WAKE_DETECT_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -60,6 +61,11 @@ uint8_t nb_wake_detect_average(const nb_wake_detect_t *d);
 // the features as raw * 0.0390625 (pymicro-features' float scale); the
 // model's input tensor then quantizes that with its own scale and zero point.
 int8_t nb_wake_quantize_feature(uint16_t raw, float input_scale, int input_zero_point);
+
+// Whether the robot's own sentence contains the wake word (ASCII
+// case-insensitive, anywhere: "anexo" counts for "nexo"), so the detector
+// can ignore its own voice saying it. NULL or empty arguments give false.
+bool nb_wake_text_mentions(const char *text, const char *word);
 
 #ifdef __cplusplus
 }

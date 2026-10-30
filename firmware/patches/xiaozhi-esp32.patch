@@ -1,5 +1,5 @@
 diff --git a/main/Kconfig.projbuild b/main/Kconfig.projbuild
-index 6a7c0fb..fdc22be 100644
+index 6a7c0fb..1df40c4 100644
 --- a/main/Kconfig.projbuild
 +++ b/main/Kconfig.projbuild
 @@ -6,6 +6,14 @@ config OTA_URL
@@ -27,8 +27,18 @@ index 6a7c0fb..fdc22be 100644
      config BOARD_TYPE_BREAD_COMPACT_WIFI_LCD
          bool "Bread Compact Wi-Fi + LCD (面包板)"
          depends on IDF_TARGET_ESP32S3
+@@ -1003,7 +1014,8 @@ config USE_DEVICE_AEC
+         || BOARD_TYPE_WAVESHARE_ESP32_P4_WIFI6_TOUCH_LCD_3_4C || BOARD_TYPE_WAVESHARE_ESP32_P4_WIFI6_TOUCH_LCD_4C || BOARD_TYPE_ESP32_S3_LCD_EV_BOARD_2 || BOARD_TYPE_YUNLIAO_S3 \
+         || BOARD_TYPE_WAVESHARE_ESP32_P4_WIFI6_TOUCH_LCD_7 || BOARD_TYPE_WAVESHARE_ESP32_P4_WIFI6_TOUCH_LCD_8 || BOARD_TYPE_WAVESHARE_ESP32_P4_WIFI6_TOUCH_LCD_10_1 \
+         || BOARD_TYPE_ESP_VOCAT || BOARD_TYPE_WAVESHARE_ESP32_S3_TOUCH_LCD_3_49 || BOARD_TYPE_WAVESHARE_ESP32_S3_TOUCH_LCD_3_49_V2 || BOARD_TYPE_WAVESHARE_ESP32_S3_RLCD_4_2 || BOARD_TYPE_WAVESHARE_ESP32_S3_TOUCH_LCD_1_85B || BOARD_TYPE_ZHENGCHEN_CAM || BOARD_TYPE_ZHENGCHEN_CAM_ML307 \
+-        || BOARD_TYPE_WAVESHARE_ESP32_S3_TOUCH_LCD_4_3C || BOARD_TYPE_WAVESHARE_ESP32_S3_TOUCH_LCD_1_54 || BOARD_TYPE_WAVESHARE_ESP32_S3_LCD_0_85 || BOARD_TYPE_AI_VOX3 || BOARD_TYPE_WAVESHARE_ESP32_S3_TOUCH_AMOLED_1_43C || BOARD_TYPE_ATK_DNESP32S3_BOX3)
++        || BOARD_TYPE_WAVESHARE_ESP32_S3_TOUCH_LCD_4_3C || BOARD_TYPE_WAVESHARE_ESP32_S3_TOUCH_LCD_1_54 || BOARD_TYPE_WAVESHARE_ESP32_S3_LCD_0_85 || BOARD_TYPE_AI_VOX3 || BOARD_TYPE_WAVESHARE_ESP32_S3_TOUCH_AMOLED_1_43C || BOARD_TYPE_ATK_DNESP32S3_BOX3 \
++        || BOARD_TYPE_NOISEBOT_V3)
+     help
+         To work properly, device-side AEC requires a clean output reference path from the speaker signal and physical acoustic isolation between the microphone and speaker.
+ 
 diff --git a/main/application.cc b/main/application.cc
-index 31de205..37d1a3b 100644
+index 31de205..7d61473 100644
 --- a/main/application.cc
 +++ b/main/application.cc
 @@ -490,12 +490,14 @@ void Application::CheckNewVersion() {
@@ -46,8 +56,59 @@ index 31de205..37d1a3b 100644
  
          // No new version, mark the current version as valid
          ota_->MarkCurrentVersionValid();
+@@ -645,6 +647,7 @@ void Application::InitializeProtocol() {
+                         glyphs.clear();
+                     }
+                     ESP_LOGI(TAG, "<< %s", text->valuestring);
++                    audio_service_.OnAssistantSentence(text->valuestring);
+                     Schedule([display, message = std::string(text->valuestring),
+                               glyphs = std::move(glyphs), bpp]() {
+                         display->AddTextGlyphs(glyphs, bpp);
+diff --git a/main/audio/audio_engine.h b/main/audio/audio_engine.h
+index 7c2e191..8eedf1e 100644
+--- a/main/audio/audio_engine.h
++++ b/main/audio/audio_engine.h
+@@ -35,6 +35,9 @@ public:
+     virtual void EncodeWakeWordData() = 0;
+     virtual bool GetWakeWordOpus(std::vector<uint8_t>& opus) = 0;
+     virtual const std::string& GetLastDetectedWakeWord() const = 0;
++    // NB3: text of the sentence the device starts saying, so a wake word
++    // detector can ignore the device's own voice.
++    virtual void OnAssistantSentence(const std::string& text) { (void)text; }
+ };
+ 
+ #endif
+diff --git a/main/audio/audio_service.cc b/main/audio/audio_service.cc
+index 7f7582b..ec72c93 100644
+--- a/main/audio/audio_service.cc
++++ b/main/audio/audio_service.cc
+@@ -748,6 +748,12 @@ void AudioService::EnableAudioTesting(bool enable) {
+     }
+ }
+ 
++void AudioService::OnAssistantSentence(const std::string& text) {
++    if (audio_engine_initialized_) {
++        audio_engine_->OnAssistantSentence(text);
++    }
++}
++
+ void AudioService::EnableDeviceAec(bool enable) {
+     ESP_LOGI(TAG, "%s device AEC", enable ? "Enabling" : "Disabling");
+     device_aec_enabled_ = enable;
+diff --git a/main/audio/audio_service.h b/main/audio/audio_service.h
+index f8b510f..285232f 100644
+--- a/main/audio/audio_service.h
++++ b/main/audio/audio_service.h
+@@ -138,6 +138,7 @@ public:
+     void EnableVoiceProcessing(bool enable);
+     void EnableAudioTesting(bool enable);
+     void EnableDeviceAec(bool enable);
++    void OnAssistantSentence(const std::string& text);
+ 
+     void SetCallbacks(AudioServiceCallbacks& callbacks);
+ 
 diff --git a/main/audio/engines/afe_audio_engine.cc b/main/audio/engines/afe_audio_engine.cc
-index 3823d10..5818c9e 100644
+index 3823d10..fb33915 100644
 --- a/main/audio/engines/afe_audio_engine.cc
 +++ b/main/audio/engines/afe_audio_engine.cc
 @@ -12,6 +12,9 @@
@@ -133,7 +194,24 @@ index 3823d10..5818c9e 100644
          }
      }
      UpdateActiveState();
-@@ -446,6 +484,13 @@ void AfeAudioEngine::HandleWakeWordResult(const afe_fetch_result_t* result) {
+@@ -329,6 +367,16 @@ void AfeAudioEngine::OnWakeWordDetected(
+     wake_word_detected_callback_ = std::move(callback);
+ }
+ 
++void AfeAudioEngine::OnAssistantSentence(const std::string& text) {
++#if CONFIG_NB3_MICRO_WAKE_WORD
++    if (micro_wake_word_ != nullptr) {
++        micro_wake_word_->OnSpokenText(text);
++    }
++#else
++    (void)text;
++#endif
++}
++
+ void AfeAudioEngine::OnOutput(std::function<void(std::vector<int16_t>&& data)> callback) {
+     output_callback_ = std::move(callback);
+ }
+@@ -446,6 +494,13 @@ void AfeAudioEngine::HandleWakeWordResult(const afe_fetch_result_t* result) {
          custom_wake_word_->FeedMono(result->data, result->data_size / sizeof(int16_t));
          return;
      }
@@ -148,7 +226,7 @@ index 3823d10..5818c9e 100644
  #if CONFIG_SEND_WAKE_WORD_DATA
      wake_word_audio_cache_.Store(result->data, result->data_size / sizeof(int16_t));
 diff --git a/main/audio/engines/afe_audio_engine.h b/main/audio/engines/afe_audio_engine.h
-index 789a7e6..56d11fa 100644
+index 789a7e6..42c2469 100644
 --- a/main/audio/engines/afe_audio_engine.h
 +++ b/main/audio/engines/afe_audio_engine.h
 @@ -19,6 +19,7 @@
@@ -159,7 +237,14 @@ index 789a7e6..56d11fa 100644
  
  class AfeAudioEngine : public AudioEngine {
  public:
-@@ -51,12 +52,14 @@ private:
+@@ -45,18 +46,21 @@ public:
+     void EncodeWakeWordData() override;
+     bool GetWakeWordOpus(std::vector<uint8_t>& opus) override;
+     const std::string& GetLastDetectedWakeWord() const override { return last_detected_wake_word_; }
++    void OnAssistantSentence(const std::string& text) override;
+ 
+ private:
+     enum class WakeDetector {
          kNone,
          kWakeNet,
          kMultiNet,
@@ -175,7 +260,7 @@ index 789a7e6..56d11fa 100644
  
      AudioCodec* codec_ = nullptr;
      srmodel_list_t* models_ = nullptr;
-@@ -82,6 +85,7 @@ private:
+@@ -82,6 +86,7 @@ private:
      WakeDetector wake_detector_ = WakeDetector::kNone;
  
      std::unique_ptr<CustomWakeWord> custom_wake_word_;

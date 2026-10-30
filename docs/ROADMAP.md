@@ -623,8 +623,9 @@ trilho lógico) e ids conhecidos.
 
 - [ ] Placa carrier e case com acústica tratada (mic longe do alto-falante e
   do ventilador, vedação do furo do mic).
-- [ ] Decidir AEC: referência por software nesta placa, codec com loopback
-  (ES7210/ES8311) ou CoreS3.
+- [ ] Decidir AEC: a referência por software (D-021) já funciona nesta
+  placa; codec com loopback (ES7210/ES8311) ou CoreS3 só se o corpo trouxer
+  eco que ela não segure.
 - [ ] Dois mics só com geometria fixa definida pelo corpo. Pinos já
   escolhidos (D-019): o segundo INMP441 divide DIN 39, BCLK 40 e WS 41 com o
   primeiro, no outro slot (L/R em 3,3 V); sem pino novo. Muda a captura
@@ -665,8 +666,24 @@ trilho lógico) e ids conhecidos.
 - [x] **C17 explícito no build do firmware**: os `.c` do NB3 (os núcleos)
   recebem `-std=c17` depois do `-std=gnu23` do IDF, que perde; o C++ e o
   upstream ficam como estão. Confirmado no `compile_commands.json`.
-- [ ] **AEC com referência por software** (mic e amplificador no mesmo I2S):
-  experimento para permitir interromper o robô falando por cima dele.
+- [~] **AEC com referência por software** (D-021): as callbacks de DMA do
+  I2S guardam o que vai para o alto-falante (`on_sent`, antes do buffer ser
+  zerado) e contam o que o mic capturou; `core/nb_spk_ref` alinha as duas
+  pontas pelos contadores (mesmo clock, I2S duplex) com 5 ms de folga causal
+  e entrega `[mic, ref]` ao AFE (`input_reference`). Com
+  `CONFIG_USE_DEVICE_AEC` o xiaozhi entra no modo realtime: AEC do esp-sr
+  (`FD_LOW_COST`, NLP agressivo) e o servidor corta a fala quando o usuário
+  fala por cima. Proteção contra a própria voz: o texto de cada frase que o
+  robô começa a dizer passa pelo `nb_wake_text_mentions`; se cita "Nexo",
+  detecções ficam ignoradas até 1,5 s depois de uma frase sem o nome.
+  10 host-tests do alinhador e 1 do texto. Na placa: AFE com 2 canais
+  (1 mic, 1 referência), ~80 KB de SRAM livre, CPU 36–57% ociosa em
+  conversa. Validado (2026-10-30): o robô disse o próprio nome 50 vezes sem
+  se acordar; numa conversa de 2 sessões nenhuma fala do robô voltou
+  transcrita como do usuário, e houve falas do robô cortadas em menos de 1 s
+  seguidas da fala do usuário. Falta ver: interrupção deliberada no meio de
+  uma resposta longa, volume alto e distância; medir o atraso real da
+  referência se o eco residual aparecer.
 - [ ] **GY-521 (MPU-6050) na base**, para pegar, sacudir, deitar e queda
   (D-019). Pinos escolhidos, nada montado nem escrito: SDA 4, SCL 5, INT 1,
   AD0 em GND (0x68), VCC 3,3 V. Plano: núcleo C17 puro de eventos com

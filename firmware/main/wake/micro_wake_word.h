@@ -34,6 +34,10 @@ public:
     void Start();
     void Stop();
     void FeedMono(const int16_t* samples, size_t count);
+    // Text of the sentence the robot starts saying. A sentence with the wake
+    // word in it ("anexo" included) mutes detection until a later sentence
+    // without it has played for a moment, so the robot does not wake itself.
+    void OnSpokenText(const std::string& text);
     const std::string& wake_word() const { return wake_word_; }
 
 private:
@@ -44,6 +48,8 @@ private:
     std::function<void(const std::string&)> callback_;
     std::mutex mutex_;
     bool running_ = false;
+    bool own_voice_ = false;            // the current sentence says the wake word
+    int64_t own_voice_until_us_ = 0;    // its audio may still be playing until then
 
     FrontendState frontend_ = {};
     bool frontend_ready_ = false;

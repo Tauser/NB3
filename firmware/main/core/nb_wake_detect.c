@@ -81,3 +81,23 @@ int8_t nb_wake_quantize_feature(uint16_t raw, float input_scale, int input_zero_
     }
     return clamp_int8(lrintf((float)raw * FEATURE_FLOAT_SCALE / input_scale) + input_zero_point);
 }
+
+static char lower_ascii(char c) {
+    return c >= 'A' && c <= 'Z' ? (char)(c - 'A' + 'a') : c;
+}
+
+bool nb_wake_text_mentions(const char *text, const char *word) {
+    if (text == NULL || word == NULL || word[0] == '\0') {
+        return false;
+    }
+    for (const char *start = text; *start != '\0'; start++) {
+        size_t i = 0;
+        while (word[i] != '\0' && start[i] != '\0' && lower_ascii(start[i]) == lower_ascii(word[i])) {
+            i++;
+        }
+        if (word[i] == '\0') {
+            return true;
+        }
+    }
+    return false;
+}

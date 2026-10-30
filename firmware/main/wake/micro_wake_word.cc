@@ -4,6 +4,7 @@
 
 #include <esp_heap_caps.h>
 #include <esp_log.h>
+#include <esp_timer.h>
 #include <tensorflow/lite/experimental/microfrontend/lib/frontend_util.h>
 #include <tensorflow/lite/micro/micro_allocator.h>
 #include <tensorflow/lite/micro/micro_interpreter.h>
@@ -31,6 +32,10 @@ constexpr nb_wake_detect_config_t kDetectConfig = {
     .warmup_steps = 34,   // ~1 s after Start
     .report_floor = 102,  // 0.40
 };
+
+// A sentence's text arrives when its audio starts streaming, while the end of
+// the previous sentence can still be in the playback queue.
+constexpr int64_t kOwnVoiceTailUs = 1500 * 1000;
 
 // The model needs ~ tens of KB; the arena lives in PSRAM because internal RAM
 // is scarce and one inference every 30 ms is light. The used size is logged.
@@ -169,12 +174,24 @@ void MicroWakeWord::Start() {
         return;
     }
     ResetLocked();
+    own_voice_ = false;
+    own_voice_until_us_ = 0;
     running_ = true;
 }
 
 void MicroWakeWord::Stop() {
     std::lock_guard<std::mutex> lock(mutex_);
     running_ = false;
+}
+
+void MicroWakeWord::OnSpokenText(const std::string& text) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (nb_wake_text_mentions(text.c_str(), wake_word_.c_str())) {
+        own_voice_ = true;
+    } else if (own_voice_) {
+        own_voice_ = false;
+        own_voice_until_us_ = esp_timer_get_time() + kOwnVoiceTailUs;
+    }
 }
 
 void MicroWakeWord::FeedMono(const int16_t* samples, size_t count) {
@@ -208,6 +225,11 @@ void MicroWakeWord::PushFrame(const uint16_t* values) {
     const uint8_t probability = interpreter_->output(0)->data.uint8[0];
     switch (nb_wake_detect_step(&detect_, probability, &peak)) {
     case NB_WAKE_DETECTED:
+        if (own_voice_ || esp_timer_get_time() < own_voice_until_us_) {
+            ESP_LOGI(TAG, "Ignored \"%s\" (average %u/255): the robot is saying it",
+                     wake_word_.c_str(), peak);
+            break;
+        }
         ESP_LOGI(TAG, "Detected \"%s\" (average %u/255)", wake_word_.c_str(), peak);
         running_ = false;
         if (callback_) {
