@@ -695,7 +695,7 @@ trilho lógico) e ids conhecidos.
   speaking no modo realtime. 8 host-tests. Na placa: SRAM livre ~58 KB em
   conversa (era ~80 KB), CPU 33–42% ociosa. Teste (2026-10-30): nenhum
   ruído chegou a ser marcado como fala; o portão abriu em quase toda
-  resposta, poucos centésimos depois do robô começar a falar, sem que o
+  resposta, 0,3 a 1,7 s depois do robô começar a falar, sem que o
   servidor cortasse (provável eco residual que o VADNet chama de fala), e
   conversa de outras pessoas ao fundo ainda interrompe. Falta: medir o
   nível do som que abre o portão (eco, voz ao fundo, voz perto) e exigir um
