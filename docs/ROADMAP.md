@@ -643,12 +643,15 @@ trilho lógico) e ids conhecidos.
   acima de 0,40 com o pico, para calibrar o cutoff. Entra no AFE do xiaozhi
   como terceiro detector (patch), com o áudio já processado; "Jarvis" fica de
   reserva por Kconfig. 12 host-tests. Na placa: memória de trabalho de 26 KB
-  em PSRAM, AFE com `detector: microWakeWord`, uma detecção logo após o boot.
-  Modelo atual: 1000 amostras de 2 vozes Piper, negativos em inglês, ROC com
-  0 rejeição e 1 falso aceite em ~5 h no cutoff 0,73. Falta ver: taxa de
-  acerto com vozes reais a 1 m e 3 m, falsos disparos com TV/conversa em
-  PT-BR ("sem nexo", "anexo") e o cutoff final; depois retreinar com
-  gravações reais e negativos em PT-BR.
+  em PSRAM, AFE com `detector: microWakeWord`. Validado com a voz do usuário
+  (2026-10-30): "funcionou perfeitamente" em várias tentativas; nas 4
+  capturadas, o ASR ouviu "Nexo" e a média ficou entre 239 e 253 (cutoff
+  229), sem quase-acertos. Modelo atual: 1000 amostras de 2 vozes Piper,
+  negativos em inglês, ROC com 0 rejeição e 1 falso aceite em ~5 h no cutoff
+  0,73. Falta ver: falsos disparos em repouso com TV/conversa em PT-BR
+  ("sem nexo", "anexo", "complexo"; um possível disparo sem fala aos 44 s
+  da captura, sem a linha da detecção no log), outras vozes e distância de
+  3 m; depois retreinar com gravações reais e negativos em PT-BR.
 - [x] **`fetch_repos.py` aceita mudança extra no upstream**: agora monta em
   índices git descartáveis a árvore esperada (tag + patch) e a real (com
   staged, não staged e não versionados; ignorados ficam de fora) e exige o
