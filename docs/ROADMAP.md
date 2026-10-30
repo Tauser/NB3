@@ -684,6 +684,22 @@ trilho lógico) e ids conhecidos.
   seguidas da fala do usuário. Falta ver: interrupção deliberada no meio de
   uma resposta longa, volume alto e distância; medir o atraso real da
   referência se o eco residual aparecer.
+- [~] **Interromper só com voz, não com ruído** (D-022): com o AEC, ruídos
+  (batidas, palmas) cortavam a resposta, porque o servidor para ao ouvir
+  qualquer coisa. `core/nb_barge_gate` segura o áudio do mic enquanto o
+  robô fala até o VAD marcar 300 ms seguidos de fala; ao abrir, manda
+  também os ~540 ms guardados, para o servidor ouvir a frase inteira;
+  fecha após 1 s sem fala. VAD trocado de WebRTC para VADNet1 (o script de
+  assets do xiaozhi passou a empacotar o modelo). Casca em
+  `voice/barge_in_filter`, ligada no AFE e armada pelo `Application` só em
+  speaking no modo realtime. 8 host-tests. Na placa: SRAM livre ~58 KB em
+  conversa (era ~80 KB), CPU 33–42% ociosa. Teste (2026-10-30): nenhum
+  ruído chegou a ser marcado como fala; o portão abriu em quase toda
+  resposta, poucos centésimos depois do robô começar a falar, sem que o
+  servidor cortasse (provável eco residual que o VADNet chama de fala), e
+  conversa de outras pessoas ao fundo ainda interrompe. Falta: medir o
+  nível do som que abre o portão (eco, voz ao fundo, voz perto) e exigir um
+  nível mínimo.
 - [ ] **GY-521 (MPU-6050) na base**, para pegar, sacudir, deitar e queda
   (D-019). Pinos escolhidos, nada montado nem escrito: SDA 4, SCL 5, INT 1,
   AD0 em GND (0x68), VCC 3,3 V. Plano: núcleo C17 puro de eventos com

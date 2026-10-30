@@ -12,4 +12,13 @@ config NB3_MICRO_WAKE_WORD
         instead of esp-sr's WakeNet. Off falls back to the WakeNet model
         selected in the esp-sr options.
 
+config NB3_BARGE_IN_GATE
+    bool "Interrupt the robot only with speech, not noise"
+    default y
+    depends on USE_DEVICE_AEC
+    help
+        While the robot speaks in realtime mode, hold the mic stream back
+        until the local voice detector has heard sustained speech, so the
+        server does not cut the reply on a knock or a fan.
+
 endmenu

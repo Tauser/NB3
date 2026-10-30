@@ -18,6 +18,11 @@ CONFIG_SR_WN_WN9_JARVIS_TTS=y
 # when it hears the user.
 CONFIG_USE_DEVICE_AEC=y
 
+# Neural voice detector (VADNet) instead of WebRTC's: it tells speech from
+# knocks, fans and music far better, and while the robot speaks only what it
+# calls speech may reach the server and interrupt (NB3_BARGE_IN_GATE).
+CONFIG_SR_VADN_VADNET1_MEDIUM=y
+
 # A crash prints a core dump of both cores on the console before rebooting:
 # a backtrace alone does not say what the other core was holding. The flash
 # has no room for a core dump partition inside the first 16 MB.

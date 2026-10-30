@@ -38,7 +38,7 @@ index 6a7c0fb..1df40c4 100644
          To work properly, device-side AEC requires a clean output reference path from the speaker signal and physical acoustic isolation between the microphone and speaker.
  
 diff --git a/main/application.cc b/main/application.cc
-index 31de205..7d61473 100644
+index 31de205..35bf21b 100644
 --- a/main/application.cc
 +++ b/main/application.cc
 @@ -490,12 +490,14 @@ void Application::CheckNewVersion() {
@@ -64,25 +64,37 @@ index 31de205..7d61473 100644
                      Schedule([display, message = std::string(text->valuestring),
                                glyphs = std::move(glyphs), bpp]() {
                          display->AddTextGlyphs(glyphs, bpp);
+@@ -1003,6 +1006,8 @@ void Application::HandleStateChangedEvent() {
+     auto display = board.GetDisplay();
+     auto led = board.GetLed();
+     led->OnStateChanged();
++    audio_service_.ArmBargeInGate(new_state == kDeviceStateSpeaking &&
++                                  listening_mode_ == kListeningModeRealtime);
+ 
+     switch (new_state) {
+         case kDeviceStateUnknown:
 diff --git a/main/audio/audio_engine.h b/main/audio/audio_engine.h
-index 7c2e191..8eedf1e 100644
+index 7c2e191..93d754f 100644
 --- a/main/audio/audio_engine.h
 +++ b/main/audio/audio_engine.h
-@@ -35,6 +35,9 @@ public:
+@@ -35,6 +35,12 @@ public:
      virtual void EncodeWakeWordData() = 0;
      virtual bool GetWakeWordOpus(std::vector<uint8_t>& opus) = 0;
      virtual const std::string& GetLastDetectedWakeWord() const = 0;
 +    // NB3: text of the sentence the device starts saying, so a wake word
 +    // detector can ignore the device's own voice.
 +    virtual void OnAssistantSentence(const std::string& text) { (void)text; }
++    // NB3: true while the robot speaks in realtime mode, so noise in the mic
++    // does not reach the server and cut the reply.
++    virtual void ArmBargeInGate(bool armed) { (void)armed; }
  };
  
  #endif
 diff --git a/main/audio/audio_service.cc b/main/audio/audio_service.cc
-index 7f7582b..ec72c93 100644
+index 7f7582b..43c7694 100644
 --- a/main/audio/audio_service.cc
 +++ b/main/audio/audio_service.cc
-@@ -748,6 +748,12 @@ void AudioService::EnableAudioTesting(bool enable) {
+@@ -748,6 +748,18 @@ void AudioService::EnableAudioTesting(bool enable) {
      }
  }
  
@@ -92,44 +104,68 @@ index 7f7582b..ec72c93 100644
 +    }
 +}
 +
++void AudioService::ArmBargeInGate(bool armed) {
++    if (audio_engine_initialized_) {
++        audio_engine_->ArmBargeInGate(armed);
++    }
++}
++
  void AudioService::EnableDeviceAec(bool enable) {
      ESP_LOGI(TAG, "%s device AEC", enable ? "Enabling" : "Disabling");
      device_aec_enabled_ = enable;
 diff --git a/main/audio/audio_service.h b/main/audio/audio_service.h
-index f8b510f..285232f 100644
+index f8b510f..8018b28 100644
 --- a/main/audio/audio_service.h
 +++ b/main/audio/audio_service.h
-@@ -138,6 +138,7 @@ public:
+@@ -138,6 +138,8 @@ public:
      void EnableVoiceProcessing(bool enable);
      void EnableAudioTesting(bool enable);
      void EnableDeviceAec(bool enable);
 +    void OnAssistantSentence(const std::string& text);
++    void ArmBargeInGate(bool armed);
  
      void SetCallbacks(AudioServiceCallbacks& callbacks);
  
 diff --git a/main/audio/engines/afe_audio_engine.cc b/main/audio/engines/afe_audio_engine.cc
-index 3823d10..fb33915 100644
+index 3823d10..64be6c4 100644
 --- a/main/audio/engines/afe_audio_engine.cc
 +++ b/main/audio/engines/afe_audio_engine.cc
-@@ -12,6 +12,9 @@
+@@ -12,6 +12,12 @@
  
  #include "audio_service.h"
  #include "wake_words/custom_wake_word.h"
 +#if CONFIG_NB3_MICRO_WAKE_WORD
 +#include "wake/micro_wake_word.h"
 +#endif
++#if CONFIG_NB3_BARGE_IN_GATE
++#include "voice/barge_in_filter.h"
++#endif
  
  #define TAG "AfeAudioEngine"
  
-@@ -25,6 +28,7 @@ AfeAudioEngine::AfeAudioEngine() { event_group_ = xEventGroupCreate(); }
+@@ -24,7 +30,9 @@ static constexpr bool kUseAfeForVoiceProcessing = false;
+ AfeAudioEngine::AfeAudioEngine() { event_group_ = xEventGroupCreate(); }
  
  AfeAudioEngine::~AfeAudioEngine() {
++    barge_in_.reset();
      custom_wake_word_.reset();
 +    micro_wake_word_.reset();
      if (afe_data_ != nullptr) {
          afe_iface_->destroy(afe_data_);
      }
-@@ -80,7 +84,34 @@ bool AfeAudioEngine::Initialize(AudioCodec* codec, int frame_duration_ms,
+@@ -62,6 +70,11 @@ bool AfeAudioEngine::Initialize(AudioCodec* codec, int frame_duration_ms,
+     codec_ = codec;
+     frame_samples_ = frame_duration_ms * 16000 / 1000;
+     output_buffer_.reserve(frame_samples_);
++#if CONFIG_NB3_BARGE_IN_GATE
++    if (codec_->input_reference()) {
++        barge_in_ = std::make_unique<BargeInFilter>(frame_duration_ms);
++    }
++#endif
+ 
+     if (models_list == nullptr) {
+         models_ = esp_srmodel_init("model");
+@@ -80,7 +93,34 @@ bool AfeAudioEngine::Initialize(AudioCodec* codec, int frame_duration_ms,
          }
      }
  
@@ -165,7 +201,7 @@ index 3823d10..fb33915 100644
          wake_detector_ = WakeDetector::kMultiNet;
          custom_wake_word_ = std::make_unique<CustomWakeWord>();
          custom_wake_word_->OnWakeWordDetected([this](const std::string& wake_word) {
-@@ -239,7 +270,10 @@ bool AfeAudioEngine::Initialize(AudioCodec* codec, int frame_duration_ms,
+@@ -239,7 +279,10 @@ bool AfeAudioEngine::Initialize(AudioCodec* codec, int frame_duration_ms,
  
      const char* detector = wake_detector_ == WakeDetector::kWakeNet
                                 ? "WakeNet"
@@ -177,7 +213,7 @@ index 3823d10..fb33915 100644
      ESP_LOGI(TAG, "Initialized FD AFE, detector: %s, NS: off, feed: %d, fetch: %d", detector,
               afe_iface_->get_feed_chunksize(afe_data_), afe_iface_->get_fetch_chunksize(afe_data_));
      ESP_LOGI(TAG, "After AFE create: free=%u min=%u largest=%u",
-@@ -280,12 +314,16 @@ void AfeAudioEngine::EnableWakeWordDetection(bool enable) {
+@@ -280,12 +323,16 @@ void AfeAudioEngine::EnableWakeWordDetection(bool enable) {
      if (enable) {
          if (wake_detector_ == WakeDetector::kMultiNet) {
              custom_wake_word_->Start();
@@ -194,7 +230,7 @@ index 3823d10..fb33915 100644
          }
      }
      UpdateActiveState();
-@@ -329,6 +367,16 @@ void AfeAudioEngine::OnWakeWordDetected(
+@@ -329,6 +376,39 @@ void AfeAudioEngine::OnWakeWordDetected(
      wake_word_detected_callback_ = std::move(callback);
  }
  
@@ -208,10 +244,33 @@ index 3823d10..fb33915 100644
 +#endif
 +}
 +
++void AfeAudioEngine::ArmBargeInGate(bool armed) {
++#if CONFIG_NB3_BARGE_IN_GATE
++    if (barge_in_ != nullptr) {
++        barge_in_->SetArmed(armed);
++    }
++#else
++    (void)armed;
++#endif
++}
++
++void AfeAudioEngine::EmitFrame(std::vector<int16_t>&& frame) {
++    const bool speech = frame_speech_;
++    frame_speech_ = false;
++#if CONFIG_NB3_BARGE_IN_GATE
++    if (barge_in_ != nullptr) {
++        barge_in_->Process(std::move(frame), speech, output_callback_);
++        return;
++    }
++#endif
++    (void)speech;
++    output_callback_(std::move(frame));
++}
++
  void AfeAudioEngine::OnOutput(std::function<void(std::vector<int16_t>&& data)> callback) {
      output_callback_ = std::move(callback);
  }
-@@ -446,6 +494,13 @@ void AfeAudioEngine::HandleWakeWordResult(const afe_fetch_result_t* result) {
+@@ -446,6 +526,13 @@ void AfeAudioEngine::HandleWakeWordResult(const afe_fetch_result_t* result) {
          custom_wake_word_->FeedMono(result->data, result->data_size / sizeof(int16_t));
          return;
      }
@@ -225,23 +284,47 @@ index 3823d10..fb33915 100644
  
  #if CONFIG_SEND_WAKE_WORD_DATA
      wake_word_audio_cache_.Store(result->data, result->data_size / sizeof(int16_t));
+@@ -486,17 +573,18 @@ void AfeAudioEngine::HandleVoiceResult(const afe_fetch_result_t* result) {
+     if (!output_callback_) {
+         return;
+     }
++    frame_speech_ = frame_speech_ || result->vad_state == VAD_SPEECH;
+ 
+     size_t samples = result->data_size / sizeof(int16_t);
+     output_buffer_.insert(output_buffer_.end(), result->data, result->data + samples);
+     while (output_buffer_.size() >= static_cast<size_t>(frame_samples_)) {
+         if (output_buffer_.size() == static_cast<size_t>(frame_samples_)) {
+-            output_callback_(std::move(output_buffer_));
++            EmitFrame(std::move(output_buffer_));
+             output_buffer_.clear();
+             output_buffer_.reserve(frame_samples_);
+         } else {
+-            output_callback_(std::vector<int16_t>(output_buffer_.begin(),
+-                                                  output_buffer_.begin() + frame_samples_));
++            EmitFrame(std::vector<int16_t>(output_buffer_.begin(),
++                                           output_buffer_.begin() + frame_samples_));
+             output_buffer_.erase(output_buffer_.begin(), output_buffer_.begin() + frame_samples_);
+         }
+     }
 diff --git a/main/audio/engines/afe_audio_engine.h b/main/audio/engines/afe_audio_engine.h
-index 789a7e6..42c2469 100644
+index 789a7e6..7cbecdd 100644
 --- a/main/audio/engines/afe_audio_engine.h
 +++ b/main/audio/engines/afe_audio_engine.h
-@@ -19,6 +19,7 @@
+@@ -19,6 +19,8 @@
  #include "wake_words/wake_word_audio_cache.h"
  
  class CustomWakeWord;
 +class MicroWakeWord;
++class BargeInFilter;
  
  class AfeAudioEngine : public AudioEngine {
  public:
-@@ -45,18 +46,21 @@ public:
+@@ -45,18 +47,22 @@ public:
      void EncodeWakeWordData() override;
      bool GetWakeWordOpus(std::vector<uint8_t>& opus) override;
      const std::string& GetLastDetectedWakeWord() const override { return last_detected_wake_word_; }
 +    void OnAssistantSentence(const std::string& text) override;
++    void ArmBargeInGate(bool armed) override;
  
  private:
      enum class WakeDetector {
@@ -260,11 +343,43 @@ index 789a7e6..42c2469 100644
  
      AudioCodec* codec_ = nullptr;
      srmodel_list_t* models_ = nullptr;
-@@ -82,6 +86,7 @@ private:
+@@ -82,6 +88,9 @@ private:
      WakeDetector wake_detector_ = WakeDetector::kNone;
  
      std::unique_ptr<CustomWakeWord> custom_wake_word_;
 +    std::unique_ptr<MicroWakeWord> micro_wake_word_;
++    std::unique_ptr<BargeInFilter> barge_in_;
++    bool frame_speech_ = false;  // the VAD heard speech in the frame being filled
      std::vector<std::string> wake_words_;
      std::string last_detected_wake_word_;
      std::vector<int16_t> input_buffer_;
+@@ -108,6 +117,7 @@ private:
+     void OutputRawAudio(const std::vector<int16_t>& data);
+     void HandleWakeWordResult(const afe_fetch_result_t* result);
+     void HandleVoiceResult(const afe_fetch_result_t* result);
++    void EmitFrame(std::vector<int16_t>&& frame);
+ };
+ 
+ #endif
+diff --git a/scripts/build_default_assets.py b/scripts/build_default_assets.py
+index f6a37d2..97e5033 100755
+--- a/scripts/build_default_assets.py
++++ b/scripts/build_default_assets.py
+@@ -947,6 +947,17 @@ def main():
+     elif multinet_model_names:
+         print(f"  Note: Found multinet models {multinet_model_names} but USE_CUSTOM_WAKE_WORD is disabled, skipping")
+     
++    # NB3: the AFE loads the VADNet voice detector from srmodels.bin when it
++    # is selected; without it the AFE silently falls back to WebRTC VAD.
++    with open(args.sdkconfig, 'r', encoding='utf-8') as f:
++        if 'CONFIG_SR_VADN_VADNET1_MEDIUM=y' in f.read():
++            vadnet_path = os.path.join(args.esp_sr_model_path, 'vadnet_model', 'vadnet1_medium')
++            if not os.path.isdir(vadnet_path):
++                print(f"Error: VADNet selected but {vadnet_path} is missing")
++                sys.exit(1)
++            wakenet_model_paths.append(vadnet_path)
++            print("  vad model: vadnet1_medium (will be packaged)")
++
+     # Print model information (only for models that will actually be packaged)
+     if wakenet_model_paths:
+         print(f"  wakenet models: {', '.join(wakenet_model_names)} (will be packaged)")

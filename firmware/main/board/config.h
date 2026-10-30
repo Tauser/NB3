@@ -28,6 +28,14 @@
 // from ever arriving after its echo, which the AEC cannot cancel.
 #define AUDIO_AEC_REFERENCE_LEAD 120
 
+// Interrupting the robot: while it speaks, the mic only reaches the server
+// after the voice detector has heard this much speech in a row, so knocks,
+// claps and short bursts do not cut the reply. The gate closes again after
+// HOLD of no speech. The extra preroll covers the detector's own delay.
+#define BARGE_IN_MIN_SPEECH_MS 300
+#define BARGE_IN_HOLD_MS 1000
+#define BARGE_IN_EXTRA_PREROLL_MS 180
+
 // I2S slot the INMP441 drives, set by its L/R pin (GND = left, VDD = right).
 #define AUDIO_I2S_MIC_SLOT I2S_STD_SLOT_LEFT
 
