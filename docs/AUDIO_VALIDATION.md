@@ -47,7 +47,9 @@ As correções abaixo implementam A1 e A3–A7 da
   Um par antigo separado da transição por silêncio não libera a fila. Um pico isolado
   limitado a um quadro não libera a fila; um mesmo evento acústico pode
   atravessar a fronteira e marcar dois quadros. Fala curta de um único quadro
-  pode deixar de ser enviada e precisa ser avaliada em bancada.
+  pode deixar de ser enviada. Se um quadro de pausa VAD separar o pré-áudio
+  da voz no momento da transição, o início retido também é descartado; o
+  quadro atual passa normalmente. Testar pausas entre sílabas em bancada.
 
 **A2 continua parcialmente aberto:** o parâmetro foi renomeado de
 `AUDIO_AEC_REFERENCE_LEAD` para `AUDIO_AEC_REFERENCE_DELAY`, corrigindo o

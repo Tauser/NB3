@@ -196,6 +196,28 @@ static void test_config_is_clamped(void) {
     NB_CHECK(nb_barge_gate_step(&g, true, LOUD) == NB_BARGE_OPENED);
 }
 
+static void test_hold_evidence_is_clamped_to_hold_duration(void) {
+    const nb_barge_gate_config_t cfg = {
+        .min_speech_frames = 3, .hold_frames = 3, .hold_evidence_frames = 9,
+        .min_level_dbfs = MIN_LEVEL, .hold_level_dbfs = -25};
+    nb_barge_gate_t g = armed_config(&cfg);
+    NB_CHECK_EQ_INT(3, g.cfg.hold_evidence_frames);
+    open_it(&g);
+    for (int i = 0; i < 6; i++)
+        NB_CHECK(nb_barge_gate_step(&g, true, -25) == NB_BARGE_PASS);
+    NB_CHECK(nb_barge_gate_step(&g, false, ECHO) == NB_BARGE_PASS);
+    NB_CHECK(nb_barge_gate_step(&g, false, ECHO) == NB_BARGE_PASS);
+    NB_CHECK(nb_barge_gate_step(&g, false, ECHO) == NB_BARGE_HOLD);
+}
+
+static void test_intermittent_vad_can_close_hold(void) {
+    nb_barge_gate_t g = armed_config(&kRealCfg);
+    open_it(&g);
+    for (int i = 0; i < 17; i++)
+        nb_barge_gate_step(&g, i % 3 != 2, -20);
+    NB_CHECK(!g.open);
+}
+
 static void test_level_of_silence_and_full_scale(void) {
     int16_t zeros[8] = {0};
     NB_CHECK_EQ_INT(NB_BARGE_LEVEL_SILENCE, nb_barge_level_dbfs(zeros, 8));
@@ -232,6 +254,8 @@ int main(void) {
     NB_RUN(test_rearming_forgets_counted_speech);
     NB_RUN(test_disarm_while_open_passes);
     NB_RUN(test_config_is_clamped);
+    NB_RUN(test_hold_evidence_is_clamped_to_hold_duration);
+    NB_RUN(test_intermittent_vad_can_close_hold);
     NB_RUN(test_level_of_silence_and_full_scale);
     NB_RUN(test_level_halves_are_six_db_apart);
     NB_TEST_MAIN_END();

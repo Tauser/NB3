@@ -117,6 +117,20 @@ static void test_playback_end_rejects_old_pair_but_keeps_recent_pair() {
     NB_CHECK_EQ_INT(5, emitted);
 }
 
+static void test_playback_end_drops_preroll_when_pause_separates_syllables() {
+    BargeInFilter gate(60);
+    gate.SetArmed(true);
+    std::vector<int16_t> emitted;
+    auto sink = [&](std::vector<int16_t>&& pcm) { emitted.push_back(pcm.front()); };
+    gate.Process(std::vector<int16_t>(960, 8192), true, sink);
+    gate.Process(std::vector<int16_t>(960, 8192), true, sink);
+    gate.Process(std::vector<int16_t>(960, 0), false, sink);
+    gate.SetArmed(false);
+    gate.Process(std::vector<int16_t>(960, 8192), true, sink);
+    NB_CHECK_EQ_INT(1, emitted.size());
+    NB_CHECK_EQ_INT(8192, emitted[0]);  // current syllable passes; earlier onset was discarded
+}
+
 static void test_large_fetch_and_reset_preserve_metadata() {
     VoiceFrames frames(10);
     std::vector<int16_t> speech(25, 7), silence(10, 0);
@@ -141,6 +155,7 @@ int main() {
     NB_RUN(test_playback_end_does_not_flush_weak_echo);
     NB_RUN(test_playback_end_rejects_single_loud_spike);
     NB_RUN(test_playback_end_rejects_old_pair_but_keeps_recent_pair);
+    NB_RUN(test_playback_end_drops_preroll_when_pause_separates_syllables);
     NB_RUN(test_large_fetch_and_reset_preserve_metadata);
     NB_TEST_MAIN_END();
 }
