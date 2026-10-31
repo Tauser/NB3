@@ -84,6 +84,39 @@ static void test_playback_end_does_not_flush_weak_echo() {
     NB_CHECK_EQ_INT(1, emitted);
 }
 
+static void test_playback_end_rejects_single_loud_spike() {
+    BargeInFilter gate(60);
+    gate.SetArmed(true);
+    int emitted = 0;
+    auto sink = [&](std::vector<int16_t>&&) { ++emitted; };
+    for (int i = 0; i < 7; ++i) {
+        gate.Process(std::vector<int16_t>(960, i == 3 ? 8192 : 100), true, sink);
+    }
+    gate.SetArmed(false);
+    gate.Process(std::vector<int16_t>(960, 0), false, sink);
+    NB_CHECK_EQ_INT(1, emitted);
+}
+
+static void test_playback_end_rejects_old_pair_but_keeps_recent_pair() {
+    BargeInFilter gate(60);
+    gate.SetArmed(true);
+    int emitted = 0;
+    auto sink = [&](std::vector<int16_t>&&) { ++emitted; };
+    for (int i = 0; i < 8; ++i)
+        gate.Process(std::vector<int16_t>(960, i < 2 ? 8192 : 100), true, sink);
+    gate.SetArmed(false);
+    gate.Process(std::vector<int16_t>(960, 0), false, sink);
+    NB_CHECK_EQ_INT(1, emitted);
+
+    gate.SetArmed(true);
+    gate.Process(std::vector<int16_t>(960, 100), false, sink);
+    gate.Process(std::vector<int16_t>(960, 8192), true, sink);
+    gate.Process(std::vector<int16_t>(960, 8192), true, sink);
+    gate.SetArmed(false);
+    gate.Process(std::vector<int16_t>(960, 0), false, sink);
+    NB_CHECK_EQ_INT(5, emitted);
+}
+
 static void test_large_fetch_and_reset_preserve_metadata() {
     VoiceFrames frames(10);
     std::vector<int16_t> speech(25, 7), silence(10, 0);
@@ -106,6 +139,8 @@ int main() {
     NB_RUN(test_vad_tag_follows_speech_remainder);
     NB_RUN(test_playback_end_keeps_new_voice_but_session_reset_drops_it);
     NB_RUN(test_playback_end_does_not_flush_weak_echo);
+    NB_RUN(test_playback_end_rejects_single_loud_spike);
+    NB_RUN(test_playback_end_rejects_old_pair_but_keeps_recent_pair);
     NB_RUN(test_large_fetch_and_reset_preserve_metadata);
     NB_TEST_MAIN_END();
 }

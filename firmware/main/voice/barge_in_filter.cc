@@ -17,6 +17,7 @@ BargeInFilter::BargeInFilter(int frame_ms) : frame_ms_(frame_ms) {
     const nb_barge_gate_config_t cfg = {
         .min_speech_frames = FramesFor(BARGE_IN_MIN_SPEECH_MS, frame_ms),
         .hold_frames = FramesFor(BARGE_IN_HOLD_MS, frame_ms),
+        .hold_evidence_frames = FramesFor(BARGE_IN_HOLD_EVIDENCE_MS, frame_ms),
         .min_level_dbfs = BARGE_IN_MIN_LEVEL_DBFS,
         .hold_level_dbfs = BARGE_IN_HOLD_LEVEL_DBFS,
     };
@@ -46,7 +47,6 @@ void BargeInFilter::LogListeningLevel(bool speech, int level) {
 void BargeInFilter::Reset() {
     nb_barge_gate_arm(&gate_, armed_request_.load());
     kept_.clear();
-    kept_voice_frames_ = 0;
     loudest_held_ = NB_BARGE_LEVEL_SILENCE;
     listen_sum_ = 0;
     listen_frames_ = 0;
@@ -57,23 +57,24 @@ void BargeInFilter::Flush(const Sink& sink) {
         sink(std::move(kept_.front().pcm));
         kept_.pop_front();
     }
-    kept_voice_frames_ = 0;
 }
 
 void BargeInFilter::Process(std::vector<int16_t>&& frame, bool speech, const Sink& sink) {
     const bool armed = armed_request_.load();
+    const int level = nb_barge_level_dbfs(frame.data(), frame.size());
+    const bool voice = speech && level >= BARGE_IN_MIN_LEVEL_DBFS;
     if (armed != gate_.armed) {
         if (!armed && loudest_held_ > NB_BARGE_LEVEL_SILENCE) {
             ESP_LOGI(TAG, "Held back speech below %d dBFS while speaking (loudest run avg %d)",
                      BARGE_IN_MIN_LEVEL_DBFS, loudest_held_);
         }
-        // A user can start just before playback drains, too late to satisfy
-        // MIN_SPEECH while armed. Preserve that onset when entering listening;
-        // don't replay a buffer that contains only silence/weak residual echo.
-        if (!armed && kept_voice_frames_ > 0) Flush(sink);
+        // Voice evidence must touch the transition, not be an old echo burst.
+        const bool last_voice = !kept_.empty() && kept_.back().voice;
+        const bool preceding_voice = kept_.size() >= 2 && kept_[kept_.size() - 2].voice;
+        const bool confirmed_voice = last_voice && (preceding_voice || voice);
+        if (!armed && confirmed_voice) Flush(sink);
         Reset();
     }
-    const int level = nb_barge_level_dbfs(frame.data(), frame.size());
     if (!gate_.armed) {
         LogListeningLevel(speech, level);
         sink(std::move(frame));
@@ -85,21 +86,14 @@ void BargeInFilter::Process(std::vector<int16_t>&& frame, bool speech, const Sin
         break;
     case NB_BARGE_HOLD:
         loudest_held_ = std::max(loudest_held_, nb_barge_gate_run_average(&gate_));
-        kept_.push_back({std::move(frame), speech && level >= BARGE_IN_MIN_LEVEL_DBFS});
-        if (kept_.back().voice) ++kept_voice_frames_;
+        kept_.push_back({std::move(frame), voice});
         if (kept_.size() > keep_frames_) {
-            if (kept_.front().voice) --kept_voice_frames_;
             kept_.pop_front();
         }
         break;
     case NB_BARGE_OPENED: {
-        // The core cleared the run on opening; recompute from its levels.
-        int sum = 0;
-        for (uint8_t i = 0; i < gate_.cfg.min_speech_frames; i++) {
-            sum += gate_.levels[(gate_.head + NB_BARGE_MAX_RUN - 1 - i) % NB_BARGE_MAX_RUN];
-        }
         ESP_LOGI(TAG, "Voice while speaking (run avg %d dBFS): sending %u ms to interrupt",
-                 sum / gate_.cfg.min_speech_frames, (unsigned)((kept_.size() + 1) * frame_ms_));
+                 gate_.opening_average, (unsigned)((kept_.size() + 1) * frame_ms_));
         Flush(sink);
         sink(std::move(frame));
         break;

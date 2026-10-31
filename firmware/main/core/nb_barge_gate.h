@@ -18,8 +18,8 @@ extern "C" {
 // robot up close is louder than both the residual echo and far-away voices,
 // and averaging rides over the dips between syllables. Then the gate opens
 // and the caller sends the frames it kept, so the server hears the start of
-// the words. After `hold_frames` frames without speech above hold_level_dbfs it closes
-// again. Disarmed, every frame passes.
+// the words. While open, only a consecutive run of hold_evidence_frames
+// above hold_level_dbfs resets the hold_frames closing timer.
 
 #define NB_BARGE_MAX_RUN 16
 #define NB_BARGE_LEVEL_SILENCE (-100)
@@ -27,6 +27,7 @@ extern "C" {
 typedef struct {
     uint8_t min_speech_frames;  // 1..NB_BARGE_MAX_RUN
     uint8_t hold_frames;
+    uint8_t hold_evidence_frames; // consecutive qualifying frames, <= hold_frames
     int min_level_dbfs;
     int hold_level_dbfs;       // <= min_level_dbfs, level hysteresis while open
 } nb_barge_gate_config_t;
@@ -39,6 +40,8 @@ typedef struct {
     uint8_t silence_run;
     uint8_t head;
     int levels[NB_BARGE_MAX_RUN];  // dBFS of the latest speech frames
+    int opening_average;         // last successful opening, for telemetry
+    uint8_t hold_run;
 } nb_barge_gate_t;
 
 typedef enum {

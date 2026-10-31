@@ -4,6 +4,7 @@
 // change the capacity that accepts its burst. This header is host-testable.
 #define BARGE_IN_MIN_SPEECH_MS 300
 #define BARGE_IN_HOLD_MS 1000
+#define BARGE_IN_HOLD_EVIDENCE_MS 180
 #define BARGE_IN_EXTRA_PREROLL_MS 180
 #define BARGE_IN_MIN_LEVEL_DBFS (-24)
 // Slight level hysteresis plus the hold time preserve weak syllables without

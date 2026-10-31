@@ -6,6 +6,7 @@ static void close_gate(nb_barge_gate_t *g) {
     g->open = false;
     g->speech_run = 0;
     g->silence_run = 0;
+    g->hold_run = 0;
 }
 
 void nb_barge_gate_init(nb_barge_gate_t *g, const nb_barge_gate_config_t *cfg) {
@@ -18,11 +19,15 @@ void nb_barge_gate_init(nb_barge_gate_t *g, const nb_barge_gate_config_t *cfg) {
     if (g->cfg.hold_frames < 1) {
         g->cfg.hold_frames = 1;
     }
+    if (g->cfg.hold_evidence_frames < 1) g->cfg.hold_evidence_frames = 1;
+    if (g->cfg.hold_evidence_frames > g->cfg.hold_frames)
+        g->cfg.hold_evidence_frames = g->cfg.hold_frames;
     if (g->cfg.hold_level_dbfs > g->cfg.min_level_dbfs) {
         g->cfg.hold_level_dbfs = g->cfg.min_level_dbfs;
     }
     g->armed = false;
     g->head = 0;
+    g->opening_average = NB_BARGE_LEVEL_SILENCE;
     close_gate(g);
 }
 
@@ -40,7 +45,7 @@ int nb_barge_gate_run_average(const nb_barge_gate_t *g) {
     for (uint8_t i = 0; i < n; i++) {
         sum += g->levels[(g->head + NB_BARGE_MAX_RUN - 1 - i) % NB_BARGE_MAX_RUN];
     }
-    return sum / n;
+    return sum / n - (sum < 0 && sum % n != 0 ? 1 : 0);
 }
 
 nb_barge_action_t nb_barge_gate_step(nb_barge_gate_t *g, bool speech, int level_dbfs) {
@@ -48,7 +53,13 @@ nb_barge_action_t nb_barge_gate_step(nb_barge_gate_t *g, bool speech, int level_
         return NB_BARGE_PASS;
     }
     if (g->open) {
-        const bool sustaining_voice = speech && level_dbfs >= g->cfg.hold_level_dbfs;
+        // A short pulse, even when it spans two frames, cannot renew the timer.
+        if (speech && level_dbfs >= g->cfg.hold_level_dbfs) {
+            if (g->hold_run < g->cfg.hold_evidence_frames) g->hold_run++;
+        } else {
+            g->hold_run = 0;
+        }
+        const bool sustaining_voice = g->hold_run >= g->cfg.hold_evidence_frames;
         g->silence_run = sustaining_voice ? 0 : (uint8_t)(g->silence_run + 1);
         if (g->silence_run >= g->cfg.hold_frames) {
             close_gate(g);
@@ -65,9 +76,11 @@ nb_barge_action_t nb_barge_gate_step(nb_barge_gate_t *g, bool speech, int level_
     if (g->speech_run < g->cfg.min_speech_frames) {
         g->speech_run++;
     }
-    if (nb_barge_gate_run_average(g) >= g->cfg.min_level_dbfs &&
+    const int average = nb_barge_gate_run_average(g);
+    if (average >= g->cfg.min_level_dbfs &&
         g->speech_run >= g->cfg.min_speech_frames) {
         g->open = true;
+        g->opening_average = average;
         g->speech_run = 0;
         return NB_BARGE_OPENED;
     }

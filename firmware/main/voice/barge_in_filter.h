@@ -38,7 +38,6 @@ private:
     nb_barge_gate_t gate_ = {};
     std::atomic<bool> armed_request_{false};
     std::deque<HeldFrame> kept_;
-    size_t kept_voice_frames_ = 0;
     size_t keep_frames_ = 0;
     int frame_ms_ = 0;
     int loudest_held_ = NB_BARGE_LEVEL_SILENCE;  // best run average that stayed below, this turn

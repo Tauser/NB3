@@ -6,15 +6,23 @@
 #define MIN_LEVEL (-24)
 
 static const nb_barge_gate_config_t kCfg = {
-    .min_speech_frames = 3, .hold_frames = 2, .min_level_dbfs = MIN_LEVEL,
+    .min_speech_frames = 3, .hold_frames = 2, .hold_evidence_frames = 2, .min_level_dbfs = MIN_LEVEL,
     .hold_level_dbfs = -26};
 
-static nb_barge_gate_t armed_gate(void) {
+static const nb_barge_gate_config_t kRealCfg = {
+    .min_speech_frames = 3, .hold_frames = 17, .hold_evidence_frames = 3,
+    .min_level_dbfs = MIN_LEVEL, .hold_level_dbfs = -25};
+static const nb_barge_gate_config_t kPauseCfg = {
+    .min_speech_frames = 3, .hold_frames = 4, .hold_evidence_frames = 3,
+    .min_level_dbfs = MIN_LEVEL, .hold_level_dbfs = -26};
+
+static nb_barge_gate_t armed_config(const nb_barge_gate_config_t *cfg) {
     nb_barge_gate_t g;
-    nb_barge_gate_init(&g, &kCfg);
+    nb_barge_gate_init(&g, cfg);
     nb_barge_gate_arm(&g, true);
     return g;
 }
+static nb_barge_gate_t armed_gate(void) { return armed_config(&kCfg); }
 
 static void open_it(nb_barge_gate_t *g) {
     for (int i = 0; i < 3; i++) {
@@ -78,7 +86,7 @@ static void test_run_average_needs_a_full_run(void) {
 }
 
 static void test_short_pause_keeps_it_open(void) {
-    nb_barge_gate_t g = armed_gate();
+    nb_barge_gate_t g = armed_config(&kPauseCfg);
     open_it(&g);
     NB_CHECK(nb_barge_gate_step(&g, false, ECHO) == NB_BARGE_PASS);
     NB_CHECK(nb_barge_gate_step(&g, true, -25) == NB_BARGE_PASS);
@@ -107,13 +115,50 @@ static void test_weak_vad_speech_cannot_keep_gate_open(void) {
 }
 
 static void test_level_hysteresis_and_short_dip(void) {
-    nb_barge_gate_t g = armed_gate();
+    nb_barge_gate_t g = armed_config(&kRealCfg);
     open_it(&g);
     NB_CHECK(nb_barge_gate_step(&g, true, -25) == NB_BARGE_PASS);
     NB_CHECK(nb_barge_gate_step(&g, true, -40) == NB_BARGE_PASS);
     NB_CHECK(nb_barge_gate_step(&g, true, -26) == NB_BARGE_PASS);
     NB_CHECK(nb_barge_gate_step(&g, true, -40) == NB_BARGE_PASS);
     NB_CHECK(g.open);
+}
+
+static void test_isolated_loud_echo_cannot_hold_open(void) {
+    nb_barge_gate_t g = armed_config(&kRealCfg);
+    open_it(&g);
+    for (int i = 0; i < 80 && g.open; i++) {
+        nb_barge_gate_step(&g, true, i % 16 == 15 ? -20 : -35);
+    }
+    NB_CHECK(!g.open);
+}
+
+static void test_sustained_speech_stays_open(void) {
+    nb_barge_gate_t g = armed_config(&kRealCfg);
+    open_it(&g);
+    NB_CHECK_EQ_INT(LOUD, g.opening_average);
+    for (int i = 0; i < 150; i++) {
+        NB_CHECK(nb_barge_gate_step(&g, true, -20) == NB_BARGE_PASS);
+    }
+    NB_CHECK(g.open);
+}
+
+static void test_two_frame_pulses_do_not_renew_hold(void) {
+    nb_barge_gate_t g = armed_config(&kRealCfg);
+    open_it(&g);
+    for (int i = 0; i < 17; i++) {
+        nb_barge_gate_step(&g, true, i % 8 < 2 ? -20 : -35);
+    }
+    NB_CHECK(!g.open);
+}
+
+static void test_fractional_negative_average_does_not_round_up(void) {
+    nb_barge_gate_t g = armed_config(&kRealCfg);
+    nb_barge_gate_step(&g, true, -25);
+    nb_barge_gate_step(&g, true, -25);
+    NB_CHECK(nb_barge_gate_step(&g, true, -23) == NB_BARGE_HOLD);
+    NB_CHECK_EQ_INT(-25, nb_barge_gate_run_average(&g));
+    NB_CHECK(nb_barge_gate_step(&g, true, -24) == NB_BARGE_OPENED);
 }
 
 static void test_rearming_forgets_counted_speech(void) {
@@ -180,6 +225,10 @@ int main(void) {
     NB_RUN(test_long_silence_closes_and_needs_speech_again);
     NB_RUN(test_weak_vad_speech_cannot_keep_gate_open);
     NB_RUN(test_level_hysteresis_and_short_dip);
+    NB_RUN(test_isolated_loud_echo_cannot_hold_open);
+    NB_RUN(test_sustained_speech_stays_open);
+    NB_RUN(test_two_frame_pulses_do_not_renew_hold);
+    NB_RUN(test_fractional_negative_average_does_not_round_up);
     NB_RUN(test_rearming_forgets_counted_speech);
     NB_RUN(test_disarm_while_open_passes);
     NB_RUN(test_config_is_clamped);
