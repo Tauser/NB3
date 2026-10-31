@@ -89,6 +89,24 @@ static void test_diagnostics_expose_callback_phase_changes(void) {
     NB_CHECK_EQ_INT(3, r.consumed);
 }
 
+static void test_callback_reordering_can_repeat_and_skip_reference_blocks(void) {
+    nb_spk_ref_t r = fresh(0);
+    int16_t out[BLOCK];
+    play_block(&r, 1);
+    nb_spk_ref_captured(&r, BLOCK);  // TX callback observed first
+    nb_spk_ref_read(&r, out, BLOCK);
+    NB_CHECK_EQ_INT(1, out[0]);
+    nb_spk_ref_captured(&r, BLOCK);  // RX callback observed first
+    nb_spk_ref_read(&r, out, BLOCK);
+    NB_CHECK_EQ_INT(1, out[0]);     // previous reference block is repeated
+    play_block(&r, 9);
+    play_block(&r, 17);
+    nb_spk_ref_captured(&r, BLOCK);
+    nb_spk_ref_read(&r, out, BLOCK);
+    NB_CHECK_EQ_INT(17, out[0]);    // next estimate skips the intervening block
+    NB_CHECK_EQ_INT(2, r.offset_changes);
+}
+
 static void test_not_yet_played_is_silence(void) {
     nb_spk_ref_t r = fresh(0);
     play_block(&r, 1);
@@ -187,6 +205,7 @@ int main(void) {
     NB_RUN(test_delay_selects_older_source_samples);
     NB_RUN(test_positive_delay_moves_impulse_later_in_output);
     NB_RUN(test_diagnostics_expose_callback_phase_changes);
+    NB_RUN(test_callback_reordering_can_repeat_and_skip_reference_blocks);
     NB_RUN(test_not_yet_played_is_silence);
     NB_RUN(test_older_than_history_is_silence);
     NB_RUN(test_dropped_capture_keeps_alignment);

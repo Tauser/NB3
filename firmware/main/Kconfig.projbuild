@@ -4,6 +4,15 @@ rsource "../xiaozhi-esp32/main/Kconfig.projbuild"
 
 menu "NoiseBot v3"
 
+config NB3_AEC_DELAY_SAMPLES
+    int "AEC software reference delay in 24 kHz samples"
+    range 0 480
+    default 120
+    depends on USE_DEVICE_AEC
+    help
+        120 is an uncalibrated starting value. Compare 120 and 0 with the
+        same playback and measure mic/reference alignment before changing it.
+
 config NB3_AUDIO_DIAGNOSTICS
     bool "Log microphone/reference diagnostics every five seconds"
     default n

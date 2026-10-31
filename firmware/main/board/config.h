@@ -25,9 +25,13 @@
 
 // Historical reference delay, in output-rate samples. Positive values read
 // older speaker samples and DELAY the reference waveform; they do not advance
-// it. Preserve the measured setup until a mic/ref recording establishes the
-// acoustic delay and DMA phase. See the audio audit before changing this.
+// it. 120 is an uncalibrated initial guess; compare 120 and 0 on the actual
+// mic/ref path before promoting either value.
+#if defined(CONFIG_NB3_AEC_DELAY_SAMPLES)
+#define AUDIO_AEC_REFERENCE_DELAY CONFIG_NB3_AEC_DELAY_SAMPLES
+#else
 #define AUDIO_AEC_REFERENCE_DELAY 120
+#endif
 
 // I2S slot the INMP441 drives, set by its L/R pin (GND = left, VDD = right).
 #define AUDIO_I2S_MIC_SLOT I2S_STD_SLOT_LEFT
