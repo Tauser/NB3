@@ -636,6 +636,25 @@ trilho lógico) e ids conhecidos.
 
 ## Pendências transversais
 
+- [~] **Comparação dos modelos Nexo:** após relato de dificuldade para
+  ativar em repouso, preparado por solicitação do usuário o modelo anterior,
+  que havia detectado sua voz em quatro tentativas registradas. O modelo
+  novo permanece em `wake/nexo.tflite`; `NB3_WAKE_PREVIOUS_MODEL=y` seleciona
+  `wake/nexo_anterior.tflite`. Cutoff e demais ajustes de áudio preservados.
+  Validado em 31/10: flash conferido por digest, log `model previous` e usuário
+  relatou que a ativação melhorou bastante. Ainda faltam contagem controlada,
+  outras vozes/distâncias e teste prolongado de falsos disparos; não é possível
+  atribuir a causa exclusivamente ao modelo com essa observação.
+
+- [~] **Correções da auditoria de áudio de 30/10/2026**: fila do pré-áudio
+  dimensionada para a rajada, cache
+  Nexo ligado ao encoder, fallback por Kconfig compilável, manutenção do gate
+  com nível/histerese, proteção de filas/DMA/cauda após `tts stop` e etiquetas
+  VAD preservadas entre quadros. Diagnósticos opt-in e analisador de WAV
+  mic/ref preparados. O AEC mantém 120 amostras, agora corretamente chamado
+  **delay**; alinhamento físico e ajuste de NLP/NS continuam pendentes.
+  Plano e critérios em [AUDIO_VALIDATION.md](AUDIO_VALIDATION.md).
+
 - [~] **Wake word "Nexo" com microWakeWord** (D-020): `wake/micro_wake_word`
   roda o modelo no TFLite Micro (`esp-tflite-micro` 1.4.1, componente
   `nb_tflite`) com as features do `pymicro-features` v2.0.2, o mesmo código
@@ -669,7 +688,7 @@ trilho lógico) e ids conhecidos.
 - [~] **AEC com referência por software** (D-021): as callbacks de DMA do
   I2S guardam o que vai para o alto-falante (`on_sent`, antes do buffer ser
   zerado) e contam o que o mic capturou; `core/nb_spk_ref` alinha as duas
-  pontas pelos contadores (mesmo clock, I2S duplex) com 5 ms de folga causal
+  pontas pelos contadores (mesmo clock, I2S duplex) com 5 ms de atraso da referência
   e entrega `[mic, ref]` ao AFE (`input_reference`). Com
   `CONFIG_USE_DEVICE_AEC` o xiaozhi entra no modo realtime: AEC do esp-sr
   (`FD_LOW_COST`, NLP agressivo) e o servidor corta a fala quando o usuário
@@ -683,7 +702,8 @@ trilho lógico) e ids conhecidos.
   transcrita como do usuário, e houve falas do robô cortadas em menos de 1 s
   seguidas da fala do usuário. Falta ver: interrupção deliberada no meio de
   uma resposta longa, volume alto e distância; medir o atraso real da
-  referência se o eco residual aparecer.
+  referência: a auditoria mostrou que o parâmetro atrasa a referência, não
+  fornece a folga causal antes atribuída a ele. Calibração física pendente.
 - [~] **Interromper só com voz, não com ruído** (D-022): com o AEC, ruídos
   (batidas, palmas) cortavam a resposta, porque o servidor para ao ouvir
   qualquer coisa. `core/nb_barge_gate` segura o áudio do mic enquanto o
