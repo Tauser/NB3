@@ -636,6 +636,21 @@ trilho lógico) e ids conhecidos.
 
 ## Pendências transversais
 
+- [~] **AEC/gate após revisão de bancada:** delay selecionável por Kconfig,
+  mantido o default 120 sem alegar medição; comparação 120 × 0 documentada e
+  teste host de reordenação das callbacks. Gate exige três quadros consecutivos
+  para renovar o hold e dois junto à transição para liberar pré-áudio no fim do
+  playback. Incluídos testes de picos isolados e fala sustentada, e medição
+  opt-in do tempo da consulta protegida por mutex. Pendente validar A/B,
+  captura mic/ref, fala simultânea, falsos positivos e fala curta na placa.
+- [~] **Ensaio AEC 120 × 0 interrompido:** observado offset de −240 a 0
+  amostras, saturação e contadores de captura descartada. Com delay zero a
+  placa reiniciou com `last reset: panic`; o usuário relatou que a frase
+  havia terminado normalmente. O backtrace não foi capturado.
+  Imagem 120 restaurada. TV estava ligada, portanto os registros de gate
+  não estabelecem qual AEC é melhor. Investigar o panic e repetir de forma
+  controlada antes de mudar o default; dados em [AUDIO_VALIDATION.md](AUDIO_VALIDATION.md).
+
 - [~] **Comparação dos modelos Nexo:** após relato de dificuldade para
   ativar em repouso, preparado por solicitação do usuário o modelo anterior,
   que havia detectado sua voz em quatro tentativas registradas. O modelo

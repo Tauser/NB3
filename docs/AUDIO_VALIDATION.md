@@ -26,9 +26,12 @@ As correções abaixo implementam A1 e A3–A7 da
 - Includes completos permitem desligar Nexo/gate por Kconfig. CI verifica
   cinco variantes, sem modificar a configuração principal.
 - O gate abre com média de −24 dBFS por 300 ms de quadros VAD positivos;
-  depois usa −25 dBFS para manutenção e fecha após aproximadamente 1 s sem
-  essa evidência. Com quadros de 60 ms, o hold é arredondado para 17 quadros
-  (**1020 ms**). O limiar de manutenção é provisório para bancada.
+  depois só renova o hold após 180 ms consecutivos com VAD positivo e nível
+  ≥ −25 dBFS. Em quadros de 60 ms são três quadros; pulsos de até dois
+  quadros não renovam o contador. Fecha após aproximadamente 1 s sem essa evidência.
+  Com quadros de 60 ms, o hold é arredondado para 17 quadros (**1020 ms**).
+  Os critérios de manutenção são provisórios e precisam de teste de fala
+  fraca, pausa e eco variável em hardware.
 - O estado speaking solicita o gate; adicionalmente, a captura mantém a
   proteção enquanto há decode/playback, trabalho em andamento, PCM
   possivelmente pendente no DMA ou cauda de sinal efetivamente enviado.
@@ -38,11 +41,21 @@ As correções abaixo implementam A1 e A3–A7 da
   dos samples que já entraram no DMA.
 - `VoiceFrames` mantém PCM e etiqueta VAD juntos nas fronteiras AFE/Opus,
   inclusive no restante que só será emitido no quadro seguinte e nos resets.
+- Na transição do fim do playback para escuta, o pré-áudio retido só é
+  liberado se houver pelo menos dois quadros consecutivos de fala acima do
+  limiar junto à transição, incluindo o quadro atual quando cruza a fronteira.
+  Um par antigo separado da transição por silêncio não libera a fila. Um pico isolado
+  limitado a um quadro não libera a fila; um mesmo evento acústico pode
+  atravessar a fronteira e marcar dois quadros. Fala curta de um único quadro
+  pode deixar de ser enviada e precisa ser avaliada em bancada.
 
 **A2 continua parcialmente aberto:** o parâmetro foi renomeado de
 `AUDIO_AEC_REFERENCE_LEAD` para `AUDIO_AEC_REFERENCE_DELAY`, corrigindo o
 contrato temporal; o valor de 120 amostras e o algoritmo de alinhamento foram
-preservados. Não houve inversão de sinal nem calibração sem medição.
+preservados. O valor 120 era uma escolha inicial sem medição, não um setup
+calibrado. `CONFIG_NB3_AEC_DELAY_SAMPLES` permite testar 0 ou 120; o default
+continua em 120 até a comparação física. Não houve inversão de sinal nem
+calibração sem medição.
 Também foram acrescentados contadores de referência indisponível, amostras
 descartadas e variação do offset. Timeout com leitura parcial avança o cursor
 da referência pelo áudio efetivamente descartado.
@@ -76,7 +89,8 @@ python tools/check_audio_variants.py
 
 `check_audio_variants.py` usa os comandos reais de compilação para AFE,
 serviço de áudio e codec da board. As variantes são atual, Jarvis, gate
-desligado, Jarvis sem AEC/gate e diagnósticos ligados. É checagem de sintaxe e
+desligado, Jarvis sem AEC/gate, diagnósticos ligados e AEC em zero com
+diagnósticos. É checagem de sintaxe e
 tipos; não substitui link/boot completo de cada configuração alternativa.
 Headers e logs são gravados em `firmware/build/audio-variants/`.
 
@@ -91,6 +105,9 @@ o checkout usado no build.
    são da janela; `errors`, `missing`, `dropped` e `changes` são acumulados.
    `range` é o menor/maior offset desde a sincronização atual. Os contadores
    uint32 podem dar wrap; comparar deltas. Não há PCM nesses logs.
+   `PlaybackCheck count=... max_us=...` informa o maior tempo para consultar
+   a fila de playback durante a janela, incluindo a espera pelo mutex. Esse
+   valor é observabilidade de bancada, não um limite garantido de latência.
 2. Para uma gravação sincronizada, habilitar temporariamente
    `CONFIG_USE_AUDIO_DEBUGGER=y` e configurar
    `CONFIG_AUDIO_DEBUG_UDP_SERVER="IP_DO_PC:8000"`. Esse caminho existente
@@ -127,6 +144,51 @@ Portanto, aumentar `delay` faz um impulso aparecer mais tarde na referência.
 Um resultado negativo não deve ser corrigido simplesmente colocando delay
 negativo: isso pode exigir samples ainda não disponíveis. A eventual solução
 deve parear os blocos e/ou atrasar o mic, com limites explícitos de histórico.
+
+### Comparação 120 × 0
+
+**Ensaio exploratório em 31/10:** duas imagens foram gravadas na placa
+`90:e5:b1:cc:3d:58`, ambas verificadas por hash após gravação. Com 120, uma
+resposta teve `Held back ... avg -30 dBFS` e a faixa de offset observada foi
+de −240 a 0 amostras. Com 0, em uma resposta houve abertura do gate a
+−24 dBFS e posterior registro de −26 dBFS. Havia TV ligada, e houve
+saturação do mic; não há captura sincronizada nem controle suficiente para
+comparar ERLE ou decidir qual delay é melhor. Em uma sessão foram contadas
+12240 amostras descartadas com 120 e 12720 com 0; essas contagens são
+acumuladas e precisam ser correlacionadas com o ciclo de captura.
+
+Durante o ensaio com 0, a placa reiniciou e informou `last reset: panic`.
+O usuário relatou que o robô terminou normalmente a frase antes de reiniciar;
+isso não estabelece quanto tempo decorreu entre o fim da frase e o panic.
+O filtro de leitura serial descartou o backtrace, então não há evidência da
+causa ou de relação causal com o delay. A imagem com 120 foi restaurada e
+verificada após a gravação; A/B interrompido até investigar o panic. Não
+promover nenhum valor com base nesse ensaio.
+
+As imagens experimentais foram geradas com uma variável CMake temporária,
+removida após o ensaio; novas imagens usam o Kconfig e os diagnósticos
+configurados explicitamente. Os binários experimentais ficam em `build-host-tests/audio-audit/` e
+não substituem a necessidade de reprodutibilidade e medição controlada.
+
+1. Com o mesmo projeto, modelo de wake word e configuração de áudio, gerar
+   um firmware com `CONFIG_NB3_AEC_DELAY_SAMPLES=120` e outro com `=0` pelo
+   menu NoiseBot v3. Ativar `CONFIG_NB3_AUDIO_DIAGNOSTICS` nas duas versões.
+   Identificar e guardar os binários e seus hashes antes do flash; o
+   `sdkconfig` existente prevalece sobre `sdkconfig.defaults`.
+2. Repetir a mesma gravação de playback em condições fixas, sem usuário
+   falando: mesmo volume, posição, ambiente, duração e aquecimento. Alternar
+   a ordem entre as rodadas e repetir; guardar logs e WAVs mic/ref de cada
+   versão. Anotar também se houve perda/reordenação UDP.
+3. Comparar atraso mic/ref, `offset` e `range`, deltas de `missing` e
+   `dropped`, quantidade de aberturas do gate e duração de abertura. O log
+   `Held back speech ... loudest run avg` é apenas um indicador parcial:
+   aparece para sequências VAD retidas enquanto o gate está fechado e não é
+   medição de ERLE. O menor valor isolado não define o melhor AEC.
+4. Medir também a qualidade da fala simultânea e o início de frases. Escolher
+   um valor apenas após inspeção conjunta das capturas e repetições. A seleção
+   de 0 pode zerar amostras de referência ainda indisponíveis; o teste host
+   demonstra que mudanças na ordem das callbacks podem repetir/pular blocos.
+   Não promover 0 sem observar `missing` e o alinhamento real.
 
 ## Aceite em bancada
 
