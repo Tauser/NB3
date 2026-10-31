@@ -48,6 +48,8 @@ def main():
                               'CONFIG_NB3_BARGE_IN_GATE': None,
                               'CONFIG_NB3_MICRO_WAKE_WORD': None},
         'diagnostics': {'CONFIG_NB3_AUDIO_DIAGNOSTICS': '1'},
+        'aec_zero': {'CONFIG_NB3_AEC_DELAY_SAMPLES': '0',
+                     'CONFIG_NB3_AUDIO_DIAGNOSTICS': '1'},
     }
     failures = 0
     for name, options in variants.items():

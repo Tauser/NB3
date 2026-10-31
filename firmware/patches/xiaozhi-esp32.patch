@@ -105,7 +105,7 @@ index 7c2e191..93d754f 100644
 diff --git a/main/audio/audio_service.cc b/main/audio/audio_service.cc
 --- a/main/audio/audio_service.cc
 +++ b/main/audio/audio_service.cc
-@@ -193,6 +193,15 @@
+@@ -193,6 +193,32 @@
  }
  
  bool AudioService::ReadAudioData(std::vector<int16_t>& data, int sample_rate, int samples) {
@@ -113,7 +113,24 @@ diff --git a/main/audio/audio_service.cc b/main/audio/audio_service.cc
 +    // The input owner updates the gate every frame. A server STOP can precede
 +    // the decoder, DMA and acoustic tail; keep protection through all of them.
 +    if (audio_engine_initialized_) {
-+        const bool playback_active = !IsPlaybackIdle() || codec_->IsOutputActive();
++#if CONFIG_NB3_AUDIO_DIAGNOSTICS
++        const int64_t check_start = esp_timer_get_time();
++#endif
++        const bool playback_idle = IsPlaybackIdle();
++#if CONFIG_NB3_AUDIO_DIAGNOSTICS
++        const int64_t check_end = esp_timer_get_time();
++        const int64_t check_duration = check_end - check_start;
++        if (check_duration > playback_check_max_us_) playback_check_max_us_ = check_duration;
++        ++playback_check_count_;
++        if (check_end - playback_check_log_us_ >= 5000000) {
++            ESP_LOGI(TAG, "PlaybackCheck count=%lu max_us=%lld",
++                     (unsigned long)playback_check_count_, (long long)playback_check_max_us_);
++            playback_check_log_us_ = check_end;
++            playback_check_count_ = 0;
++            playback_check_max_us_ = 0;
++        }
++#endif
++        const bool playback_active = !playback_idle || codec_->IsOutputActive();
 +        audio_engine_->ArmBargeInGate(barge_in_requested_.load() ||
 +                                     (device_aec_enabled_.load() && playback_active));
 +    }
@@ -121,7 +138,7 @@ diff --git a/main/audio/audio_service.cc b/main/audio/audio_service.cc
      if (!codec_->input_enabled()) {
          esp_timer_stop(audio_power_timer_);
          esp_timer_start_periodic(audio_power_timer_, AUDIO_POWER_CHECK_INTERVAL_MS * 1000);
-@@ -748,6 +757,16 @@
+@@ -748,6 +774,16 @@
      }
  }
  
@@ -170,7 +187,7 @@ diff --git a/main/audio/audio_service.h b/main/audio/audio_service.h
  
      void SetCallbacks(AudioServiceCallbacks& callbacks);
  
-@@ -200,10 +207,11 @@
+@@ -200,9 +207,15 @@
      bool audio_engine_initialized_ = false;
      bool voice_detected_ = false;
  #if CONFIG_USE_DEVICE_AEC
@@ -179,36 +196,46 @@ diff --git a/main/audio/audio_service.h b/main/audio/audio_service.h
  #else
 -    bool device_aec_enabled_ = false;
 +    std::atomic<bool> device_aec_enabled_{false};
- #endif
++#endif
 +    std::atomic<bool> barge_in_requested_{false};
++#if CONFIG_NB3_AUDIO_DIAGNOSTICS && CONFIG_NB3_BARGE_IN_GATE
++    int64_t playback_check_log_us_ = 0;
++    int64_t playback_check_max_us_ = 0;
++    uint32_t playback_check_count_ = 0;
+ #endif
      std::atomic<bool> service_stopped_{true};
      std::atomic<bool> audio_input_need_warmup_{false};
- 
 diff --git a/main/audio/engines/afe_audio_engine.cc b/main/audio/engines/afe_audio_engine.cc
 --- a/main/audio/engines/afe_audio_engine.cc
 +++ b/main/audio/engines/afe_audio_engine.cc
-@@ -12,6 +12,10 @@
+@@ -12,6 +12,12 @@
  
  #include "audio_service.h"
  #include "wake_words/custom_wake_word.h"
-+// Complete types are required even with the features disabled: the engine
-+// owns their unique_ptrs and compiles their dispatch paths in every variant.
++#if CONFIG_NB3_MICRO_WAKE_WORD
 +#include "wake/micro_wake_word.h"
++#endif
++#if CONFIG_NB3_BARGE_IN_GATE
 +#include "voice/barge_in_filter.h"
++#endif
  
  #define TAG "AfeAudioEngine"
  
-@@ -24,7 +28,9 @@
+@@ -24,7 +30,13 @@
  AfeAudioEngine::AfeAudioEngine() { event_group_ = xEventGroupCreate(); }
  
  AfeAudioEngine::~AfeAudioEngine() {
++#if CONFIG_NB3_BARGE_IN_GATE
 +    barge_in_.reset();
++#endif
      custom_wake_word_.reset();
++#if CONFIG_NB3_MICRO_WAKE_WORD
 +    micro_wake_word_.reset();
++#endif
      if (afe_data_ != nullptr) {
          afe_iface_->destroy(afe_data_);
      }
-@@ -61,7 +67,13 @@
+@@ -61,7 +73,13 @@
  
      codec_ = codec;
      frame_samples_ = frame_duration_ms * 16000 / 1000;
@@ -223,7 +250,7 @@ diff --git a/main/audio/engines/afe_audio_engine.cc b/main/audio/engines/afe_aud
  
      if (models_list == nullptr) {
          models_ = esp_srmodel_init("model");
-@@ -80,7 +92,34 @@
+@@ -80,7 +98,34 @@
          }
      }
  
@@ -259,7 +286,7 @@ diff --git a/main/audio/engines/afe_audio_engine.cc b/main/audio/engines/afe_aud
          wake_detector_ = WakeDetector::kMultiNet;
          custom_wake_word_ = std::make_unique<CustomWakeWord>();
          custom_wake_word_->OnWakeWordDetected([this](const std::string& wake_word) {
-@@ -239,7 +278,10 @@
+@@ -239,7 +284,10 @@
  
      const char* detector = wake_detector_ == WakeDetector::kWakeNet
                                 ? "WakeNet"
@@ -271,24 +298,28 @@ diff --git a/main/audio/engines/afe_audio_engine.cc b/main/audio/engines/afe_aud
      ESP_LOGI(TAG, "Initialized FD AFE, detector: %s, NS: off, feed: %d, fetch: %d", detector,
               afe_iface_->get_feed_chunksize(afe_data_), afe_iface_->get_fetch_chunksize(afe_data_));
      ESP_LOGI(TAG, "After AFE create: free=%u min=%u largest=%u",
-@@ -280,12 +322,16 @@
+@@ -280,12 +328,20 @@
      if (enable) {
          if (wake_detector_ == WakeDetector::kMultiNet) {
              custom_wake_word_->Start();
++#if CONFIG_NB3_MICRO_WAKE_WORD
 +        } else if (wake_detector_ == WakeDetector::kMicroWakeWord) {
 +            micro_wake_word_->Start();
++#endif
          }
          xEventGroupSetBits(event_group_, kWakeWordEnabled);
      } else {
          xEventGroupClearBits(event_group_, kWakeWordEnabled);
          if (wake_detector_ == WakeDetector::kMultiNet) {
              custom_wake_word_->Stop();
++#if CONFIG_NB3_MICRO_WAKE_WORD
 +        } else if (wake_detector_ == WakeDetector::kMicroWakeWord) {
 +            micro_wake_word_->Stop();
++#endif
          }
      }
      UpdateActiveState();
-@@ -327,6 +373,37 @@
+@@ -327,6 +383,37 @@
  void AfeAudioEngine::OnWakeWordDetected(
      std::function<void(const std::string& wake_word)> callback) {
      wake_word_detected_callback_ = std::move(callback);
@@ -326,10 +357,11 @@ diff --git a/main/audio/engines/afe_audio_engine.cc b/main/audio/engines/afe_aud
  }
  
  void AfeAudioEngine::OnOutput(std::function<void(std::vector<int16_t>&& data)> callback) {
-@@ -446,6 +523,13 @@
+@@ -446,6 +533,15 @@
          custom_wake_word_->FeedMono(result->data, result->data_size / sizeof(int16_t));
          return;
      }
++#if CONFIG_NB3_MICRO_WAKE_WORD
 +    if (wake_detector_ == WakeDetector::kMicroWakeWord) {
 +#if CONFIG_SEND_WAKE_WORD_DATA
 +        wake_word_audio_cache_.Store(result->data, result->data_size / sizeof(int16_t));
@@ -337,20 +369,23 @@ diff --git a/main/audio/engines/afe_audio_engine.cc b/main/audio/engines/afe_aud
 +        micro_wake_word_->FeedMono(result->data, result->data_size / sizeof(int16_t));
 +        return;
 +    }
++#endif
  
  #if CONFIG_SEND_WAKE_WORD_DATA
      wake_word_audio_cache_.Store(result->data, result->data_size / sizeof(int16_t));
-@@ -472,7 +556,8 @@
+@@ -472,7 +568,10 @@
  
  void AfeAudioEngine::HandleVoiceResult(const afe_fetch_result_t* result) {
      if (output_reset_pending_.exchange(false)) {
 -        output_buffer_.clear();
 +        voice_frames_->Reset();
++#if CONFIG_NB3_BARGE_IN_GATE
 +        if (barge_in_ != nullptr) barge_in_->Reset();
++#endif
      }
      if (vad_state_change_callback_) {
          if (result->vad_state == VAD_SPEECH && !is_speaking_) {
-@@ -486,20 +571,11 @@
+@@ -486,20 +585,11 @@
      if (!output_callback_) {
          return;
      }
@@ -376,7 +411,7 @@ diff --git a/main/audio/engines/afe_audio_engine.cc b/main/audio/engines/afe_aud
  }
  
  void AfeAudioEngine::OutputRawAudio(const std::vector<int16_t>& data) {
-@@ -529,21 +605,32 @@
+@@ -529,21 +619,32 @@
          custom_wake_word_->EncodeWakeWordData();
          return;
      }
@@ -413,7 +448,7 @@ diff --git a/main/audio/engines/afe_audio_engine.cc b/main/audio/engines/afe_aud
      }
  
      wake_word_encode_task_ = xTaskCreateStatic(
-@@ -613,13 +700,21 @@
+@@ -613,13 +714,21 @@
          },
          "encode_wake_word", stack_size, this, 2, wake_word_encode_task_stack_,
          wake_word_encode_task_buffer_);
@@ -475,17 +510,21 @@ diff --git a/main/audio/engines/afe_audio_engine.h b/main/audio/engines/afe_audi
  
      AudioCodec* codec_ = nullptr;
      srmodel_list_t* models_ = nullptr;
-@@ -82,6 +89,9 @@
+@@ -82,6 +89,13 @@
      WakeDetector wake_detector_ = WakeDetector::kNone;
  
      std::unique_ptr<CustomWakeWord> custom_wake_word_;
++#if CONFIG_NB3_MICRO_WAKE_WORD
 +    std::unique_ptr<MicroWakeWord> micro_wake_word_;
++#endif
++#if CONFIG_NB3_BARGE_IN_GATE
 +    std::unique_ptr<BargeInFilter> barge_in_;
++#endif
 +    std::unique_ptr<VoiceFrames> voice_frames_;
      std::vector<std::string> wake_words_;
      std::string last_detected_wake_word_;
      std::vector<int16_t> input_buffer_;
-@@ -108,6 +118,7 @@
+@@ -108,6 +122,7 @@
      void OutputRawAudio(const std::vector<int16_t>& data);
      void HandleWakeWordResult(const afe_fetch_result_t* result);
      void HandleVoiceResult(const afe_fetch_result_t* result);
