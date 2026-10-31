@@ -34,6 +34,7 @@
 #include "memory/store_service.h"
 #include "core/nb_hpf.h"
 #include "core/nb_spk_ref.h"
+#include "core/nb_output_activity.h"
 #include "core/nb_personality.h"
 
 #include <algorithm>
@@ -80,6 +81,19 @@ public:
 #endif
     }
 
+    bool IsOutputActive() const override {
+        // i2s_channel_write returns when DMA accepts PCM, not when the last
+        // sample reaches the amplifier. Cover that bounded queue as well as
+        // the tail measured from nonzero samples reported by on_sent.
+        const uint32_t dma_ms = (AUDIO_CODEC_DMA_DESC_NUM * AUDIO_CODEC_DMA_FRAME_NUM * 1000u +
+                                 output_sample_rate_ - 1) / output_sample_rate_;
+        portENTER_CRITICAL(&ref_lock_);
+        const bool active = nb_output_activity_active(&output_activity_, NowMs(), dma_ms,
+                                                       BARGE_IN_OUTPUT_TAIL_MS);
+        portEXIT_CRITICAL(&ref_lock_);
+        return active;
+    }
+
 protected:
     // Reads the raw 32-bit words instead of the base codec's int16 samples:
     // the low band (fan/TV rumble, mic low-frequency noise) is large enough to
@@ -89,8 +103,18 @@ protected:
         int frames = samples / channels;
         raw_.resize(frames);
         size_t bytes_read = 0;
-        if (i2s_channel_read(rx_handle_, raw_.data(), frames * sizeof(int32_t), &bytes_read,
-                             kReadTimeoutMs) != ESP_OK) {
+        const esp_err_t read_result = i2s_channel_read(rx_handle_, raw_.data(),
+                                                      frames * sizeof(int32_t), &bytes_read,
+                                                      kReadTimeoutMs);
+        if (read_result != ESP_OK) {
+            // IDF may consume a partial read before timing out. Those samples
+            // are discarded here, so the reference cursor must skip them too.
+            portENTER_CRITICAL(&ref_lock_);
+            nb_spk_ref_dropped(&ref_state_, bytes_read / sizeof(int32_t));
+            portEXIT_CRITICAL(&ref_lock_);
+#if CONFIG_NB3_AUDIO_DIAGNOSTICS
+            read_errors_++;
+#endif
             return 0;
         }
         frames = static_cast<int>(bytes_read / sizeof(int32_t));
@@ -100,6 +124,9 @@ protected:
         const float scale = powf(10.0f, input_gain_ / 20.0f);
         for (int i = 0; i < frames; i++) {
             float value = nb_hpf_step(&hpf_, static_cast<float>(raw_[i] >> 12)) * scale;
+#if CONFIG_NB3_AUDIO_DIAGNOSTICS
+            if (value > INT16_MAX || value < -INT16_MAX) clipped_samples_++;
+#endif
             mic_[i] = value > INT16_MAX ? INT16_MAX
                       : value < -INT16_MAX ? -INT16_MAX
                                            : static_cast<int16_t>(value);
@@ -108,6 +135,9 @@ protected:
 
         if (channels == 1) {
             std::copy(mic_.begin(), mic_.end(), dest);
+#if CONFIG_NB3_AUDIO_DIAGNOSTICS
+            Diagnose(frames, false);
+#endif
             return frames;
         }
         ref_.resize(frames);
@@ -118,12 +148,21 @@ protected:
             dest[2 * i] = mic_[i];
             dest[2 * i + 1] = ref_[i];
         }
+#if CONFIG_NB3_AUDIO_DIAGNOSTICS
+        Diagnose(frames, true);
+#endif
         return frames * 2;
     }
 
     int Write(const int16_t* data, int samples) override {
         levels_.SetSpeaker(AudioLevels::FromSamples(data, samples), NowMs());
-        return NoAudioCodecDuplex::Write(data, samples);
+        const int written = NoAudioCodecDuplex::Write(data, samples);
+        if (written > 0) {
+            portENTER_CRITICAL(&ref_lock_);
+            nb_output_activity_written(&output_activity_, NowMs());
+            portEXIT_CRITICAL(&ref_lock_);
+        }
+        return written;
     }
 
     void EnableInput(bool enable) override {
@@ -144,6 +183,38 @@ protected:
 private:
     static uint32_t NowMs() { return static_cast<uint32_t>(esp_timer_get_time() / 1000); }
 
+#if CONFIG_NB3_AUDIO_DIAGNOSTICS
+    void Diagnose(int frames, bool has_ref) {
+        for (int i = 0; i < frames; i++) {
+            mic_peak_ = std::max(mic_peak_, std::abs(static_cast<int>(mic_[i])));
+            if (has_ref) ref_peak_ = std::max(ref_peak_, std::abs(static_cast<int>(ref_[i])));
+        }
+        diagnostic_samples_ += frames;
+        const uint32_t now = NowMs();
+        if (now - diagnostic_ms_ < 5000) return;
+        nb_spk_ref_t state;
+        portENTER_CRITICAL(&ref_lock_);
+        state = ref_state_;
+        portEXIT_CRITICAL(&ref_lock_);
+        ESP_LOGI(TAG, "AudioDiag n=%lu mic_peak=%d ref_peak=%d clips=%lu errors=%lu "
+                      "ref=%d synced=%d offset=%ld range=%ld..%ld changes=%lu missing=%lu dropped=%lu",
+                 (unsigned long)diagnostic_samples_, mic_peak_, ref_peak_,
+                 (unsigned long)clipped_samples_, (unsigned long)read_errors_, has_ref, state.synced,
+                 (long)state.offset, (long)state.offset_min, (long)state.offset_max,
+                 (unsigned long)state.offset_changes, (unsigned long)state.unavailable_samples,
+                 (unsigned long)state.dropped_samples);
+        diagnostic_ms_ = now;
+        diagnostic_samples_ = clipped_samples_ = 0;
+        mic_peak_ = ref_peak_ = 0;
+    }
+    uint32_t diagnostic_ms_ = 0;
+    uint32_t diagnostic_samples_ = 0;
+    uint32_t clipped_samples_ = 0;
+    uint32_t read_errors_ = 0;
+    int mic_peak_ = 0;
+    int ref_peak_ = 0;
+#endif
+
     void StartReference() {
         // 4096 samples is ~170 ms at 24 kHz: more than the TX DMA queue plus
         // any reader lag the reference has to reach back over.
@@ -154,7 +225,7 @@ private:
             ESP_LOGE(TAG, "No memory for the AEC reference: AEC stays without it");
             return;
         }
-        nb_spk_ref_init(&ref_state_, history, kHistory, AUDIO_AEC_REFERENCE_LEAD);
+        nb_spk_ref_init(&ref_state_, history, kHistory, AUDIO_AEC_REFERENCE_DELAY);
         i2s_event_callbacks_t tx_cbs = {};
         tx_cbs.on_sent = OnSent;
         i2s_event_callbacks_t rx_cbs = {};
@@ -164,7 +235,8 @@ private:
         ESP_ERROR_CHECK(i2s_channel_register_event_callback(rx_handle_, &rx_cbs, this));
         input_reference_ = true;
         input_channels_ = 2;
-        ESP_LOGI(TAG, "AEC reference from the I2S DMA (lead %d samples)", AUDIO_AEC_REFERENCE_LEAD);
+        ESP_LOGI(TAG, "AEC reference from I2S DMA (delay %d samples; acoustic calibration pending)",
+                 AUDIO_AEC_REFERENCE_DELAY);
     }
 
     // The TX buffer still holds what was just played (it is cleared after
@@ -182,7 +254,8 @@ private:
     std::vector<int16_t> mic_;
     std::vector<int16_t> ref_;
     nb_spk_ref_t ref_state_ = {};
-    portMUX_TYPE ref_lock_ = portMUX_INITIALIZER_UNLOCKED;
+    nb_output_activity_t output_activity_ = {};
+    mutable portMUX_TYPE ref_lock_ = portMUX_INITIALIZER_UNLOCKED;
 };
 
 bool IRAM_ATTR NoiseBotV3AudioCodec::OnSent(i2s_chan_handle_t, i2s_event_data_t* event,
@@ -191,15 +264,20 @@ bool IRAM_ATTR NoiseBotV3AudioCodec::OnSent(i2s_chan_handle_t, i2s_event_data_t*
     const int32_t* words = static_cast<const int32_t*>(event->dma_buf);
     size_t n = event->size / sizeof(int32_t);
     int16_t chunk[64];
+    bool signal = false;
     portENTER_CRITICAL_ISR(&self->ref_lock_);
     while (n > 0) {
         const size_t m = n < 64 ? n : 64;
         for (size_t i = 0; i < m; i++) {
             chunk[i] = static_cast<int16_t>(words[i] >> 16);
+            signal = signal || chunk[i] != 0;
         }
         nb_spk_ref_played(&self->ref_state_, chunk, m);
         words += m;
         n -= m;
+    }
+    if (signal) {
+        nb_output_activity_played(&self->output_activity_, NowMs());
     }
     portEXIT_CRITICAL_ISR(&self->ref_lock_);
     return false;

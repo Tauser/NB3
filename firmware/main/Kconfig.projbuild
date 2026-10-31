@@ -4,6 +4,14 @@ rsource "../xiaozhi-esp32/main/Kconfig.projbuild"
 
 menu "NoiseBot v3"
 
+config NB3_AUDIO_DIAGNOSTICS
+    bool "Log microphone/reference diagnostics every five seconds"
+    default n
+    help
+        Log peaks, clipped mic samples, capture errors and reference alignment
+        counters. No PCM is stored. For deliberate synchronized mic/ref capture,
+        use USE_AUDIO_DEBUGGER with AUDIO_DEBUG_UDP_SERVER configured explicitly.
+
 config NB3_MICRO_WAKE_WORD
     bool "Wake on \"Nexo\" (microWakeWord on TFLite Micro)"
     default y
@@ -11,6 +19,14 @@ config NB3_MICRO_WAKE_WORD
         Detect the wake word with the microWakeWord model in main/wake
         instead of esp-sr's WakeNet. Off falls back to the WakeNet model
         selected in the esp-sr options.
+
+config NB3_WAKE_PREVIOUS_MODEL
+    bool "Use the previously hardware-tested Nexo model"
+    depends on NB3_MICRO_WAKE_WORD
+    default y
+    help
+        Use the Nexo model previously tested with the owner's voice. Disable
+        to compare the newer model without replacing either model file.
 
 config NB3_BARGE_IN_GATE
     bool "Interrupt the robot only with speech, not noise"

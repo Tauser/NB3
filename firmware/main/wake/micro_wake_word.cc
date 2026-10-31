@@ -16,7 +16,14 @@ namespace {
 
 constexpr const char* TAG = "MicroWakeWord";
 
+// Which of the two Nexo models main/CMakeLists.txt embedded.
+#if CONFIG_NB3_WAKE_PREVIOUS_MODEL
+extern "C" const uint8_t kModelStart[] asm("_binary_nexo_anterior_tflite_start");
+constexpr const char* kModelName = "previous";
+#else
 extern "C" const uint8_t kModelStart[] asm("_binary_nexo_tflite_start");
+constexpr const char* kModelName = "new";
+#endif
 
 // Frontend settings microWakeWord trains with (pymicro-features).
 constexpr int kSampleRate = 16000;
@@ -151,8 +158,9 @@ bool MicroWakeWord::Initialize() {
     frontend_ready_ = true;
     nb_wake_detect_init(&detect_, &kDetectConfig);
 
-    ESP_LOGI(TAG, "Ready: \"%s\", arena %u/%u bytes, %u frames per inference, cutoff %u/255",
-             wake_word_.c_str(), (unsigned)interpreter_->arena_used_bytes(), (unsigned)kArenaSize,
+    ESP_LOGI(TAG, "Ready: \"%s\", model %s, arena %u/%u bytes, %u frames per inference, cutoff %u/255",
+             wake_word_.c_str(), kModelName, (unsigned)interpreter_->arena_used_bytes(),
+             (unsigned)kArenaSize,
              (unsigned)input_frames_, (unsigned)kDetectConfig.cutoff);
     return true;
 }

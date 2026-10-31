@@ -130,8 +130,14 @@ if(NOT LANG_DIR STREQUAL "en-US")
 endif()
 file(GLOB COMMON_SOUNDS "${XIAOZHI_MAIN}/assets/common/*.ogg")
 
+if(CONFIG_NB3_WAKE_PREVIOUS_MODEL)
+    set(NB3_WAKE_MODEL "wake/nexo_anterior.tflite")
+else()
+    set(NB3_WAKE_MODEL "wake/nexo.tflite")
+endif()
+
 idf_component_register(SRCS ${NB3_SOURCES} ${XIAOZHI_SOURCES}
-                    EMBED_FILES ${LANG_SOUNDS} ${COMMON_SOUNDS} "wake/nexo.tflite"
+                    EMBED_FILES ${LANG_SOUNDS} ${COMMON_SOUNDS} "${NB3_WAKE_MODEL}"
                     INCLUDE_DIRS ${NB3_INCLUDE_DIRS} ${XIAOZHI_INCLUDE_DIRS}
                     WHOLE_ARCHIVE
                     PRIV_REQUIRES

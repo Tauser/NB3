@@ -20,6 +20,8 @@ jobs:
         run: ctest --test-dir build-host-tests --output-on-failure
       - name: Test fetch_repos.py (tag + patch, nothing else)
         run: python3 firmware/tests/test_fetch_repos.py -v
+      - name: Test audio reference lag analysis
+        run: python3 firmware/tests/test_audio_reference.py -v
 
   firmware:
     runs-on: ubuntu-latest
@@ -42,6 +44,11 @@ jobs:
           cd firmware
           idf.py set-target esp32s3
           idf.py build
+      - name: Compile audio feature variants
+        shell: bash
+        run: |
+          . "$IDF_PATH/export.sh"
+          python tools/check_audio_variants.py
       - uses: actions/upload-artifact@v4
         with:
           name: noisebot-v3-firmware

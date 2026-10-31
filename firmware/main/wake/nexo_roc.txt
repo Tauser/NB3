@@ -1,13 +1,11 @@
-AUC 0.09373
-Cutoff 1.00: frr=1.0000; faph=0.000
-Cutoff 0.73: frr=0.0000; faph=0.187
-Cutoff 0.49: frr=0.0000; faph=0.375
-Cutoff 0.48: frr=0.0000; faph=0.562
-Cutoff 0.24: frr=0.0000; faph=0.750
-Cutoff 0.23: frr=0.0000; faph=0.937
-Cutoff 0.22: frr=0.0000; faph=1.125
-Cutoff 0.21: frr=0.0000; faph=1.312
-Cutoff 0.20: frr=0.0000; faph=1.500
-Cutoff 0.19: frr=0.0000; faph=1.687
-Cutoff 0.12: frr=0.0000; faph=1.875
-Cutoff 0.11: frr=0.0000; faph=2.000
+AUC 0.00371
+Cutoff 0.99: frr=0.0396; faph=0.000
+Cutoff 0.55: frr=0.0000; faph=0.187
+Cutoff 0.51: frr=0.0000; faph=0.375
+Cutoff 0.40: frr=0.0000; faph=0.562
+Cutoff 0.21: frr=0.0000; faph=0.750
+Cutoff 0.17: frr=0.0000; faph=0.937
+Cutoff 0.16: frr=0.0000; faph=1.125
+Cutoff 0.11: frr=0.0000; faph=1.500
+Cutoff 0.06: frr=0.0000; faph=1.687
+Cutoff 0.06: frr=0.0000; faph=2.000

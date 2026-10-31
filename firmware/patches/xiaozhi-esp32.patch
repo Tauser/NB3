@@ -73,6 +73,18 @@ index 31de205..35bf21b 100644
  
      switch (new_state) {
          case kDeviceStateUnknown:
+diff --git a/main/audio/audio_codec.h b/main/audio/audio_codec.h
+--- a/main/audio/audio_codec.h
++++ b/main/audio/audio_codec.h
+@@ -37,6 +37,8 @@
+     virtual void OutputData(std::vector<int16_t>& data);
+     virtual bool InputData(std::vector<int16_t>& data);
+     virtual void Start();
++    // True while PCM may still be in the DMA or its acoustic tail is audible.
++    virtual bool IsOutputActive() const { return false; }
+ 
+     inline bool duplex() const { return duplex_; }
+     inline bool input_reference() const { return input_reference_; }
 diff --git a/main/audio/audio_engine.h b/main/audio/audio_engine.h
 index 7c2e191..93d754f 100644
 --- a/main/audio/audio_engine.h
@@ -91,10 +103,25 @@ index 7c2e191..93d754f 100644
  
  #endif
 diff --git a/main/audio/audio_service.cc b/main/audio/audio_service.cc
-index 7f7582b..43c7694 100644
 --- a/main/audio/audio_service.cc
 +++ b/main/audio/audio_service.cc
-@@ -748,6 +748,18 @@ void AudioService::EnableAudioTesting(bool enable) {
+@@ -193,6 +193,15 @@
+ }
+ 
+ bool AudioService::ReadAudioData(std::vector<int16_t>& data, int sample_rate, int samples) {
++#if CONFIG_NB3_BARGE_IN_GATE
++    // The input owner updates the gate every frame. A server STOP can precede
++    // the decoder, DMA and acoustic tail; keep protection through all of them.
++    if (audio_engine_initialized_) {
++        const bool playback_active = !IsPlaybackIdle() || codec_->IsOutputActive();
++        audio_engine_->ArmBargeInGate(barge_in_requested_.load() ||
++                                     (device_aec_enabled_.load() && playback_active));
++    }
++#endif
+     if (!codec_->input_enabled()) {
+         esp_timer_stop(audio_power_timer_);
+         esp_timer_start_periodic(audio_power_timer_, AUDIO_POWER_CHECK_INTERVAL_MS * 1000);
+@@ -748,6 +757,16 @@
      }
  }
  
@@ -105,19 +132,36 @@ index 7f7582b..43c7694 100644
 +}
 +
 +void AudioService::ArmBargeInGate(bool armed) {
-+    if (audio_engine_initialized_) {
-+        audio_engine_->ArmBargeInGate(armed);
-+    }
++    barge_in_requested_.store(armed);
 +}
 +
  void AudioService::EnableDeviceAec(bool enable) {
      ESP_LOGI(TAG, "%s device AEC", enable ? "Enabling" : "Disabling");
      device_aec_enabled_ = enable;
 diff --git a/main/audio/audio_service.h b/main/audio/audio_service.h
-index f8b510f..8018b28 100644
 --- a/main/audio/audio_service.h
 +++ b/main/audio/audio_service.h
-@@ -138,6 +138,8 @@ public:
+@@ -24,6 +24,7 @@
+ #include "fixed_queue.h"
+ #include "ogg_demuxer.h"
+ #include "protocol.h"
++#include "voice/audio_policy.h"
+ 
+ /*
+  * There are two types of audio data flow:
+@@ -38,7 +39,11 @@
+  */
+ 
+ #define OPUS_FRAME_DURATION_MS 60
++#if CONFIG_NB3_BARGE_IN_GATE
++#define MAX_ENCODE_TASKS_IN_QUEUE NB_BARGE_ENCODE_QUEUE_FRAMES(OPUS_FRAME_DURATION_MS)
++#else
+ #define MAX_ENCODE_TASKS_IN_QUEUE 2
++#endif
+ #define MAX_PLAYBACK_TASKS_IN_QUEUE 2
+ #define MAX_DECODE_PACKETS_IN_QUEUE (1200 / OPUS_FRAME_DURATION_MS)
+ #define MAX_SEND_PACKETS_IN_QUEUE (2400 / OPUS_FRAME_DURATION_MS)
+@@ -138,6 +143,8 @@
      void EnableVoiceProcessing(bool enable);
      void EnableAudioTesting(bool enable);
      void EnableDeviceAec(bool enable);
@@ -126,24 +170,35 @@ index f8b510f..8018b28 100644
  
      void SetCallbacks(AudioServiceCallbacks& callbacks);
  
+@@ -200,10 +207,11 @@
+     bool audio_engine_initialized_ = false;
+     bool voice_detected_ = false;
+ #if CONFIG_USE_DEVICE_AEC
+-    bool device_aec_enabled_ = true;
++    std::atomic<bool> device_aec_enabled_{true};
+ #else
+-    bool device_aec_enabled_ = false;
++    std::atomic<bool> device_aec_enabled_{false};
+ #endif
++    std::atomic<bool> barge_in_requested_{false};
+     std::atomic<bool> service_stopped_{true};
+     std::atomic<bool> audio_input_need_warmup_{false};
+ 
 diff --git a/main/audio/engines/afe_audio_engine.cc b/main/audio/engines/afe_audio_engine.cc
-index 3823d10..64be6c4 100644
 --- a/main/audio/engines/afe_audio_engine.cc
 +++ b/main/audio/engines/afe_audio_engine.cc
-@@ -12,6 +12,12 @@
+@@ -12,6 +12,10 @@
  
  #include "audio_service.h"
  #include "wake_words/custom_wake_word.h"
-+#if CONFIG_NB3_MICRO_WAKE_WORD
++// Complete types are required even with the features disabled: the engine
++// owns their unique_ptrs and compiles their dispatch paths in every variant.
 +#include "wake/micro_wake_word.h"
-+#endif
-+#if CONFIG_NB3_BARGE_IN_GATE
 +#include "voice/barge_in_filter.h"
-+#endif
  
  #define TAG "AfeAudioEngine"
  
-@@ -24,7 +30,9 @@ static constexpr bool kUseAfeForVoiceProcessing = false;
+@@ -24,7 +28,9 @@
  AfeAudioEngine::AfeAudioEngine() { event_group_ = xEventGroupCreate(); }
  
  AfeAudioEngine::~AfeAudioEngine() {
@@ -153,10 +208,13 @@ index 3823d10..64be6c4 100644
      if (afe_data_ != nullptr) {
          afe_iface_->destroy(afe_data_);
      }
-@@ -62,6 +70,11 @@ bool AfeAudioEngine::Initialize(AudioCodec* codec, int frame_duration_ms,
+@@ -61,7 +67,13 @@
+ 
      codec_ = codec;
      frame_samples_ = frame_duration_ms * 16000 / 1000;
-     output_buffer_.reserve(frame_samples_);
+-    output_buffer_.reserve(frame_samples_);
++    voice_frames_ = std::make_unique<VoiceFrames>(frame_samples_);
++    if (!kUseAfeForVoiceProcessing) output_buffer_.reserve(frame_samples_);
 +#if CONFIG_NB3_BARGE_IN_GATE
 +    if (codec_->input_reference()) {
 +        barge_in_ = std::make_unique<BargeInFilter>(frame_duration_ms);
@@ -165,7 +223,7 @@ index 3823d10..64be6c4 100644
  
      if (models_list == nullptr) {
          models_ = esp_srmodel_init("model");
-@@ -80,7 +93,34 @@ bool AfeAudioEngine::Initialize(AudioCodec* codec, int frame_duration_ms,
+@@ -80,7 +92,34 @@
          }
      }
  
@@ -201,7 +259,7 @@ index 3823d10..64be6c4 100644
          wake_detector_ = WakeDetector::kMultiNet;
          custom_wake_word_ = std::make_unique<CustomWakeWord>();
          custom_wake_word_->OnWakeWordDetected([this](const std::string& wake_word) {
-@@ -239,7 +279,10 @@ bool AfeAudioEngine::Initialize(AudioCodec* codec, int frame_duration_ms,
+@@ -239,7 +278,10 @@
  
      const char* detector = wake_detector_ == WakeDetector::kWakeNet
                                 ? "WakeNet"
@@ -213,7 +271,7 @@ index 3823d10..64be6c4 100644
      ESP_LOGI(TAG, "Initialized FD AFE, detector: %s, NS: off, feed: %d, fetch: %d", detector,
               afe_iface_->get_feed_chunksize(afe_data_), afe_iface_->get_fetch_chunksize(afe_data_));
      ESP_LOGI(TAG, "After AFE create: free=%u min=%u largest=%u",
-@@ -280,12 +323,16 @@ void AfeAudioEngine::EnableWakeWordDetection(bool enable) {
+@@ -280,12 +322,16 @@
      if (enable) {
          if (wake_detector_ == WakeDetector::kMultiNet) {
              custom_wake_word_->Start();
@@ -230,10 +288,12 @@ index 3823d10..64be6c4 100644
          }
      }
      UpdateActiveState();
-@@ -329,6 +376,39 @@ void AfeAudioEngine::OnWakeWordDetected(
+@@ -327,6 +373,37 @@
+ void AfeAudioEngine::OnWakeWordDetected(
+     std::function<void(const std::string& wake_word)> callback) {
      wake_word_detected_callback_ = std::move(callback);
- }
- 
++}
++
 +void AfeAudioEngine::OnAssistantSentence(const std::string& text) {
 +#if CONFIG_NB3_MICRO_WAKE_WORD
 +    if (micro_wake_word_ != nullptr) {
@@ -254,9 +314,7 @@ index 3823d10..64be6c4 100644
 +#endif
 +}
 +
-+void AfeAudioEngine::EmitFrame(std::vector<int16_t>&& frame) {
-+    const bool speech = frame_speech_;
-+    frame_speech_ = false;
++void AfeAudioEngine::EmitFrame(std::vector<int16_t>&& frame, bool speech) {
 +#if CONFIG_NB3_BARGE_IN_GATE
 +    if (barge_in_ != nullptr) {
 +        barge_in_->Process(std::move(frame), speech, output_callback_);
@@ -265,12 +323,10 @@ index 3823d10..64be6c4 100644
 +#endif
 +    (void)speech;
 +    output_callback_(std::move(frame));
-+}
-+
- void AfeAudioEngine::OnOutput(std::function<void(std::vector<int16_t>&& data)> callback) {
-     output_callback_ = std::move(callback);
  }
-@@ -446,6 +526,13 @@ void AfeAudioEngine::HandleWakeWordResult(const afe_fetch_result_t* result) {
+ 
+ void AfeAudioEngine::OnOutput(std::function<void(std::vector<int16_t>&& data)> callback) {
+@@ -446,6 +523,13 @@
          custom_wake_word_->FeedMono(result->data, result->data_size / sizeof(int16_t));
          return;
      }
@@ -284,34 +340,110 @@ index 3823d10..64be6c4 100644
  
  #if CONFIG_SEND_WAKE_WORD_DATA
      wake_word_audio_cache_.Store(result->data, result->data_size / sizeof(int16_t));
-@@ -486,17 +573,18 @@ void AfeAudioEngine::HandleVoiceResult(const afe_fetch_result_t* result) {
+@@ -472,7 +556,8 @@
+ 
+ void AfeAudioEngine::HandleVoiceResult(const afe_fetch_result_t* result) {
+     if (output_reset_pending_.exchange(false)) {
+-        output_buffer_.clear();
++        voice_frames_->Reset();
++        if (barge_in_ != nullptr) barge_in_->Reset();
+     }
+     if (vad_state_change_callback_) {
+         if (result->vad_state == VAD_SPEECH && !is_speaking_) {
+@@ -486,20 +571,11 @@
      if (!output_callback_) {
          return;
      }
-+    frame_speech_ = frame_speech_ || result->vad_state == VAD_SPEECH;
- 
-     size_t samples = result->data_size / sizeof(int16_t);
-     output_buffer_.insert(output_buffer_.end(), result->data, result->data + samples);
-     while (output_buffer_.size() >= static_cast<size_t>(frame_samples_)) {
-         if (output_buffer_.size() == static_cast<size_t>(frame_samples_)) {
+-
+-    size_t samples = result->data_size / sizeof(int16_t);
+-    output_buffer_.insert(output_buffer_.end(), result->data, result->data + samples);
+-    while (output_buffer_.size() >= static_cast<size_t>(frame_samples_)) {
+-        if (output_buffer_.size() == static_cast<size_t>(frame_samples_)) {
 -            output_callback_(std::move(output_buffer_));
-+            EmitFrame(std::move(output_buffer_));
-             output_buffer_.clear();
-             output_buffer_.reserve(frame_samples_);
-         } else {
+-            output_buffer_.clear();
+-            output_buffer_.reserve(frame_samples_);
+-        } else {
 -            output_callback_(std::vector<int16_t>(output_buffer_.begin(),
 -                                                  output_buffer_.begin() + frame_samples_));
-+            EmitFrame(std::vector<int16_t>(output_buffer_.begin(),
-+                                           output_buffer_.begin() + frame_samples_));
-             output_buffer_.erase(output_buffer_.begin(), output_buffer_.begin() + frame_samples_);
-         }
+-            output_buffer_.erase(output_buffer_.begin(), output_buffer_.begin() + frame_samples_);
+-        }
+-    }
++    voice_frames_->Push(result->data, result->data_size / sizeof(int16_t),
++                        result->vad_state == VAD_SPEECH,
++                        [this](std::vector<int16_t>&& frame, bool speech) {
++                            EmitFrame(std::move(frame), speech);
++                        });
+ }
+ 
+ void AfeAudioEngine::OutputRawAudio(const std::vector<int16_t>& data) {
+@@ -529,21 +605,32 @@
+         custom_wake_word_->EncodeWakeWordData();
+         return;
      }
+-    if (wake_detector_ != WakeDetector::kWakeNet) {
++    if (wake_detector_ != WakeDetector::kWakeNet &&
++        wake_detector_ != WakeDetector::kMicroWakeWord) {
+         return;
+     }
+ 
+     const size_t stack_size = 4096 * 6;
+-    wake_word_opus_.clear();
++    {
++        std::lock_guard<std::mutex> lock(wake_word_mutex_);
++        wake_word_opus_.clear();
++    }
+     if (wake_word_encode_task_stack_ == nullptr) {
+         wake_word_encode_task_stack_ =
+             static_cast<StackType_t*>(heap_caps_malloc(stack_size, MALLOC_CAP_SPIRAM));
+-        assert(wake_word_encode_task_stack_ != nullptr);
+     }
+     if (wake_word_encode_task_buffer_ == nullptr) {
+         wake_word_encode_task_buffer_ =
+             static_cast<StaticTask_t*>(heap_caps_malloc(sizeof(StaticTask_t), MALLOC_CAP_INTERNAL));
+-        assert(wake_word_encode_task_buffer_ != nullptr);
++    }
++
++    if (wake_word_encode_task_stack_ == nullptr || wake_word_encode_task_buffer_ == nullptr) {
++        ESP_LOGE(TAG, "Wake-word encoder task allocation failed");
++        wake_word_audio_cache_.Clear();
++        std::lock_guard<std::mutex> lock(wake_word_mutex_);
++        wake_word_opus_.emplace_back();
++        wake_word_cv_.notify_all();
++        return;
+     }
+ 
+     wake_word_encode_task_ = xTaskCreateStatic(
+@@ -613,13 +700,21 @@
+         },
+         "encode_wake_word", stack_size, this, 2, wake_word_encode_task_stack_,
+         wake_word_encode_task_buffer_);
++    if (wake_word_encode_task_ == nullptr) {
++        ESP_LOGE(TAG, "Wake-word encoder task creation failed");
++        wake_word_audio_cache_.Clear();
++        std::lock_guard<std::mutex> lock(wake_word_mutex_);
++        wake_word_opus_.emplace_back();
++        wake_word_cv_.notify_all();
++    }
+ }
+ 
+ bool AfeAudioEngine::GetWakeWordOpus(std::vector<uint8_t>& opus) {
+     if (wake_detector_ == WakeDetector::kMultiNet) {
+         return custom_wake_word_->GetWakeWordOpus(opus);
+     }
+-    if (wake_detector_ != WakeDetector::kWakeNet) {
++    if (wake_detector_ != WakeDetector::kWakeNet &&
++        wake_detector_ != WakeDetector::kMicroWakeWord) {
+         return false;
+     }
+     std::unique_lock<std::mutex> lock(wake_word_mutex_);
 diff --git a/main/audio/engines/afe_audio_engine.h b/main/audio/engines/afe_audio_engine.h
-index 789a7e6..7cbecdd 100644
 --- a/main/audio/engines/afe_audio_engine.h
 +++ b/main/audio/engines/afe_audio_engine.h
-@@ -19,6 +19,8 @@
+@@ -17,8 +17,11 @@
+ 
+ #include "audio_engine.h"
  #include "wake_words/wake_word_audio_cache.h"
++#include "voice/voice_frames.h"
  
  class CustomWakeWord;
 +class MicroWakeWord;
@@ -319,7 +451,7 @@ index 789a7e6..7cbecdd 100644
  
  class AfeAudioEngine : public AudioEngine {
  public:
-@@ -45,18 +47,22 @@ public:
+@@ -45,18 +48,22 @@
      void EncodeWakeWordData() override;
      bool GetWakeWordOpus(std::vector<uint8_t>& opus) override;
      const std::string& GetLastDetectedWakeWord() const override { return last_detected_wake_word_; }
@@ -343,21 +475,21 @@ index 789a7e6..7cbecdd 100644
  
      AudioCodec* codec_ = nullptr;
      srmodel_list_t* models_ = nullptr;
-@@ -82,6 +88,9 @@ private:
+@@ -82,6 +89,9 @@
      WakeDetector wake_detector_ = WakeDetector::kNone;
  
      std::unique_ptr<CustomWakeWord> custom_wake_word_;
 +    std::unique_ptr<MicroWakeWord> micro_wake_word_;
 +    std::unique_ptr<BargeInFilter> barge_in_;
-+    bool frame_speech_ = false;  // the VAD heard speech in the frame being filled
++    std::unique_ptr<VoiceFrames> voice_frames_;
      std::vector<std::string> wake_words_;
      std::string last_detected_wake_word_;
      std::vector<int16_t> input_buffer_;
-@@ -108,6 +117,7 @@ private:
+@@ -108,6 +118,7 @@
      void OutputRawAudio(const std::vector<int16_t>& data);
      void HandleWakeWordResult(const afe_fetch_result_t* result);
      void HandleVoiceResult(const afe_fetch_result_t* result);
-+    void EmitFrame(std::vector<int16_t>&& frame);
++    void EmitFrame(std::vector<int16_t>&& frame, bool speech);
  };
  
  #endif

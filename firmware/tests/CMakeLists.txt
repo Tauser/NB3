@@ -4,11 +4,14 @@
 #   cmake --build build-host-tests
 #   ctest --test-dir build-host-tests --output-on-failure
 cmake_minimum_required(VERSION 3.16)
-project(nb3_host_tests C)
+project(nb3_host_tests C CXX)
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 add_compile_options(-Wall -Wextra -Werror -pedantic)
 
 set(CORE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../main/core)
@@ -60,3 +63,12 @@ nb_host_test(test_hpf ${CORE_DIR}/nb_hpf.c)
 nb_host_test(test_wake_detect ${CORE_DIR}/nb_wake_detect.c)
 nb_host_test(test_spk_ref ${CORE_DIR}/nb_spk_ref.c)
 nb_host_test(test_barge_gate ${CORE_DIR}/nb_barge_gate.c)
+nb_host_test(test_output_activity ${CORE_DIR}/nb_output_activity.c)
+
+add_executable(test_voice_pipeline test_voice_pipeline.cc
+    ../main/voice/barge_in_filter.cc ${CORE_DIR}/nb_barge_gate.c)
+target_include_directories(test_voice_pipeline PRIVATE ${CORE_DIR} . stubs ../main)
+if(NOT MSVC)
+    target_link_libraries(test_voice_pipeline PRIVATE m)
+endif()
+add_test(NAME test_voice_pipeline COMMAND test_voice_pipeline)

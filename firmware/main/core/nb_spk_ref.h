@@ -16,9 +16,9 @@ extern "C" {
 // handed to the reader then gets the speaker sample played at the same
 // moment, taken from a history of what was actually played.
 //
-// The reference is moved `lead` samples earlier than that estimate. The
-// estimate is only exact to one DMA block, and echo cancellation tolerates a
-// reference that arrives early but not one that arrives late.
+// Positive `delay` selects older speaker samples: ref[n] = speaker[n-delay]
+// when offset is zero. This DELAYS the reference waveform. It must be
+// calibrated against the actual mic/ref lag, not treated as a causal lead.
 //
 // Not thread-safe: the caller serializes calls (they come from two ISRs and
 // the reader task).
@@ -26,7 +26,8 @@ extern "C" {
 typedef struct {
     int16_t *history;    // last `capacity` played samples, indexed by played count
     uint32_t capacity;   // power of two
-    uint32_t lead;
+    uint32_t history_samples;  // valid samples, capped at capacity
+    uint32_t delay;
     uint32_t played;     // samples played since init (wraps)
     uint32_t captured;   // samples captured by the RX DMA since init (wraps)
     uint32_t consumed;   // mic samples handed to the reader since init (wraps)
@@ -34,11 +35,17 @@ typedef struct {
     bool output_on;
     bool played_since_on;
     bool synced;         // offset measured since the output last came on
+    // Cumulative diagnostics, wrapping naturally; no logging in the ISR.
+    uint32_t dropped_samples;
+    uint32_t unavailable_samples;
+    uint32_t offset_changes;
+    int32_t offset_min;
+    int32_t offset_max;
 } nb_spk_ref_t;
 
 // capacity must be a power of two; anything else turns the reference off
 // (reads give silence).
-void nb_spk_ref_init(nb_spk_ref_t *r, int16_t *history, uint32_t capacity, uint32_t lead);
+void nb_spk_ref_init(nb_spk_ref_t *r, int16_t *history, uint32_t capacity, uint32_t delay);
 
 // TX DMA finished playing n samples.
 void nb_spk_ref_played(nb_spk_ref_t *r, const int16_t *samples, uint32_t n);
