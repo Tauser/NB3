@@ -3,6 +3,8 @@
 #include <esp_log.h>
 #include <esp_timer.h>
 
+#include "application.h"
+
 #define TAG "MoodLights"
 
 namespace {
@@ -13,12 +15,22 @@ uint32_t NowMs() {
     return static_cast<uint32_t>(esp_timer_get_time() / 1000);
 }
 
+nb_conv_state_t ConversationOf(DeviceState state) {
+    switch (state) {
+    case kDeviceStateConnecting: return NB_CONV_WAITING;
+    case kDeviceStateListening: return NB_CONV_LISTENING;
+    case kDeviceStateSpeaking: return NB_CONV_SPEAKING;
+    default: return NB_CONV_REST;
+    }
+}
+
 }  // namespace
 
 MoodLights::MoodLights(gpio_num_t gpio, uint32_t count, uint8_t max_brightness,
                        ExpressionArbiter& arbiter)
-    : arbiter_(arbiter), count_(count) {
+    : arbiter_(arbiter), count_(count), max_brightness_(max_brightness) {
     nb_mood_init(&mood_, max_brightness, NowMs());
+    nb_conv_led_init(&conversation_, NB_CONV_HOLD_MS);
 
     led_strip_config_t strip_cfg = {};
     strip_cfg.strip_gpio_num = gpio;
@@ -55,6 +67,12 @@ void MoodLights::Run() {
     while (true) {
         nb_mood_set_expression(&mood_, arbiter_.Resolve());
         nb_rgb_t color = nb_mood_step(&mood_, NowMs());
+        const nb_conv_state_t conversation = nb_conv_led_step(
+            &conversation_, ConversationOf(Application::GetInstance().GetDeviceState()),
+            NowMs());
+        if (conversation != NB_CONV_REST) {
+            color = nb_conv_led_color(conversation, max_brightness_);
+        }
         for (uint32_t i = 0; i < count_; i++) {
             led_strip_set_pixel(strip_, i, color.r, color.g, color.b);
         }

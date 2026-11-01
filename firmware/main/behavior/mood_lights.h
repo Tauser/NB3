@@ -7,10 +7,12 @@
 #include <led_strip.h>
 
 #include "behavior/expression_arbiter.h"
+#include "core/nb_conv_led.h"
 #include "core/nb_mood.h"
 
 // Body LEDs that follow the face. Its task is the only owner of the strip:
-// it reads the arbiter's winning expression and shows the nb_mood color.
+// it reads the arbiter's winning expression and shows the nb_mood color,
+// except during a conversation, when the conversation state takes over.
 class MoodLights {
 public:
     MoodLights(gpio_num_t gpio, uint32_t count, uint8_t max_brightness,
@@ -29,6 +31,8 @@ private:
     uint32_t count_;
     TaskHandle_t task_ = nullptr;
     nb_mood_t mood_;
+    nb_conv_led_t conversation_;
+    uint8_t max_brightness_;
 };
 
 #endif  // NB3_MOOD_LIGHTS_H
