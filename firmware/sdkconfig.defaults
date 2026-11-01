@@ -23,6 +23,11 @@ CONFIG_USE_DEVICE_AEC=y
 # calls speech may reach the server and interrupt (NB3_BARGE_IN_GATE).
 CONFIG_SR_VADN_VADNET1_MEDIUM=y
 
+# GPIO0 is wired to the CH343 auto-reset as well as to the BOOT button: the
+# cable pulses it for about 10 ms, which is all the default filter (2 ticks of
+# 5 ms) asks of a press. 30 ms rejects the pulse and no finger is that fast.
+CONFIG_BUTTON_DEBOUNCE_TICKS=6
+
 # A crash prints a core dump of both cores on the console before rebooting:
 # a backtrace alone does not say what the other core was holding. The flash
 # has no room for a core dump partition inside the first 16 MB.

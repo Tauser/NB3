@@ -43,6 +43,8 @@
 
 #define BUILTIN_LED_GPIO  GPIO_NUM_38    // onboard WS2812
 #define BOOT_BUTTON_GPIO  GPIO_NUM_0
+// Hold needed to enter Wi-Fi setup while starting; a short pulse is ignored.
+#define BOOT_BUTTON_SETUP_HOLD_MS 3000
 
 // Copper-tape body pad on GPIO2 = touch channel 2.
 #define BODY_TOUCH_CHANNEL 2

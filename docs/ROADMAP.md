@@ -676,6 +676,20 @@ trilho lógico) e ids conhecidos.
     áudio), a tensão dos servos sob carga e uma checagem da posição contra o
     curso físico do eixo. Não prova que seja a causa dos reinícios anteriores,
     que seguem sem backtrace.
+- [~] **Modo Wi-Fi sozinho ao ligar o cabo CH343:** plugar o cabo reinicia a
+  placa e, em parte dos boots, puxa o GPIO0 (BOOT) por 9–10 ms (medido em
+  01/11). O filtro padrão do botão é de 10 ms, então o pulso virava clique e,
+  durante a inicialização, abria o modo Wi-Fi: 3 de 4 boots registrados e 4 de
+  4 no relato do usuário, que também achava o Nexo difícil no boot seguinte.
+  Agora o modo Wi-Fi exige segurar o BOOT por 3 s e o clique na inicialização é
+  ignorado: em 4 ciclos registrados, 2 pulsos ignorados e nenhuma entrada no
+  modo; o usuário confirmou o fim do sintoma e a ativação normal do Nexo. O
+  filtro subiu para 30 ms para barrar o pulso também com o robô já ligado,
+  onde ele abriria uma conversa.
+  - Falta validar: o filtro de 30 ms na placa (compilado, não gravado) e se o
+    pulso vem do Windows ao reconhecer a porta (hipótese; testar com carregador,
+    sem PC). O reset ao plugar é elétrico e continua. Causa do Nexo difícil não
+    provada: os logs daqueles boots não mostram ruído nem notas diferentes.
 - [~] **Comparação dos modelos Nexo:** após relato de dificuldade para
   ativar em repouso, preparado por solicitação do usuário o modelo anterior,
   que havia detectado sua voz em quatro tentativas registradas. O modelo

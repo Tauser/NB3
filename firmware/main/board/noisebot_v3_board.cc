@@ -322,6 +322,7 @@ static nb_personality_t LoadPersonality(StoreService& store) {
 class NoiseBotV3Board : public WifiBoard {
 private:
     Button boot_button_;
+    int64_t boot_down_us_ = 0;
     ExpressionArbiter arbiter_{NB_EXPR_NEUTRAL};
     StoreService store_;
     nb_personality_t personality_ = LoadPersonality(store_);
@@ -392,11 +393,26 @@ private:
                                    mood_, audio_levels_);
     }
 
+    // GPIO0 is also the strap pin of the USB-UART bridge's auto-reset: plugging
+    // the CH343 cable can pulse it while the board starts, and a bare click
+    // would then drop the robot into Wi-Fi setup with no wake word. Setup needs
+    // a deliberate hold; every press is logged to tell a pulse from a finger.
     void InitializeButtons() {
+        boot_button_.OnPressDown([this]() { boot_down_us_ = esp_timer_get_time(); });
+        boot_button_.OnPressUp([this]() {
+            ESP_LOGI(TAG, "BOOT released after %lld ms",
+                     static_cast<long long>((esp_timer_get_time() - boot_down_us_) / 1000));
+        });
+        boot_button_.OnLongPress([this]() {
+            if (Application::GetInstance().GetDeviceState() == kDeviceStateStarting) {
+                EnterWifiConfigMode();
+            }
+        });
         boot_button_.OnClick([this]() {
             auto& app = Application::GetInstance();
             if (app.GetDeviceState() == kDeviceStateStarting) {
-                EnterWifiConfigMode();
+                ESP_LOGI(TAG, "BOOT click ignored while starting: hold it %d ms for Wi-Fi setup",
+                         BOOT_BUTTON_SETUP_HOLD_MS);
                 return;
             }
             app.ToggleChatState();
@@ -404,7 +420,7 @@ private:
     }
 
 public:
-    NoiseBotV3Board() : boot_button_(BOOT_BUTTON_GPIO) {
+    NoiseBotV3Board() : boot_button_(BOOT_BUTTON_GPIO, false, BOOT_BUTTON_SETUP_HOLD_MS) {
         // A crash reboots in a second and looks like a normal boot on the
         // face; the log says which it was.
         ESP_LOGI(TAG, "last reset: %s", ResetReasonName(esp_reset_reason()));
