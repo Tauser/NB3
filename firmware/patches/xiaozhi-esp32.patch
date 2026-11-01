@@ -2,7 +2,7 @@ diff --git a/main/Kconfig.projbuild b/main/Kconfig.projbuild
 index 6a7c0fb..1df40c4 100644
 --- a/main/Kconfig.projbuild
 +++ b/main/Kconfig.projbuild
-@@ -6,6 +6,14 @@ config OTA_URL
+@@ -6,6 +6,14 @@
      help
          The application will access this URL to check for new firmwares and server address.
  
@@ -17,7 +17,7 @@ index 6a7c0fb..1df40c4 100644
  choice
      prompt "Flash Assets"
      default FLASH_DEFAULT_ASSETS if !USE_EMOTE_MESSAGE_STYLE
-@@ -173,6 +181,9 @@ choice BOARD_TYPE
+@@ -173,6 +181,9 @@
      config BOARD_TYPE_BREAD_COMPACT_WIFI
          bool "Bread Compact Wi-Fi (面包板)"
          depends on IDF_TARGET_ESP32S3
@@ -27,7 +27,7 @@ index 6a7c0fb..1df40c4 100644
      config BOARD_TYPE_BREAD_COMPACT_WIFI_LCD
          bool "Bread Compact Wi-Fi + LCD (面包板)"
          depends on IDF_TARGET_ESP32S3
-@@ -1003,7 +1014,8 @@ config USE_DEVICE_AEC
+@@ -1003,7 +1014,8 @@
          || BOARD_TYPE_WAVESHARE_ESP32_P4_WIFI6_TOUCH_LCD_3_4C || BOARD_TYPE_WAVESHARE_ESP32_P4_WIFI6_TOUCH_LCD_4C || BOARD_TYPE_ESP32_S3_LCD_EV_BOARD_2 || BOARD_TYPE_YUNLIAO_S3 \
          || BOARD_TYPE_WAVESHARE_ESP32_P4_WIFI6_TOUCH_LCD_7 || BOARD_TYPE_WAVESHARE_ESP32_P4_WIFI6_TOUCH_LCD_8 || BOARD_TYPE_WAVESHARE_ESP32_P4_WIFI6_TOUCH_LCD_10_1 \
          || BOARD_TYPE_ESP_VOCAT || BOARD_TYPE_WAVESHARE_ESP32_S3_TOUCH_LCD_3_49 || BOARD_TYPE_WAVESHARE_ESP32_S3_TOUCH_LCD_3_49_V2 || BOARD_TYPE_WAVESHARE_ESP32_S3_RLCD_4_2 || BOARD_TYPE_WAVESHARE_ESP32_S3_TOUCH_LCD_1_85B || BOARD_TYPE_ZHENGCHEN_CAM || BOARD_TYPE_ZHENGCHEN_CAM_ML307 \
@@ -41,7 +41,7 @@ diff --git a/main/application.cc b/main/application.cc
 index 31de205..35bf21b 100644
 --- a/main/application.cc
 +++ b/main/application.cc
-@@ -490,12 +490,14 @@ void Application::CheckNewVersion() {
+@@ -490,12 +490,14 @@
          retry_count = 0;
          retry_delay = 10;  // Reset retry delay
  
@@ -56,7 +56,7 @@ index 31de205..35bf21b 100644
  
          // No new version, mark the current version as valid
          ota_->MarkCurrentVersionValid();
-@@ -645,6 +647,7 @@ void Application::InitializeProtocol() {
+@@ -645,6 +647,7 @@
                          glyphs.clear();
                      }
                      ESP_LOGI(TAG, "<< %s", text->valuestring);
@@ -64,7 +64,7 @@ index 31de205..35bf21b 100644
                      Schedule([display, message = std::string(text->valuestring),
                                glyphs = std::move(glyphs), bpp]() {
                          display->AddTextGlyphs(glyphs, bpp);
-@@ -1003,6 +1006,8 @@ void Application::HandleStateChangedEvent() {
+@@ -1003,6 +1006,8 @@
      auto display = board.GetDisplay();
      auto led = board.GetLed();
      led->OnStateChanged();
@@ -74,6 +74,7 @@ index 31de205..35bf21b 100644
      switch (new_state) {
          case kDeviceStateUnknown:
 diff --git a/main/audio/audio_codec.h b/main/audio/audio_codec.h
+index a267dbb..c4d8903 100644
 --- a/main/audio/audio_codec.h
 +++ b/main/audio/audio_codec.h
 @@ -37,6 +37,8 @@
@@ -89,7 +90,7 @@ diff --git a/main/audio/audio_engine.h b/main/audio/audio_engine.h
 index 7c2e191..93d754f 100644
 --- a/main/audio/audio_engine.h
 +++ b/main/audio/audio_engine.h
-@@ -35,6 +35,12 @@ public:
+@@ -35,6 +35,12 @@
      virtual void EncodeWakeWordData() = 0;
      virtual bool GetWakeWordOpus(std::vector<uint8_t>& opus) = 0;
      virtual const std::string& GetLastDetectedWakeWord() const = 0;
@@ -103,9 +104,36 @@ index 7c2e191..93d754f 100644
  
  #endif
 diff --git a/main/audio/audio_service.cc b/main/audio/audio_service.cc
+index 7f7582b..47806cc 100644
 --- a/main/audio/audio_service.cc
 +++ b/main/audio/audio_service.cc
-@@ -193,6 +193,32 @@
+@@ -1,4 +1,5 @@
+ #include "audio_service.h"
++#include <esp_heap_caps.h>
+ #include <esp_log.h>
+ #include <cstring>
+ 
+@@ -94,6 +95,11 @@
+         }
+     });
+     audio_engine_->OnWakeWordDetected([this](const std::string& wake_word) {
++        // The microphone must not go unread while the channel connects: start
++        // the pre-roll capture before the wake bit drops so the input task
++        // never sleeps in between.
++        preroll_started_us_.store(esp_timer_get_time());
++        xEventGroupSetBits(event_group_, AS_EVENT_PREROLL_RUNNING);
+         xEventGroupClearBits(event_group_, AS_EVENT_WAKE_WORD_RUNNING);
+         if (callbacks_.on_wake_word_detected) {
+             callbacks_.on_wake_word_detected(wake_word);
+@@ -117,6 +123,7 @@
+ void AudioService::Start() {
+     service_stopped_.store(false);
+     xEventGroupClearBits(event_group_, AS_EVENT_AUDIO_TESTING_RUNNING | AS_EVENT_WAKE_WORD_RUNNING |
++                                           AS_EVENT_PREROLL_RUNNING |
+                                            AS_EVENT_AUDIO_PROCESSOR_RUNNING |
+                                            AS_EVENT_AUDIO_INPUT_STOP_REQUEST);
+ 
+@@ -193,6 +200,32 @@
  }
  
  bool AudioService::ReadAudioData(std::vector<int16_t>& data, int sample_rate, int samples) {
@@ -138,7 +166,126 @@ diff --git a/main/audio/audio_service.cc b/main/audio/audio_service.cc
      if (!codec_->input_enabled()) {
          esp_timer_stop(audio_power_timer_);
          esp_timer_start_periodic(audio_power_timer_, AUDIO_POWER_CHECK_INTERVAL_MS * 1000);
-@@ -748,6 +774,16 @@
+@@ -242,7 +275,8 @@
+ void AudioService::AudioInputTask() {
+     constexpr EventBits_t kAudioInputActiveBits = AS_EVENT_AUDIO_TESTING_RUNNING |
+                                                   AS_EVENT_WAKE_WORD_RUNNING |
+-                                                  AS_EVENT_AUDIO_PROCESSOR_RUNNING;
++                                                  AS_EVENT_AUDIO_PROCESSOR_RUNNING |
++                                                  AS_EVENT_PREROLL_RUNNING;
+ 
+     while (true) {
+         EventBits_t bits = xEventGroupWaitBits(
+@@ -273,6 +307,28 @@
+             }
+         }
+ 
++        if ((bits & AS_EVENT_PREROLL_RUNNING) &&
++            esp_timer_get_time() - preroll_started_us_.load() > AS_PREROLL_TIMEOUT_US) {
++            ESP_LOGW(TAG, "Pre-roll expired without voice processing");
++            xEventGroupClearBits(event_group_, AS_EVENT_PREROLL_RUNNING);
++            bits &= ~AS_EVENT_PREROLL_RUNNING;
++        }
++
++        if (bits & AS_EVENT_AUDIO_PROCESSOR_RUNNING) {
++            // Not tied to the pre-roll bit: the wake-word re-arm that follows
++            // voice processing clears it while the ring still holds the audio.
++            if (nb_pcm_ring_count(&preroll_ring_) > 0) {
++                DrainPreroll();
++                continue;
++            }
++        } else if (bits & AS_EVENT_PREROLL_RUNNING) {
++            CapturePreroll();
++            continue;
++        } else if (nb_pcm_ring_count(&preroll_ring_) > 0) {
++            // Capture ended without voice processing: do not replay it later.
++            nb_pcm_ring_clear(&preroll_ring_);
++        }
++
+         if (audio_input_need_warmup_.exchange(false)) {
+             vTaskDelay(pdMS_TO_TICKS(120));
+             continue;
+@@ -323,6 +379,58 @@
+     ESP_LOGW(TAG, "Audio input task stopped");
+ }
+ 
++void AudioService::CapturePreroll() {
++    std::vector<int16_t> data;
++    if (!ReadAudioData(data, 16000, 160)) {
++        vTaskDelay(pdMS_TO_TICKS(10));
++        return;
++    }
++    if (preroll_storage_ == nullptr) {
++        const size_t capacity = (size_t)16 * AS_PREROLL_MS * codec_->input_channels();
++        preroll_storage_ = (int16_t*)heap_caps_malloc(capacity * sizeof(int16_t),
++                                                      MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
++        if (preroll_storage_ == nullptr) {
++            ESP_LOGW(TAG, "No PSRAM for the pre-roll ring; the sentence start is not kept");
++        }
++        nb_pcm_ring_init(&preroll_ring_, preroll_storage_, capacity);
++    }
++    nb_pcm_ring_push(&preroll_ring_, data.data(), data.size());
++}
++
++void AudioService::DrainPreroll() {
++    // The engine discards what is fed before the AFE finishes its pending
++    // reset on re-activation; give its task a moment to apply it.
++    vTaskDelay(pdMS_TO_TICKS(20));
++
++    const size_t chunk = (size_t)160 * codec_->input_channels();
++    const size_t total = nb_pcm_ring_count(&preroll_ring_) / codec_->input_channels();
++    const size_t frame_samples = chunk * OPUS_FRAME_DURATION_MS / 10;
++    size_t since_pause = 0;
++    std::vector<int16_t> data(chunk);
++    size_t n;
++    while (!service_stopped_.load() &&
++           (n = nb_pcm_ring_pop(&preroll_ring_, data.data(), chunk)) > 0) {
++        std::vector<int16_t> piece(data.begin(), data.begin() + n);
++        audio_engine_->Feed(std::move(piece));
++        since_pause += n;
++        if (since_pause < frame_samples) {
++            continue;
++        }
++        since_pause = 0;
++        // The encode queue drops its oldest frame when full; feed no faster
++        // than the encoder drains it.
++        for (int i = 0; i < 40; ++i) {
++            {
++                std::lock_guard<std::mutex> lock(audio_queue_mutex_);
++                if (audio_encode_queue_.size() < MAX_ENCODE_TASKS_IN_QUEUE / 2 + 1) break;
++            }
++            vTaskDelay(pdMS_TO_TICKS(5));
++        }
++    }
++    nb_pcm_ring_clear(&preroll_ring_);
++    ESP_LOGI(TAG, "Replayed %u ms of pre-roll", (unsigned)(total * 1000 / 16000));
++}
++
+ void AudioService::AudioOutputTask() {
+     while (true) {
+         std::unique_lock<std::mutex> lock(audio_queue_mutex_);
+@@ -683,6 +791,7 @@
+             }
+         }
+         audio_engine_->EnableWakeWordDetection(true);
++        xEventGroupClearBits(event_group_, AS_EVENT_PREROLL_RUNNING);
+         xEventGroupSetBits(event_group_, AS_EVENT_WAKE_WORD_RUNNING);
+     } else {
+         if (audio_engine_initialized_) {
+@@ -714,7 +823,11 @@
+             return;
+         }
+         ResetDecoder();
+-        audio_input_need_warmup_ = true;
++        // The microphone has been read continuously since the wake word, so
++        // the warm-up that follows a cold input start is not needed.
++        audio_input_need_warmup_ =
++            (xEventGroupGetBits(event_group_) & AS_EVENT_PREROLL_RUNNING) == 0;
++        xEventGroupClearBits(event_group_, AS_EVENT_PREROLL_RUNNING);
+         {
+             std::lock_guard<std::mutex> lock(input_resampler_mutex_);
+             if (input_resampler_ != nullptr) {
+@@ -748,6 +861,16 @@
      }
  }
  
@@ -156,17 +303,19 @@ diff --git a/main/audio/audio_service.cc b/main/audio/audio_service.cc
      ESP_LOGI(TAG, "%s device AEC", enable ? "Enabling" : "Disabling");
      device_aec_enabled_ = enable;
 diff --git a/main/audio/audio_service.h b/main/audio/audio_service.h
+index f8b510f..4d96f5d 100644
 --- a/main/audio/audio_service.h
 +++ b/main/audio/audio_service.h
-@@ -24,6 +24,7 @@
+@@ -24,6 +24,8 @@
  #include "fixed_queue.h"
  #include "ogg_demuxer.h"
  #include "protocol.h"
 +#include "voice/audio_policy.h"
++#include "core/nb_pcm_ring.h"
  
  /*
   * There are two types of audio data flow:
-@@ -38,7 +39,11 @@
+@@ -38,7 +40,11 @@
   */
  
  #define OPUS_FRAME_DURATION_MS 60
@@ -178,7 +327,24 @@ diff --git a/main/audio/audio_service.h b/main/audio/audio_service.h
  #define MAX_PLAYBACK_TASKS_IN_QUEUE 2
  #define MAX_DECODE_PACKETS_IN_QUEUE (1200 / OPUS_FRAME_DURATION_MS)
  #define MAX_SEND_PACKETS_IN_QUEUE (2400 / OPUS_FRAME_DURATION_MS)
-@@ -138,6 +143,8 @@
+@@ -52,6 +58,16 @@
+ #define AS_EVENT_WAKE_WORD_RUNNING (1 << 1)
+ #define AS_EVENT_AUDIO_PROCESSOR_RUNNING (1 << 2)
+ #define AS_EVENT_AUDIO_INPUT_STOP_REQUEST (1 << 4)
++// Set from wake-word detection until voice processing starts: the input task
++// keeps reading the microphone into the pre-roll ring.
++#define AS_EVENT_PREROLL_RUNNING (1 << 5)
++
++// Covers the connect delay after a wake word, so the start of the sentence
++// spoken right after it is replayed once voice processing starts.
++#define AS_PREROLL_MS 700
++// The wake word may not be followed by voice processing (failed connect);
++// the ring stops capturing instead of reading forever.
++#define AS_PREROLL_TIMEOUT_US 10000000
+ 
+ #define AS_OPUS_GET_FRAME_DRU_ENUM(duration_ms)                  \
+     ((duration_ms) == 5     ? ESP_OPUS_ENC_FRAME_DURATION_5_MS   \
+@@ -138,6 +154,8 @@
      void EnableVoiceProcessing(bool enable);
      void EnableAudioTesting(bool enable);
      void EnableDeviceAec(bool enable);
@@ -187,7 +353,7 @@ diff --git a/main/audio/audio_service.h b/main/audio/audio_service.h
  
      void SetCallbacks(AudioServiceCallbacks& callbacks);
  
-@@ -200,9 +207,15 @@
+@@ -200,18 +218,29 @@
      bool audio_engine_initialized_ = false;
      bool voice_detected_ = false;
  #if CONFIG_USE_DEVICE_AEC
@@ -205,7 +371,22 @@ diff --git a/main/audio/audio_service.h b/main/audio/audio_service.h
  #endif
      std::atomic<bool> service_stopped_{true};
      std::atomic<bool> audio_input_need_warmup_{false};
++    nb_pcm_ring_t preroll_ring_{};
++    int16_t* preroll_storage_ = nullptr;
++    std::atomic<int64_t> preroll_started_us_{0};
+ 
+     esp_timer_handle_t audio_power_timer_ = nullptr;
+     std::chrono::steady_clock::time_point last_input_time_;
+     std::chrono::steady_clock::time_point last_output_time_;
+ 
+     void AudioInputTask();
++    void CapturePreroll();
++    void DrainPreroll();
+     void AudioOutputTask();
+     void OpusCodecTask();
+     void PushTaskToEncodeQueue(AudioTaskType type, std::vector<int16_t>&& pcm);
 diff --git a/main/audio/engines/afe_audio_engine.cc b/main/audio/engines/afe_audio_engine.cc
+index 3823d10..30e2288 100644
 --- a/main/audio/engines/afe_audio_engine.cc
 +++ b/main/audio/engines/afe_audio_engine.cc
 @@ -12,6 +12,12 @@
@@ -319,12 +500,10 @@ diff --git a/main/audio/engines/afe_audio_engine.cc b/main/audio/engines/afe_aud
          }
      }
      UpdateActiveState();
-@@ -327,6 +383,37 @@
- void AfeAudioEngine::OnWakeWordDetected(
-     std::function<void(const std::string& wake_word)> callback) {
+@@ -329,6 +385,37 @@
      wake_word_detected_callback_ = std::move(callback);
-+}
-+
+ }
+ 
 +void AfeAudioEngine::OnAssistantSentence(const std::string& text) {
 +#if CONFIG_NB3_MICRO_WAKE_WORD
 +    if (micro_wake_word_ != nullptr) {
@@ -354,9 +533,11 @@ diff --git a/main/audio/engines/afe_audio_engine.cc b/main/audio/engines/afe_aud
 +#endif
 +    (void)speech;
 +    output_callback_(std::move(frame));
- }
- 
++}
++
  void AfeAudioEngine::OnOutput(std::function<void(std::vector<int16_t>&& data)> callback) {
+     output_callback_ = std::move(callback);
+ }
 @@ -446,6 +533,15 @@
          custom_wake_word_->FeedMono(result->data, result->data_size / sizeof(int16_t));
          return;
@@ -472,6 +653,7 @@ diff --git a/main/audio/engines/afe_audio_engine.cc b/main/audio/engines/afe_aud
      }
      std::unique_lock<std::mutex> lock(wake_word_mutex_);
 diff --git a/main/audio/engines/afe_audio_engine.h b/main/audio/engines/afe_audio_engine.h
+index 789a7e6..96d881a 100644
 --- a/main/audio/engines/afe_audio_engine.h
 +++ b/main/audio/engines/afe_audio_engine.h
 @@ -17,8 +17,11 @@
@@ -536,7 +718,7 @@ diff --git a/scripts/build_default_assets.py b/scripts/build_default_assets.py
 index f6a37d2..97e5033 100755
 --- a/scripts/build_default_assets.py
 +++ b/scripts/build_default_assets.py
-@@ -947,6 +947,17 @@ def main():
+@@ -947,6 +947,17 @@
      elif multinet_model_names:
          print(f"  Note: Found multinet models {multinet_model_names} but USE_CUSTOM_WAKE_WORD is disabled, skipping")
      

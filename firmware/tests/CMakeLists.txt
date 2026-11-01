@@ -56,6 +56,9 @@ nb_host_test(test_personality ${CORE_DIR}/nb_personality.c ${CORE_DIR}/nb_affect
              ${CORE_DIR}/nb_expression.c)
 nb_host_test(test_behavior ${CORE_DIR}/nb_behavior.c ${CORE_DIR}/nb_arbiter.c
              ${CORE_DIR}/nb_expression.c)
+nb_host_test(test_pcm_ring ${CORE_DIR}/nb_pcm_ring.c)
+nb_host_test(test_panic_record ${CORE_DIR}/nb_panic_record.c)
+nb_host_test(test_conv_led ${CORE_DIR}/nb_conv_led.c ${CORE_DIR}/nb_mood.c)
 nb_host_test(test_scs ${CORE_DIR}/nb_scs.c)
 nb_host_test(test_motion_safety ${CORE_DIR}/nb_motion_safety.c)
 nb_host_test(test_bus_backoff ${CORE_DIR}/nb_bus_backoff.c)
