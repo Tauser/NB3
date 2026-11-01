@@ -651,6 +651,31 @@ trilho lógico) e ids conhecidos.
   não estabelecem qual AEC é melhor. Investigar o panic e repetir de forma
   controlada antes de mudar o default; dados em [AUDIO_VALIDATION.md](AUDIO_VALIDATION.md).
 
+- [~] **Barramento dos servos:** com os servos sem resposta (log de 01/11) o
+  `nb_motion` chegou a ~38–44% da CPU e o IDLE0 deixou de rodar (avisos de
+  task watchdog). Causa no código: `ScsBus::Transact` lia a UART com timeout 0
+  em laço apertado, 3 tentativas × 10 ms por leitura, e o `Release()` em FAULT
+  repetia isso a cada ciclo. Corrigido (`ff74627`): a espera dorme em leitura
+  bloqueante de 1 byte, e o núcleo `nb_bus_backoff` (host-test) reduz o ritmo a
+  uma tentativa a cada 500 ms após 5 ciclos sem resposta, só enquanto a safety
+  não está armada; armada, o ritmo cheio continua e a safety dispara
+  FEEDBACK_LOST sozinha. `nb_scs_decode_feedback` rejeita posição > 1023 e o
+  log de 5 s mostra `bus: timeouts/bad frames/rejected` (`d327f43`).
+  - Bancada (placa `90:e5:b1:cc:3d:58`, 115200, 01/11): `nb_motion` de ~28% para
+    ~1% com o barramento ruim e para <0,3% com os servos desligados, sem avisos
+    de watchdog. A imagem anterior (mesmos servos) já tinha as leituras
+    perdidas e as posições absurdas: não foram regressão do ajuste.
+  - Com os servos a 4,7–4,9 V houve ~15% de leituras perdidas, posições
+    absurdas (até 65031; uma de 767 passou, dentro da faixa) e FAULT
+    `feedback_lost` aos ~6 s do boot. Depois, a 5,1–5,2 V, 5 boots seguidos
+    ficaram limpos (176 tentativas cada, todas `ok` na primeira, ~0,55 ms por
+    leitura, sem eco do adaptador, safety armada e segurando, 0 FAULT). A
+    alimentação dos servos é a hipótese mais forte; não foi provada nem se sabe
+    o que mudou entre as capturas.
+  - Falta validar: movimento durante conversa longa (corrente do servo com o
+    áudio), a tensão dos servos sob carga e uma checagem da posição contra o
+    curso físico do eixo. Não prova que seja a causa dos reinícios anteriores,
+    que seguem sem backtrace.
 - [~] **Comparação dos modelos Nexo:** após relato de dificuldade para
   ativar em repouso, preparado por solicitação do usuário o modelo anterior,
   que havia detectado sua voz em quatro tentativas registradas. O modelo
