@@ -709,6 +709,29 @@ trilho lógico) e ids conhecidos.
   **delay**; alinhamento físico e ajuste de NLP/NS continuam pendentes.
   Plano e critérios em [AUDIO_VALIDATION.md](AUDIO_VALIDATION.md).
 
+- [~] **Ajustes de 01/11/2026 (sessão de uso)**: implementados, falta validar
+  na placa.
+  - Microfone surdo após "Nexo": o patch passa a ler o I2S entre a detecção e o
+    voice processing, guarda ~700 ms em anel na PSRAM (`core/nb_pcm_ring`, com
+    host-test), reenvia antes do áudio ao vivo e pula o warm-up de 120 ms. O
+    AFE não é alimentado nesse intervalo (o anel o bypassa), então não há
+    consumo sem voice processing. Aceite: delta de `dropped` = 0 por
+    ativação; frase sem pausa completa em 5 de 5.
+  - Início perdido ao interromper: o `BargeInFilter` agora loga há quantos ms a
+    fala começou e avisa quando passa do que o pré-áudio guardou (540 ms). Só
+    subir o teto (~1,2 s na PSRAM) se o log confirmar a hipótese.
+  - Reinícios: o panic handler grava razão, PC e backtrace em RTC
+    (`diag/panic_record.c` via `--wrap=esp_panic_handler`, formato em
+    `core/nb_panic_record`, com host-test) e o boot seguinte loga em formato
+    `addr2line`. Não corrigir nada antes de ter um backtrace.
+  - LEDs da cabeça: `core/nb_conv_led` dá prioridade ao estado de conversa
+    (escutando verde, falando azul, aguardando âmbar provisório), com
+    histerese de 1,5 s; em espera volta ao humor. Cores a confirmar na placa.
+  - Sem mudança de código ainda: eco do robô no mic (medir com a captura
+    mic/ref de `AUDIO_VALIDATION.md` antes de mexer em volume ou ganho) e
+    corte de fala nas pausas (A/B `asr_speed` slow x normal no console, 10
+    repetições cada).
+
 - [~] **Wake word "Nexo" com microWakeWord** (D-020): `wake/micro_wake_word`
   roda o modelo no TFLite Micro (`esp-tflite-micro` 1.4.1, componente
   `nb_tflite`) com as features do `pymicro-features` v2.0.2, o mesmo código
