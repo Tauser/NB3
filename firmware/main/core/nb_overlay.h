@@ -17,7 +17,7 @@ extern "C" {
 typedef enum {
     NB_OVERLAY_NONE = 0,
     NB_OVERLAY_LISTEN,     // audio bars following the microphone
-    NB_OVERLAY_THINK,      // thought dots, then the hand on the chin
+    NB_OVERLAY_THINK,      // the hand on the chin once the wait gets long
     NB_OVERLAY_SPEECH,     // speech bubble with dots in the voice's rhythm
     NB_OVERLAY_AFFECTION,  // rising hearts and cheeks
     NB_OVERLAY_CHEEKS,     // cheeks only
@@ -38,7 +38,7 @@ typedef enum {
 typedef struct {
     nb_overlay_kind_t kind;
     float bars[NB_OVERLAY_BARS];  // LISTEN: bar heights, 0..1
-    float dots[3];                // THINK: brightness 0..1; SPEECH: lift 0..1
+    float dots[3];                // SPEECH: lift 0..1
     float hand;                   // THINK: 0 hidden .. 1 in place
     float hand_angle;             // THINK: nod, degrees
     float bubble;                 // SPEECH: bubble scale, 0 hidden .. ~1.1

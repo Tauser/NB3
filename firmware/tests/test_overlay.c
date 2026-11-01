@@ -80,17 +80,6 @@ static void test_hand_waits_then_slides_in(void) {
     NB_CHECK(step(&o, NB_EXPR_THINKING, false, 0, 2500).hand == 0.0f);
 }
 
-static void test_thought_dots_take_turns(void) {
-    nb_overlay_t o;
-    nb_overlay_init(&o);
-    step(&o, NB_EXPR_THINKING, false, 0, 0);
-    nb_overlay_frame_t f = step(&o, NB_EXPR_THINKING, false, 0, 300);
-    NB_CHECK(f.dots[0] > f.dots[2]);
-    for (int i = 0; i < 3; ++i) {
-        NB_CHECK(f.dots[i] >= 0.25f && f.dots[i] <= 1.0f);
-    }
-}
-
 static void test_bars_follow_the_level_irregularly(void) {
     nb_overlay_t o;
     nb_overlay_init(&o);
@@ -176,7 +165,6 @@ int main(void) {
     NB_RUN(test_bubble_lingers_then_leaves);
     NB_RUN(test_voice_back_during_linger_keeps_the_bubble);
     NB_RUN(test_hand_waits_then_slides_in);
-    NB_RUN(test_thought_dots_take_turns);
     NB_RUN(test_bars_follow_the_level_irregularly);
     NB_RUN(test_level_falls_slower_than_it_rises);
     NB_RUN(test_hearts_take_turns_rising);

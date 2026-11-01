@@ -118,10 +118,6 @@ void nb_overlay_update(nb_overlay_t *overlay, nb_expression_t winner, bool speak
         }
         break;
     case NB_OVERLAY_THINK:
-        for (int i = 0; i < 3; ++i) {
-            const float wave = sinf(NB_OVERLAY_TAU * ((float)since / 1200.0f - (float)i * 0.15f));
-            out->dots[i] = 0.25f + 0.75f * fmaxf(0.0f, wave);
-        }
         if (since >= NB_OVERLAY_HAND_DELAY_MS) {
             const uint32_t in = since - NB_OVERLAY_HAND_DELAY_MS;
             out->hand = smooth(in / 250.0f);

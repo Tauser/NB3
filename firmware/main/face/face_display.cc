@@ -11,6 +11,7 @@
 #include "application.h"
 #include "assets/lang_config.h"
 #include "core/nb_face_link.h"
+#include "core/nb_overlay_anchor.h"
 #include "display/lvgl_display/lvgl_theme.h"
 
 #define TAG "FaceDisplay"
@@ -42,13 +43,13 @@ const lv_color_t kBackground = lv_color_black();
 const lv_color_t kCheekColor = lv_color_hex(0xE8907A);  // salmon pills
 const lv_color_t kHeartColor = lv_color_hex(0xFF7AAE);
 
-// Overlay placement, in screen pixels from the face centre, taken from the
-// face V2 mocks (a 320x240 screen centred at 160,120).
+// Overlay placement, in screen pixels from the eyes' rest centre, taken from
+// the face V2 mocks (a 320x240 screen centred at 160,120). The painter moves
+// and shrinks them with the eyes (core/nb_overlay_anchor).
 constexpr float kBarsLeft = -35.5f;   // first bar's left edge
 constexpr float kBarsStep = 11.0f;
 constexpr float kBarsCentreY = 82.0f;
 constexpr float kBarsMaxHeight = 32.0f;
-constexpr float kThinkDots[3][2] = {{102, -76}, {117, -85}, {132, -94}};
 constexpr float kHandLeft = -32.0f;   // hand image top-left, once in place
 constexpr float kHandTop = 47.0f;
 constexpr float kBubbleCentre[2] = {108.0f, -80.0f};
@@ -313,14 +314,16 @@ struct Painter {
     }
 
     // A small salmon pill under the outer corner of an eye, tilted.
-    void Cheek(const nb_avatar_eye_pose_t& eye, const nb_avatar_pose_t& pose, float side) const {
+    void Cheek(const nb_avatar_eye_pose_t& eye, const nb_avatar_pose_t& pose, float side,
+               float size) const {
         const float scale = kDesignScale * pose.face_scale;
         const float x = cx + (pose.face_x + eye.x) * scale + side * (eye.width * scale * 0.5f - 2.0f);
         const float y = cy + (pose.face_y + eye.y) * scale + eye.height * scale * 0.3f;
-        Line(x - 11.0f, y - 3.0f, x + 11.0f, y + 3.0f, 9.0f, kCheekColor);
+        Line(x - 11.0f * size, y - 3.0f * size, x + 11.0f * size, y + 3.0f * size, 9.0f * size,
+             kCheekColor);
     }
 
-    void HandImage(float left, float top, float opacity, float angle) const {
+    void HandImage(float left, float top, float opacity, float angle, float scale) const {
         if (rec != nullptr) {
             // Turning around the pivot, the image stays within the farthest
             // corner's distance from it.
@@ -328,13 +331,15 @@ struct Painter {
             const float h = static_cast<float>(nb_hand_think_image.header.h);
             const float px = left + w / 5.0f;
             const float py = top + h * 3.0f / 10.0f;
-            const float reach = hypotf(fmaxf(px - left, left + w - px), fmaxf(py - top, top + h - py)) + 2.0f;
+            const float reach =
+                hypotf(fmaxf(px - left, left + w - px), fmaxf(py - top, top + h - py)) * scale + 2.0f;
             rec->Box(static_cast<int>(floorf(px - reach)), static_cast<int>(floorf(py - reach)),
                      static_cast<int>(ceilf(px + reach)), static_cast<int>(ceilf(py + reach)));
             rec->Mix(Recorder::Q(left));
             rec->Mix(Recorder::Q(top));
             rec->Mix(Recorder::Q(opacity));
             rec->Mix(Recorder::Q(angle));
+            rec->Mix(Recorder::Q(scale));
             return;
         }
         lv_draw_image_dsc_t dsc;
@@ -344,6 +349,8 @@ struct Painter {
         dsc.rotation = static_cast<int32_t>(lroundf(angle * 10.0f));
         dsc.pivot.x = nb_hand_think_image.header.w / 5;  // the knuckles on the chin
         dsc.pivot.y = nb_hand_think_image.header.h * 3 / 10;
+        dsc.scale_x = dsc.scale_y = static_cast<int32_t>(lroundf(scale * LV_SCALE_NONE));
+        // LVGL scales around the pivot, so the knuckles stay at `left` + w/5.
         const int x = static_cast<int>(lroundf(left));
         const int y = static_cast<int>(lroundf(top));
         lv_area_t area = {x, y, x + static_cast<int>(nb_hand_think_image.header.w) - 1,
@@ -364,32 +371,38 @@ struct Painter {
     // The face V2 overlay, one at a time (docs/FACE.md). Fades are dims
     // toward the black background.
     void Overlay(const nb_overlay_frame_t& o, const nb_avatar_pose_t& pose) const {
+        nb_overlay_anchor_t anchor;
+        nb_overlay_anchor_from_pose(&pose, kDesignScale, &anchor);
+        const float s0 = anchor.scale;
+        const float ox = cx + anchor.dx;  // origin of the overlay layout
+        const float oy = cy + anchor.dy;
         switch (o.kind) {
             case NB_OVERLAY_LISTEN:
                 for (int i = 0; i < NB_OVERLAY_BARS; ++i) {
-                    const float h = fmaxf(4.0f, kBarsMaxHeight * o.bars[i]);
-                    RoundRect(static_cast<int>(lroundf(cx + kBarsLeft + i * kBarsStep)),
-                              static_cast<int>(lroundf(cy + kBarsCentreY - h * 0.5f)), 5,
+                    const float h = fmaxf(4.0f, kBarsMaxHeight * o.bars[i] * s0);
+                    RoundRect(static_cast<int>(lroundf(ox + (kBarsLeft + i * kBarsStep) * s0)),
+                              static_cast<int>(lroundf(oy + kBarsCentreY * s0 - h * 0.5f)),
+                              std::max(3, static_cast<int>(lroundf(5.0f * s0))),
                               static_cast<int>(lroundf(h)), 2, kEyeColor);
                 }
                 break;
             case NB_OVERLAY_THINK:
-                for (int i = 0; i < 3; ++i) {
-                    Circle(cx + kThinkDots[i][0], cy + kThinkDots[i][1], 4,
-                           Dim(kEyeColor, o.dots[i]));
-                }
                 if (o.hand > 0.01f) {
-                    HandImage(cx + kHandLeft, cy + kHandTop + (1.0f - o.hand) * 20.0f, o.hand,
-                              o.hand_angle);
+                    // The knuckles on the chin are the anchor point of the hand.
+                    const float pivot_x = static_cast<float>(nb_hand_think_image.header.w) / 5.0f;
+                    const float pivot_y = static_cast<float>(nb_hand_think_image.header.h) * 0.3f;
+                    const float knuckle_x = ox + (kHandLeft + pivot_x) * s0;
+                    const float knuckle_y = oy + (kHandTop + (1.0f - o.hand) * 20.0f + pivot_y) * s0;
+                    HandImage(knuckle_x - pivot_x, knuckle_y - pivot_y, o.hand, o.hand_angle, s0);
                 }
                 break;
             case NB_OVERLAY_SPEECH: {
-                const float s = o.bubble;
-                if (s < 0.02f) {
+                const float s = o.bubble * s0;
+                if (o.bubble < 0.02f) {
                     break;
                 }
-                const float bx = cx + kBubbleCentre[0];
-                const float by = cy + kBubbleCentre[1];
+                const float bx = ox + kBubbleCentre[0] * s0;
+                const float by = oy + kBubbleCentre[1] * s0;
                 const int w = static_cast<int>(lroundf(72.0f * s));
                 const int h = static_cast<int>(lroundf(44.0f * s));
                 RoundRect(static_cast<int>(lroundf(bx - w * 0.5f)),
@@ -408,15 +421,15 @@ struct Painter {
                 for (int i = 0; i < 2; ++i) {
                     const float p = o.hearts[i];
                     const float fade = p < 0.15f ? p / 0.15f : (p > 0.8f ? (1.0f - p) / 0.2f : 1.0f);
-                    Heart(cx + (i == 0 ? -8.0f : 10.0f), cy + kHeartsY - kHeartsRise * p,
-                          18.0f + 6.0f * p, Dim(kHeartColor, Clamp(fade, 0.0f, 1.0f)));
+                    Heart(ox + (i == 0 ? -8.0f : 10.0f) * s0, oy + (kHeartsY - kHeartsRise * p) * s0,
+                          (18.0f + 6.0f * p) * s0, Dim(kHeartColor, Clamp(fade, 0.0f, 1.0f)));
                 }
-                Cheek(pose.left_eye, pose, -1.0f);
-                Cheek(pose.right_eye, pose, 1.0f);
+                Cheek(pose.left_eye, pose, -1.0f, s0);
+                Cheek(pose.right_eye, pose, 1.0f, s0);
                 break;
             case NB_OVERLAY_CHEEKS:
-                Cheek(pose.left_eye, pose, -1.0f);
-                Cheek(pose.right_eye, pose, 1.0f);
+                Cheek(pose.left_eye, pose, -1.0f, s0);
+                Cheek(pose.right_eye, pose, 1.0f, s0);
                 break;
             case NB_OVERLAY_SLEEP:
                 for (int i = 0; i < NB_OVERLAY_ZS; ++i) {
@@ -425,8 +438,8 @@ struct Painter {
                         continue;
                     }
                     const float fade = p < 0.2f ? p / 0.2f : (p > 0.7f ? (1.0f - p) / 0.3f : 1.0f);
-                    Zee(cx + kZStart[0] + kZDrift[0] * p, cy + kZStart[1] + kZDrift[1] * p,
-                        9.0f + 9.0f * p, Dim(kEyeColor, Clamp(fade, 0.0f, 1.0f)));
+                    Zee(ox + (kZStart[0] + kZDrift[0] * p) * s0, oy + (kZStart[1] + kZDrift[1] * p) * s0,
+                        (9.0f + 9.0f * p) * s0, Dim(kEyeColor, Clamp(fade, 0.0f, 1.0f)));
                 }
                 break;
             default:

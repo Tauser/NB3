@@ -210,6 +210,13 @@ ausência); sem microSD o robô funciona e avisa.
      Pensando só depois de 0,7 s de espera (`cb400a0`), para a
      wake word não piscar três faces em um segundo. Validado em bancada:
      escuta com barras, balão de fala, pensando na conexão demorada.
+   - [x] Overlays acompanham os olhos e ficam ~20% menores:
+     `core/nb_overlay_anchor` (C17 puro, 4 host-tests) dá o deslocamento e a
+     escala a partir do ponto médio dos olhos; barras, mão, balão, corações,
+     bochechas e Zs seguem o olhar e a rotação da cabeça. As 3 bolinhas do
+     pensando saíram; ficou só a mão no queixo (após 1 s). Compila no IDF
+     6.1 e host-tests passam; **falta validar na tela** (tamanho e posição
+     da mão e das barras com o olhar nos cantos).
      Pendente do mic: o pensando depois da pergunta depende do VAD local
      voltar a "silêncio", o que o lote atual de INMP441 quase nunca faz (e
      o servidor já começa a resposta ao detectar o fim da fala).

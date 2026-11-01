@@ -34,8 +34,7 @@ firmware segue.
 | Overlay | Quando | Movimento |
 |---|---|---|
 | Barras de áudio | escutando | 7 barras finas crescendo do centro, irregulares, seguindo o microfone |
-| Pontinhos | pensando | três pontos acendendo em sequência |
-| Mão no queixo | pensando há mais de ~1 s | a mão do desenho do usuário balança apoiando o queixo |
+| Mão no queixo | pensando há mais de ~1 s (único adorno do pensando) | a mão do desenho do usuário balança apoiando o queixo |
 | Balãozinho | falando | surge no canto, três pontos pulam no ritmo da voz, some ~0,5 s após a fala |
 | Corações | carinho | um coração sobe por pulso de carinho (4 s) |
 | Bochechas | carinho, envergonhado | duas pílulas salmão pequenas e inclinadas no canto de baixo dos olhos |
@@ -56,6 +55,10 @@ pequenos, animados por posição, giro e escala.
   do outro, crescendo e sumindo (3,3 s cada). Só dormindo; sonolento
   acordado não tem adorno. A fala vence o sono.
 
+Os overlays são desenhados relativos aos olhos: acompanham o olhar, a
+rotação da cabeça e a respiração (`core/nb_overlay_anchor`) e são ~20%
+menores que nos mocks.
+
 ## O que entra agora e o que espera
 
 Entram agora, porque os estados já existem: neutro, escuta, pensando,
@@ -68,7 +71,7 @@ risadinha, combinado e oi.
 
 Também na etapa 3, como **iniciativa no repouso**: de vez em quando, sem
 interação há alguns minutos e em espera, o robô "pensa sozinho" por uns
-5 s (olhar no canto, pontinhos e mão no queixo) e volta ao humor. A
+5 s (olhar no canto e mão no queixo) e volta ao humor. A
 frequência vem do parâmetro de iniciativa da personalidade; nunca durante
 conversa, toque ou sono, e um toque ou a wake word interrompem na hora.
 
@@ -118,7 +121,7 @@ emoção da conversa, comando) o olhar volta ao centro e fica no usuário.
    pose, interpolável; poses das expressões refeitas com as formas acima.
 2. **Camada de overlay** no display, um adorno por vez, com os sprites das
    mãos.
-3. **Ligação aos estados:** escuta → barras, pensando → pontos e mão,
+3. **Ligação aos estados:** escuta → barras, pensando → mão,
    fala → balão, carinho → corações e bochechas.
 4. **Olhar autônomo:** `core/nb_gaze` (C17, semente injetada) sorteia os
    olhares a partir do humor; o avatar recebe o olhar pronto
