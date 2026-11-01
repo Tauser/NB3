@@ -58,6 +58,7 @@ nb_host_test(test_behavior ${CORE_DIR}/nb_behavior.c ${CORE_DIR}/nb_arbiter.c
              ${CORE_DIR}/nb_expression.c)
 nb_host_test(test_scs ${CORE_DIR}/nb_scs.c)
 nb_host_test(test_motion_safety ${CORE_DIR}/nb_motion_safety.c)
+nb_host_test(test_bus_backoff ${CORE_DIR}/nb_bus_backoff.c)
 nb_host_test(test_banner ${CORE_DIR}/nb_banner.c)
 nb_host_test(test_hpf ${CORE_DIR}/nb_hpf.c)
 nb_host_test(test_wake_detect ${CORE_DIR}/nb_wake_detect.c)

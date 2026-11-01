@@ -4,6 +4,7 @@
 
 #include <esp_log.h>
 #include <esp_timer.h>
+#include <freertos/FreeRTOS.h>
 
 #define TAG "ScsBus"
 
@@ -14,6 +15,12 @@ constexpr int kAttempts = 3;
 // A reply starts within the servo's return delay (500 us by default) and
 // takes well under 1 ms at 1 Mbaud; this leaves room for a slow servo.
 constexpr int64_t kReplyTimeoutUs = 10 * 1000;
+
+// Whole ticks, rounded up and never zero: a zero wait would poll again.
+TickType_t TicksFor(int64_t us) {
+    const int64_t tick_us = 1000LL * portTICK_PERIOD_MS;
+    return static_cast<TickType_t>((us + tick_us - 1) / tick_us);
+}
 
 }  // namespace
 
@@ -69,10 +76,18 @@ bool ScsBus::Transact(const uint8_t* tx, size_t tx_len, uint8_t id, nb_scs_respo
         size_t len = 0;
         const int64_t deadline = esp_timer_get_time() + kReplyTimeoutUs;
         nb_scs_parse_status_t status = NB_SCS_PARSE_NO_FRAME;
-        while (esp_timer_get_time() < deadline && len < sizeof(rx)) {
-            // No wait: a blocking read would sit out its whole timeout for
-            // a full buffer. The reply comes within a millisecond.
-            const int n = uart_read_bytes(port_, rx + len, sizeof(rx) - len, 0);
+        while (len < sizeof(rx)) {
+            const int64_t left_us = deadline - esp_timer_get_time();
+            if (left_us <= 0) {
+                break;
+            }
+            int n = uart_read_bytes(port_, rx + len, sizeof(rx) - len, 0);
+            if (n <= 0) {
+                // Nothing buffered: sleep until one byte arrives or the time
+                // is up, so a silent bus costs no processor. One byte, not
+                // the buffer: a longer request would sit out the whole wait.
+                n = uart_read_bytes(port_, rx + len, 1, TicksFor(left_us));
+            }
             if (n > 0) {
                 len += static_cast<size_t>(n);
             }

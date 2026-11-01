@@ -14,6 +14,8 @@ namespace {
 constexpr uint32_t kPeriodMs = 50;
 constexpr uint32_t kLogPeriodMs = 5000;
 constexpr uint32_t kFaultFaceMs = 3000;
+// Silent servos: a few quiet cycles tell it is not a lost frame.
+constexpr nb_bus_backoff_cfg_t kBackoff = {5, 500};
 // A waypoint is given a little more than its travel time before the next.
 constexpr uint32_t kStepMarginMs = 60;
 
@@ -40,6 +42,7 @@ MotionService::MotionService(uint8_t pan_id, uint8_t tilt_id, ExpressionArbiter*
     ids_[NB_MOTION_SAFETY_AXIS_TILT] = tilt_id;
     const nb_motion_safety_cfg_t cfg = nb_motion_safety_default_cfg();
     nb_motion_safety_init(&safety_, &cfg);
+    nb_bus_backoff_init(&backoff_, &kBackoff);
     // The head's limits are the safety's: a plan never asks what the veto
     // would refuse.
     geometry_ = {SERVO_PAN_CENTER,
@@ -343,13 +346,19 @@ void MotionService::Run() {
     TickType_t wake = xTaskGetTickCount();
     while (true) {
         const uint32_t now = NowMs();
-        for (int a = 0; a < NB_MOTION_SAFETY_AXIS_COUNT; a++) {
+        // Armed, the safety needs every reading: it trips by itself when they
+        // stop. Otherwise a bus nobody answers on is only probed now and then.
+        const bool use_bus = nb_motion_safety_get_state(&safety_) == NB_MOTION_SAFETY_STATE_OK ||
+                             nb_bus_backoff_due(&backoff_, now);
+        bool answered = false;
+        for (int a = 0; use_bus && a < NB_MOTION_SAFETY_AXIS_COUNT; a++) {
             nb_scs_feedback_t f;
             uint8_t error = 0;
             if (!bus_.ReadFeedback(ids_[a], &f, &error)) {
                 misses_[a]++;
                 continue;
             }
+            answered = true;
             if (!seen_[a] || f.position < min_[a]) {
                 min_[a] = f.position;
             }
@@ -364,11 +373,24 @@ void MotionService::Run() {
                 static_cast<uint16_t>(nb_scs_voltage_mv(f.voltage_dv))};
             nb_motion_safety_update(&safety_, static_cast<nb_motion_safety_axis_t>(a), &fb, now);
         }
+        if (use_bus) {
+            switch (nb_bus_backoff_report(&backoff_, answered, now)) {
+                case NB_BUS_BACKOFF_ENTERED:
+                    ESP_LOGW(TAG, "servos silent: trying the bus every %lu ms until one answers",
+                             static_cast<unsigned long>(backoff_.cfg.probe_period_ms));
+                    break;
+                case NB_BUS_BACKOFF_LEFT:
+                    ESP_LOGI(TAG, "servos answer again: back to the full rate");
+                    break;
+                case NB_BUS_BACKOFF_NO_CHANGE:
+                    break;
+            }
+        }
         nb_motion_safety_heartbeat(&safety_, now);
         nb_motion_safety_tick(&safety_, now);
         if (nb_motion_safety_get_state(&safety_) == NB_MOTION_SAFETY_STATE_FAULT) {
             plan_ = {};
-            if (torque_on_) {
+            if (torque_on_ && use_bus) {
                 torque_on_ = !Release();  // tried again every cycle until both are free
             }
             if (!fault_logged_) {
@@ -391,7 +413,8 @@ void MotionService::Run() {
             HandleRecover(now);
         } else {
             HandleRecover(now);
-            if (relax_asked_.exchange(false)) {
+            // A relax asked while the bus is being spared waits for its next try.
+            if (use_bus && relax_asked_.exchange(false)) {
                 // Back to center first, then let go: a head is not dropped
                 // wherever it was turned.
                 nb_head_plan_t center;

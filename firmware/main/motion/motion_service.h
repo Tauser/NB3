@@ -10,6 +10,7 @@
 
 #include "behavior/expression_arbiter.h"
 #include "behavior/sound_bank.h"
+#include "core/nb_bus_backoff.h"
 #include "core/nb_head_gesture.h"
 #include "core/nb_motion_safety.h"
 #include "core/nb_scs.h"
@@ -30,6 +31,10 @@
 // - FAULT releases both servos at once (retrying until both are confirmed
 //   free), shows a dizzy face for a moment and stays until Recover() is
 //   asked and the safety agrees the cause is gone.
+// - While the safety is not armed and no servo answers, the bus is only
+//   tried every half second (core/nb_bus_backoff); the first reply brings
+//   the full rate back. Armed, the bus keeps its full rate: the safety trips
+//   by itself when the feedback stops.
 class MotionService {
 public:
     MotionService(uint8_t pan_id, uint8_t tilt_id, ExpressionArbiter* arbiter, SoundBank* sounds);
@@ -102,6 +107,7 @@ private:
     std::atomic<int> fault_{NB_MOTION_SAFETY_FAULT_NONE};
     // Motion task only.
     nb_motion_safety_t safety_;
+    nb_bus_backoff_t backoff_;
     nb_head_plan_t plan_ = {};
     int plan_step_ = 0;      // next waypoint to send
     uint32_t step_due_ms_ = 0;
