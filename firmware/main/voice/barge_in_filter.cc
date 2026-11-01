@@ -50,6 +50,21 @@ void BargeInFilter::Reset() {
     loudest_held_ = NB_BARGE_LEVEL_SILENCE;
     listen_sum_ = 0;
     listen_frames_ = 0;
+    burst_frames_ = 0;
+    burst_quiet_frames_ = 0;
+}
+
+// A pause longer than this ends the burst; shorter ones are gaps between words.
+constexpr uint32_t kBurstGapFrames = 5;
+
+void BargeInFilter::TrackBurst(bool speech) {
+    if (speech) {
+        burst_frames_ += 1 + burst_quiet_frames_;
+        burst_quiet_frames_ = 0;
+    } else if (burst_frames_ > 0 && ++burst_quiet_frames_ > kBurstGapFrames) {
+        burst_frames_ = 0;
+        burst_quiet_frames_ = 0;
+    }
 }
 
 void BargeInFilter::Flush(const Sink& sink) {
@@ -80,6 +95,7 @@ void BargeInFilter::Process(std::vector<int16_t>&& frame, bool speech, const Sin
         sink(std::move(frame));
         return;
     }
+    TrackBurst(speech);
     switch (nb_barge_gate_step(&gate_, speech, level)) {
     case NB_BARGE_PASS:
         sink(std::move(frame));
@@ -92,8 +108,15 @@ void BargeInFilter::Process(std::vector<int16_t>&& frame, bool speech, const Sin
         }
         break;
     case NB_BARGE_OPENED: {
-        ESP_LOGI(TAG, "Voice while speaking (run avg %d dBFS): sending %u ms to interrupt",
-                 gate_.opening_average, (unsigned)((kept_.size() + 1) * frame_ms_));
+        const unsigned sent_ms = (unsigned)((kept_.size() + 1) * frame_ms_);
+        const unsigned burst_ms = (unsigned)(burst_frames_ * frame_ms_);
+        ESP_LOGI(TAG, "Voice while speaking (run avg %d dBFS): sending %u ms to interrupt, "
+                      "speech began %u ms ago",
+                 gate_.opening_average, sent_ms, burst_ms);
+        if (burst_ms > sent_ms) {
+            ESP_LOGW(TAG, "Start of the interruption cut: %u ms of speech, only %u ms kept",
+                     burst_ms, sent_ms);
+        }
         Flush(sink);
         sink(std::move(frame));
         break;

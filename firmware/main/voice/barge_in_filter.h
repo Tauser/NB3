@@ -30,6 +30,7 @@ public:
 private:
     void LogListeningLevel(bool speech, int level);
     void Flush(const Sink& sink);
+    void TrackBurst(bool speech);
     struct HeldFrame {
         std::vector<int16_t> pcm;
         bool voice;
@@ -43,4 +44,8 @@ private:
     int loudest_held_ = NB_BARGE_LEVEL_SILENCE;  // best run average that stayed below, this turn
     int listen_sum_ = 0;          // dBFS sum of the current speech run while listening
     uint32_t listen_frames_ = 0;
+    // Length of the current burst of speech while the gate is closed, which
+    // keeps counting past what kept_ can hold, to see if the opening is cut.
+    uint32_t burst_frames_ = 0;
+    uint32_t burst_quiet_frames_ = 0;
 };
