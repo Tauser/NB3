@@ -3,6 +3,7 @@
 #include <nvs_flash.h>
 
 #include "application.h"
+#include "diag/panic_record.h"
 
 #define TAG "main"
 
@@ -10,6 +11,8 @@
 // services (face, reflexes, motion safety) start before Application so the
 // robot is alive while the network and cloud are still coming up.
 extern "C" void app_main(void) {
+    nb_panic_record_report_boot();
+
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_LOGW(TAG, "Erasing NVS flash to fix corruption");

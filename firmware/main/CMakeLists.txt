@@ -231,6 +231,9 @@ function(find_component_dir pattern out_var)
     endforeach()
 endfunction()
 
+# The panic handler keeps the crash site in RTC memory (diag/panic_record.c).
+target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=esp_panic_handler")
+
 find_component_dir("espressif__esp-sr" ESP_SR_DIR)
 find_component_dir("xiaozhi-fonts" FONTS_DIR)
 
