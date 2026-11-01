@@ -38,6 +38,9 @@ public:
 
     uint32_t timeouts() const { return timeouts_; }
     uint32_t bad_frames() const { return bad_frames_; }
+    // Replies that parsed but failed the reading's own checks (a position
+    // beyond the servo's range): noise that got through the checksum.
+    uint32_t rejected() const { return rejected_; }
 
 private:
     bool Write(const uint8_t* tx, size_t tx_len);
@@ -46,6 +49,7 @@ private:
     bool ok_ = false;
     uint32_t timeouts_ = 0;
     uint32_t bad_frames_ = 0;
+    uint32_t rejected_ = 0;
 };
 
 #endif  // NB3_SCS_BUS_H

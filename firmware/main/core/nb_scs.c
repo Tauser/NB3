@@ -227,7 +227,11 @@ bool nb_scs_decode_feedback(const nb_scs_response_t *resp, nb_scs_feedback_t *ou
         return false;
     }
     const uint8_t *p = resp->params;
-    out->position = nb_scs_decode_u16(p[0], p[1]);
+    const uint16_t position = nb_scs_decode_u16(p[0], p[1]);
+    if (position > NB_SCS_POSITION_MAX) {
+        return false;  // a frame that passed its checksum on a noisy bus is still no position
+    }
+    out->position = position;
     out->speed = nb_scs_decode_speed(nb_scs_decode_u16(p[2], p[3]));
     out->load = nb_scs_decode_load(nb_scs_decode_u16(p[4], p[5]));
     out->voltage_dv = p[6];

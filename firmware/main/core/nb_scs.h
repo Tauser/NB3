@@ -155,7 +155,8 @@ int16_t nb_scs_decode_load(uint16_t raw);
 // Speed register: bit 15 = direction, bits 14..0 = magnitude.
 int16_t nb_scs_decode_speed(uint16_t raw);
 
-// Decodes the NB_SCS_FEEDBACK_LEN params of a read_feedback reply.
+// Decodes the NB_SCS_FEEDBACK_LEN params of a read_feedback reply. False for
+// a wrong length or a position above NB_SCS_POSITION_MAX; *out is untouched.
 bool nb_scs_decode_feedback(const nb_scs_response_t *resp, nb_scs_feedback_t *out);
 
 // ---- engineering units ----------------------------------------------------

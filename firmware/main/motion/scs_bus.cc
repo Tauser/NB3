@@ -151,5 +151,9 @@ bool ScsBus::ReadFeedback(uint8_t id, nb_scs_feedback_t* fb, uint8_t* error) {
     if (error != nullptr) {
         *error = resp.error;
     }
-    return nb_scs_decode_feedback(&resp, fb);
+    if (!nb_scs_decode_feedback(&resp, fb)) {
+        rejected_++;  // a reply that parsed but carries no usable reading
+        return false;
+    }
+    return true;
 }

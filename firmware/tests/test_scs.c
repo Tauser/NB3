@@ -282,6 +282,21 @@ static void test_decode_feedback(void) {
     NB_CHECK(!nb_scs_decode_feedback(NULL, &fb));
 }
 
+static void test_decode_feedback_rejects_position_beyond_the_range(void) {
+    nb_scs_response_t r = {.id = 1, .param_len = NB_SCS_FEEDBACK_LEN};
+    nb_scs_feedback_t fb = {.position = 77};
+    nb_scs_encode_u16(NB_SCS_POSITION_MAX, &r.params[0], &r.params[1]);
+    NB_CHECK(nb_scs_decode_feedback(&r, &fb));
+    NB_CHECK_EQ_INT(NB_SCS_POSITION_MAX, fb.position);
+
+    fb.position = 77;
+    nb_scs_encode_u16(NB_SCS_POSITION_MAX + 1, &r.params[0], &r.params[1]);
+    NB_CHECK(!nb_scs_decode_feedback(&r, &fb));
+    NB_CHECK_EQ_INT(77, fb.position);
+    nb_scs_encode_u16(65031, &r.params[0], &r.params[1]);  // seen on the bench
+    NB_CHECK(!nb_scs_decode_feedback(&r, &fb));
+}
+
 static void test_conversions(void) {
     volatile float zero = 0.0f;
     NB_CHECK(nb_scs_counts_to_deg(0) == 0.0f);
@@ -327,6 +342,7 @@ int main(void) {
     NB_RUN(test_decode_load_sign);
     NB_RUN(test_decode_speed_sign);
     NB_RUN(test_decode_feedback);
+    NB_RUN(test_decode_feedback_rejects_position_beyond_the_range);
     NB_RUN(test_conversions);
     NB_TEST_MAIN_END();
 }

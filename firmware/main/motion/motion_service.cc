@@ -159,6 +159,10 @@ void MotionService::FindServos() {
 }
 
 void MotionService::LogReadings() {
+    ESP_LOGI(TAG, "bus: %lu timeouts, %lu bad frames, %lu rejected readings",
+             static_cast<unsigned long>(bus_.timeouts()),
+             static_cast<unsigned long>(bus_.bad_frames()),
+             static_cast<unsigned long>(bus_.rejected()));
     for (int a = 0; a < NB_MOTION_SAFETY_AXIS_COUNT; a++) {
         if (!seen_[a]) {
             ESP_LOGW(TAG, "%s: no reading (%lu misses)", AxisName(a),
