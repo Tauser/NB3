@@ -755,6 +755,7 @@ void FaceDisplay::Tick() {
     nb_overlay_input_t channels_in = {};
     channels_in.winner = expression;
     channels_in.listening = device == kDeviceStateListening;
+    channels_in.voice = Application::GetInstance().GetAudioService().IsVoiceDetected();
     channels_in.speaking = device == kDeviceStateSpeaking;
     channels_in.sleeping = sleeping;
     // No producer yet for a confirmed wait or the technical marks.

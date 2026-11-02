@@ -203,7 +203,7 @@ Substituir o único kind final por um frame composto: atividade, gesto e condiç
 
 - A, G e T podem coexistir, salvo as exceções abaixo e a interseção com o banner.
 - Em A, fala tem precedência sobre escuta. Com o AEC desligado (D-024), o microfone fica fechado durante a fala, então barras e balão não coexistem e a voz não modula o balão.
-- Barras ficam visíveis durante toda a escuta real, não só nos 8 s de atenção da face. Como o xiaozhi mantém o microfone aberto até cerca de um minuto após uma resposta, isso muda o que se vê em repouso; avaliar na calibração.
+- Barras seguem a pessoa durante a escuta real, não a expressão: aparecem quando o microfone abre (até 8 s, esperando ela começar), ficam enquanto há voz (VAD do dispositivo) e fecham 500 ms depois que ela cala, voltando se ela falar de novo. A primeira versão da etapa 3 as mantinha abertas durante todo o microfone aberto (até cerca de um minuto após uma resposta); o usuário rejeitou isso em 02/11, porque as barras devem fechar quando ele para de falar. O VAD local é ruidoso com o microfone atual e pode segurar as barras; avaliar na calibração.
 - Em G, a ordem é: sono, espera confirmada, intenção vencedora. Um gesto por vez **somente neste canal**.
 - Barras × mão: durante espera confirmada, a mão substitui as barras. Fora dela, as barras vencem e a mão só aparece se não houver escuta.
 - Em T, parada segura vence sem rede. Quando a parada terminar, rede reaparece se a condição continuar.
@@ -248,7 +248,7 @@ Não expandir de seis para dezesseis efeitos sociais.
 
 | Efeito incluído | Gatilho | Execução |
 |---|---|---|
-| Barras | Escuta real e nível do mic | A; barras atuais, limitadas à tela |
+| Barras | Escuta real com voz (VAD) mais 500 ms; janela de 8 s ao abrir o microfone | A; barras atuais, limitadas à tela |
 | Mão de pensar | Espera confirmada ou intenção thinking vencedora | G; sprite atual após atraso |
 | Balão | Primeira frase da resposta ou reprodução audível, nunca só a entrada em Speaking (§7) | A; renderer e tamanho atuais |
 | Corações | loving vencedor | G; efeito atual |

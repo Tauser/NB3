@@ -49,6 +49,49 @@ static void test_bars_follow_real_listening_not_the_expression(void) {
     NB_CHECK_EQ_INT(NB_ACTIVITY_NONE, step(&r, t += 33).activity);
 }
 
+static void test_bars_open_at_first_then_close_when_the_person_goes_quiet(void) {
+    rig_t r;
+    rig_init(&r);
+    r.in.listening = true;
+    // The microphone just opened: ears open until they start.
+    NB_CHECK_EQ_INT(NB_ACTIVITY_BARS, step(&r, 0).activity);
+    NB_CHECK_EQ_INT(NB_ACTIVITY_BARS, step(&r, 4000).activity);
+    r.in.voice = true;
+    NB_CHECK_EQ_INT(NB_ACTIVITY_BARS, step(&r, 4100).activity);
+    NB_CHECK_EQ_INT(NB_ACTIVITY_BARS, step(&r, 6000).activity);
+    // They stop: the bars hold a short tail and close, though listening goes on.
+    r.in.voice = false;
+    NB_CHECK_EQ_INT(NB_ACTIVITY_BARS, step(&r, 6200).activity);
+    NB_CHECK_EQ_INT(NB_ACTIVITY_NONE, step(&r, 6600).activity);
+    NB_CHECK_EQ_INT(NB_ACTIVITY_NONE, step(&r, 20000).activity);
+    // They speak again in the same spell: the bars come back.
+    r.in.voice = true;
+    NB_CHECK_EQ_INT(NB_ACTIVITY_BARS, step(&r, 20100).activity);
+}
+
+static void test_bars_give_up_if_the_person_never_speaks(void) {
+    rig_t r;
+    rig_init(&r);
+    r.in.listening = true;
+    NB_CHECK_EQ_INT(NB_ACTIVITY_BARS, step(&r, 0).activity);
+    NB_CHECK_EQ_INT(NB_ACTIVITY_BARS, step(&r, NB_OVERLAY_BARS_ATTENTION_MS - 1u).activity);
+    NB_CHECK_EQ_INT(NB_ACTIVITY_NONE, step(&r, NB_OVERLAY_BARS_ATTENTION_MS).activity);
+}
+
+static void test_a_new_listening_spell_opens_the_bars_again(void) {
+    rig_t r;
+    rig_init(&r);
+    r.in.listening = true;
+    r.in.voice = true;
+    step(&r, 0);
+    r.in.voice = false;
+    NB_CHECK_EQ_INT(NB_ACTIVITY_NONE, step(&r, 1000).activity);
+    r.in.listening = false;  // the reply is spoken and listening ends
+    step(&r, 2000);
+    r.in.listening = true;
+    NB_CHECK_EQ_INT(NB_ACTIVITY_BARS, step(&r, 30000).activity);
+}
+
 static void test_speaking_wins_over_listening_and_the_expression(void) {
     rig_t r;
     rig_init(&r);
@@ -295,6 +338,9 @@ static void test_technical_channel_is_independent_and_safety_wins(void) {
 int main(void) {
     NB_RUN(test_rest_shows_nothing);
     NB_RUN(test_bars_follow_real_listening_not_the_expression);
+    NB_RUN(test_bars_open_at_first_then_close_when_the_person_goes_quiet);
+    NB_RUN(test_bars_give_up_if_the_person_never_speaks);
+    NB_RUN(test_a_new_listening_spell_opens_the_bars_again);
     NB_RUN(test_speaking_wins_over_listening_and_the_expression);
     NB_RUN(test_bubble_pops_then_settles);
     NB_RUN(test_bubble_lingers_then_leaves);

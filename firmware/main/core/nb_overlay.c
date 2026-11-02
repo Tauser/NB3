@@ -86,7 +86,23 @@ void nb_overlay_update(nb_overlay_t *overlay, const nb_overlay_input_t *input, u
             activity = NB_ACTIVITY_SPEECH;
         }
     }
-    if (activity == NB_ACTIVITY_NONE && input->listening && !input->wait_confirmed) {
+    // The person's turn: bars while they speak, closing a moment after they stop.
+    if (input->listening && !overlay->was_listening) {
+        overlay->heard_voice = false;
+        overlay->listen_start_ms = now_ms;
+    }
+    overlay->was_listening = input->listening;
+    if (input->listening && input->voice) {
+        overlay->heard_voice = true;
+        overlay->last_voice_ms = now_ms;
+    }
+    bool bars = false;
+    if (input->listening) {
+        bars = overlay->heard_voice
+                   ? (input->voice || now_ms - overlay->last_voice_ms < NB_OVERLAY_BARS_TAIL_MS)
+                   : now_ms - overlay->listen_start_ms < NB_OVERLAY_BARS_ATTENTION_MS;
+    }
+    if (activity == NB_ACTIVITY_NONE && bars && !input->wait_confirmed) {
         activity = NB_ACTIVITY_BARS;
     }
     if (activity != overlay->activity) {

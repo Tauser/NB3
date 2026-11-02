@@ -49,12 +49,18 @@ typedef enum {
 // A thinking intention shows the hand only once the thought gets long. A
 // confirmed wait is already long: its own delay belongs to whoever confirms it.
 #define NB_OVERLAY_HAND_DELAY_MS 1000u
+// Listening bars: shown for this long after the microphone opens, in case the
+// person has not started yet, and then only while there is voice plus a short
+// tail. When the person goes quiet the bars close.
+#define NB_OVERLAY_BARS_ATTENTION_MS 8000u
+#define NB_OVERLAY_BARS_TAIL_MS 500u
 // The bubble lingers this long after the voice stops, shrinking away.
 #define NB_OVERLAY_SPEECH_LINGER_MS 500u
 
 typedef struct {
     nb_expression_t winner;  // what the arbiter resolved; read only by G
     bool listening;          // the microphone is really open for the user
+    bool voice;              // the person is speaking now (the device's VAD)
     bool speaking;           // the robot's voice is playing
     bool wait_confirmed;     // the server has the question and has not answered
     bool sleeping;
@@ -83,6 +89,10 @@ typedef struct {
     bool gesture_after_wait;   // the hand came from a confirmed wait
     uint32_t activity_since_ms;
     uint32_t gesture_since_ms;
+    bool was_listening;
+    bool heard_voice;          // the person has spoken in this listening spell
+    uint32_t listen_start_ms;
+    uint32_t last_voice_ms;
     uint32_t speech_end_ms;    // when the voice stopped, valid while speech_ending
     bool speech_ending;
     uint32_t last_ms;
@@ -93,10 +103,11 @@ typedef struct {
 void nb_overlay_init(nb_overlay_t *overlay);
 
 // Writes the frame to draw now. Rules:
-//  - A: the voice wins; the bubble lingers briefly after it. Otherwise the
-//    bars show for as long as the microphone is really open, whatever the
-//    face expression says, except during a confirmed wait, which hands the
-//    place to the hand.
+//  - A: the robot's voice wins; the bubble lingers briefly after it. Otherwise
+//    the bars follow the person: from the moment the microphone opens (for
+//    NB_OVERLAY_BARS_ATTENTION_MS, until they speak) and then while they
+//    speak and for a short tail, whatever the face expression says. A
+//    confirmed wait hands the place to the hand.
 //  - G: sleep, then a confirmed wait, then the winning intention. The hand of
 //    a thinking intention gives way to the bars while listening.
 //  - T: the safety stop wins over the network mark.
