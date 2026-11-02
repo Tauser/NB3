@@ -368,7 +368,8 @@ struct Painter {
 
     // A heart centred on (x, y), `size` wide: the classic parametric curve
     // (x = 16 sin^3 t, y = 13 cos t - 5 cos 2t - 2 cos 3t - cos 4t) filled as a
-    // fan of triangles from its middle, so the lobes and the point are smooth.
+    // fan of triangles from its middle, so the lobes and the point are smooth; thin
+    // lines along the fan's seams cover the gaps the rasterizer leaves between them.
     void Heart(float x, float y, float size, lv_color_t color) const {
         const float k = size / 32.0f;
         float px = 0.0f;
@@ -383,6 +384,10 @@ struct Painter {
             const float hy = y - (cy_ + 2.5f) * k;  // +2.5: centre of the curve's height
             if (i > 0) {
                 Triangle(x, y, px, py, hx, hy, color);
+            }
+            if (i > 0 && i < kHeartSteps) {
+                // The triangle rasterizer leaves hairline gaps along the shared edges.
+                Line(x, y, hx, hy, 2.0f, color, false);
             }
             px = hx;
             py = hy;
