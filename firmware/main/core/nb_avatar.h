@@ -10,9 +10,12 @@ extern "C" {
 
 // The NB3 avatar: two solid eyes (capsules, crescents, slanted half-moons,
 // circles) built from a capsule, lids and a crescent cut, first ported from
-// the NoiseBot 2 avatar and redrawn for the face V2 (docs/FACE.md). Poses live in a 1000x1000 design space centered on the face;
-// the renderer scales them to the screen. Time advances only through
-// nb_avatar_core_tick(), randomness only through the seed.
+// the NoiseBot 2 avatar and redrawn for the face V2 (docs/FACE.md). Poses live
+// in a 1000x1000 design space centered on the face; the renderer scales them
+// to the screen. The 15 expressions are the public names; inside, each is a
+// recipe of scalars played by one of six pose generators (nb_avatar.c), with no
+// stored poses. Time advances only through nb_avatar_core_tick(), randomness
+// only through the seed.
 
 typedef enum {
     NB_AVATAR_EXPR_IDLE = 0,

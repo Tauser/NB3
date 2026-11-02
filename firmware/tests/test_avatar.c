@@ -474,6 +474,105 @@ static void test_crescent_interpolates_on_the_way_in(void)
     NB_CHECK(frame.pose.left_eye.crescent < 0.7f);
 }
 
+// A once expression lasts as long as the keyframe catalog it replaced (ms).
+static void test_once_expressions_keep_their_durations(void)
+{
+    static const struct {
+        nb_avatar_expression_t id;
+        uint32_t duration_ms;
+    } expected[] = {
+        {NB_AVATAR_EXPR_HAPPY, 1860u},     {NB_AVATAR_EXPR_EXCITED, 1310u},
+        {NB_AVATAR_EXPR_CURIOUS, 2020u},   {NB_AVATAR_EXPR_CONFUSED, 2145u},
+        {NB_AVATAR_EXPR_ANGRY, 2155u},     {NB_AVATAR_EXPR_SURPRISED, 1740u},
+        {NB_AVATAR_EXPR_SAD, 3340u},       {NB_AVATAR_EXPR_SLEEPY, 2600u},
+        {NB_AVATAR_EXPR_DIZZY, 1260u},     {NB_AVATAR_EXPR_LOVING, 1920u},
+        {NB_AVATAR_EXPR_EMBARRASSED, 2440u}, {NB_AVATAR_EXPR_CONTENT, 2120u},
+    };
+    for (size_t i = 0; i < sizeof(expected) / sizeof(expected[0]); ++i) {
+        nb_avatar_core_state_t state;
+        nb_avatar_core_init(&state, 20u);
+        NB_CHECK(nb_avatar_core_request(&state, expected[i].id));
+        NB_CHECK_EQ_INT(expected[i].duration_ms, state.expression_ends_ms - state.expression_started_ms);
+    }
+}
+
+// Smallest and largest of a frame field while an expression plays for window_ms.
+typedef float (*frame_field_t)(const nb_avatar_render_frame_t *);
+static float left_height(const nb_avatar_render_frame_t *f) { return f->pose.left_eye.height; }
+static float head_roll(const nb_avatar_render_frame_t *f) { return f->pose.head_roll; }
+
+static void field_range(nb_avatar_expression_t id, frame_field_t field, uint32_t window_ms,
+                        float *lo, float *hi)
+{
+    nb_avatar_core_state_t state;
+    nb_avatar_render_frame_t frame;
+    nb_avatar_core_init(&state, 21u);
+    NB_CHECK(nb_avatar_core_request(&state, id));
+    *lo = 1e9f;
+    *hi = -1e9f;
+    for (uint32_t t = 0u; t < window_ms; t += 10u) {
+        nb_avatar_core_tick(&state, 10u);
+        nb_avatar_core_get_frame(&state, &frame);
+        *lo = fminf(*lo, field(&frame));
+        *hi = fmaxf(*hi, field(&frame));
+    }
+}
+
+static void test_bouncy_entrances_flatten_before_opening(void)
+{
+    float lo, hi;
+    field_range(NB_AVATAR_EXPR_SURPRISED, left_height, 700u, &lo, &hi);
+    NB_CHECK(lo < 140.0f && hi > 230.0f);
+    field_range(NB_AVATAR_EXPR_EXCITED, left_height, 700u, &lo, &hi);
+    NB_CHECK(lo < 170.0f && hi > 380.0f);
+}
+
+static void test_confused_and_dizzy_sway_both_ways(void)
+{
+    float lo, hi;
+    field_range(NB_AVATAR_EXPR_CONFUSED, head_roll, 900u, &lo, &hi);
+    NB_CHECK(lo < -2.0f && hi > 2.0f);
+    field_range(NB_AVATAR_EXPR_DIZZY, head_roll, 900u, &lo, &hi);
+    NB_CHECK(lo < -2.0f && hi > 2.0f);
+}
+
+static void test_only_surprised_sleepy_and_dizzy_never_blink(void)
+{
+    for (int id = NB_AVATAR_EXPR_IDLE; id < NB_AVATAR_EXPR_COUNT; ++id) {
+        nb_avatar_core_state_t state;
+        nb_avatar_render_frame_t frame;
+        nb_avatar_core_init(&state, 22u);
+        NB_CHECK(nb_avatar_core_hold(&state, (nb_avatar_expression_t)id));
+        float lowest = 1.0f;
+        for (uint32_t t = 0u; t < 40000u; t += 10u) {
+            nb_avatar_core_tick(&state, 10u);
+            nb_avatar_core_get_frame(&state, &frame);
+            lowest = fminf(lowest, frame.blink_scale);
+        }
+        const bool never = id == NB_AVATAR_EXPR_SURPRISED || id == NB_AVATAR_EXPR_SLEEPY ||
+                           id == NB_AVATAR_EXPR_DIZZY;
+        NB_CHECK(never ? lowest > 0.99f : lowest < 0.2f);
+    }
+}
+
+static void test_each_family_sits_in_its_corner_of_the_catalog(void)
+{
+    // Pairs that must stay apart, even with no label: same family, different look.
+    const nb_avatar_render_frame_t neutral = held_frame(NB_AVATAR_EXPR_IDLE);
+    const nb_avatar_render_frame_t content = held_frame(NB_AVATAR_EXPR_CONTENT);
+    NB_CHECK(content.pose.left_eye.height < neutral.pose.left_eye.height - 40.0f);
+    const nb_avatar_render_frame_t sad = held_frame(NB_AVATAR_EXPR_SAD);
+    const nb_avatar_render_frame_t sleepy = held_frame(NB_AVATAR_EXPR_SLEEPY);
+    const nb_avatar_render_frame_t shy = held_frame(NB_AVATAR_EXPR_EMBARRASSED);
+    NB_CHECK(fabsf(sad.pose.left_eye.upper_lid_tilt) > 0.5f);
+    NB_CHECK(fabsf(sleepy.pose.left_eye.upper_lid_tilt) < 0.01f);  // sleep is symmetric
+    NB_CHECK(fabsf(shy.pose.left_eye.upper_lid_tilt) < fabsf(sad.pose.left_eye.upper_lid_tilt));
+    NB_CHECK(shy.pose.left_eye.x < shy.pose.right_eye.x - 380.0f);
+    NB_CHECK(shy.pose.left_eye.x + shy.pose.right_eye.x < -20.0f);  // the look is to the side
+    const nb_avatar_render_frame_t curious = held_frame(NB_AVATAR_EXPR_CURIOUS);
+    NB_CHECK(curious.pose.left_eye.height > curious.pose.right_eye.height + 60.0f);
+}
+
 static void test_null_calls_are_safe(void)
 {
     nb_avatar_render_frame_t frame;
@@ -514,6 +613,11 @@ int main(void) {
     NB_RUN(test_v2_half_moons_slant_the_right_way);
     NB_RUN(test_v2_has_no_brows);
     NB_RUN(test_crescent_interpolates_on_the_way_in);
+    NB_RUN(test_once_expressions_keep_their_durations);
+    NB_RUN(test_bouncy_entrances_flatten_before_opening);
+    NB_RUN(test_confused_and_dizzy_sway_both_ways);
+    NB_RUN(test_only_surprised_sleepy_and_dizzy_never_blink);
+    NB_RUN(test_each_family_sits_in_its_corner_of_the_catalog);
     NB_RUN(test_null_calls_are_safe);
     NB_TEST_MAIN_END();
 }
