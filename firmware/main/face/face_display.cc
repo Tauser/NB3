@@ -457,7 +457,7 @@ struct Painter {
     }
 
     // The technical mark of channel T, fixed on the screen (not following the
-    // eyes), 32x32 at the top right: bars struck through for the network, a
+    // eyes), 32x32 at the top right: a struck-through Wi-Fi symbol for the network, a
     // shield with a pause for the safety stop.
     void TechMark(nb_tech_kind_t kind) const {
         const float x0 = cx + kTechLeft;
@@ -465,9 +465,22 @@ struct Painter {
         const int ix = static_cast<int>(lroundf(x0));
         const int iy = static_cast<int>(lroundf(y0));
         if (kind == NB_TECH_NET) {
-            for (int i = 0; i < 3; ++i) {
-                const int h = 8 + 8 * i;
-                RoundRect(ix + 3 + 9 * i, iy + 29 - h, 6, h, 2, kTechColor);
+            // Wi-Fi: a dot and three arcs fanning up from it, struck through.
+            Circle(x0 + 16.0f, y0 + 27.0f, 3, kTechColor);
+            for (int ring = 0; ring < 3; ++ring) {
+                const float r = 8.0f + 7.0f * ring;
+                float px = 0.0f;
+                float py = 0.0f;
+                for (int i = 0; i <= 6; ++i) {
+                    const float a = (-45.0f + 15.0f * i) * kPi / 180.0f;
+                    const float x = x0 + 16.0f + r * sinf(a);
+                    const float y = y0 + 27.0f - r * cosf(a);
+                    if (i > 0) {
+                        Line(px, py, x, y, 3.0f, kTechColor);
+                    }
+                    px = x;
+                    py = y;
+                }
             }
             Line(x0 + 3.0f, y0 + 30.0f, x0 + 29.0f, y0 + 3.0f, 6.0f, kBackground, false);
             Line(x0 + 3.0f, y0 + 30.0f, x0 + 29.0f, y0 + 3.0f, 3.0f, kTechColor);

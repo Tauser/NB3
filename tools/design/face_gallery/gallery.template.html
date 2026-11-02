@@ -227,7 +227,15 @@ function drawOverlays(ctx, f, t, o) {
   if (o.T !== 'none') {  // the same shapes as Painter::TechMark, in amber
     const AMBER = '#f0b35a', x = ICON.x0, y = ICON.y0;
     if (o.T === 'net') {
-      for (let i = 0; i < 3; i++) { const h = 8 + 8 * i; fillRound(ctx, x + 3 + 9 * i, y + 29 - h, 6, h, 2, AMBER); }
+      circle(ctx, x + 16, y + 27, 3, AMBER);
+      for (let ring = 0; ring < 3; ring++) {
+        const r = 8 + 7 * ring; let px = 0, py = 0;
+        for (let i = 0; i <= 6; i++) {
+          const a = (-45 + 15 * i) * Math.PI / 180, ax = x + 16 + r * Math.sin(a), ay = y + 27 - r * Math.cos(a);
+          if (i) line(ctx, px, py, ax, ay, 3, AMBER);
+          px = ax; py = ay;
+        }
+      }
       line(ctx, x + 3, y + 30, x + 29, y + 3, 6, BLACK, false); line(ctx, x + 3, y + 30, x + 29, y + 3, 3, AMBER);
     } else {
       fillRound(ctx, x + 3, y + 2, 26, 16, 3, AMBER);
