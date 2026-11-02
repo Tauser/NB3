@@ -223,6 +223,13 @@ struct Painter {
         const int width = static_cast<int>(fmaxf(4.0f, roundf(eye.width * scale)));
         const int height = static_cast<int>(
             fmaxf(4.0f, roundf(eye.height * scale * Clamp(blink, 0.08f, 1.0f))));
+        if (eye.heart > 0.5f) {
+            // Loving: the eye is a heart. Heart() is anchored at its top edge, and its
+            // body is centered 0.085 of its size below that.
+            const float size = fmaxf(width, height) * 1.02f;
+            Heart(eye_x, eye_y - size * 0.085f, size, kHeartColor);
+            return;
+        }
         const int left = static_cast<int>(roundf(eye_x - width * 0.5f));
         const int top = static_cast<int>(roundf(eye_y - height * 0.5f));
         const int radius = static_cast<int>(fmaxf(
@@ -452,14 +459,8 @@ struct Painter {
                     }
                     break;
                 case NB_GESTURE_HEARTS:
-                    for (int i = 0; i < 2; ++i) {
-                        const float p = o.hearts[i];
-                        const float fade =
-                            p < 0.15f ? p / 0.15f : (p > 0.8f ? (1.0f - p) / 0.2f : 1.0f);
-                        Heart(ox + (i == 0 ? -8.0f : 10.0f) * s0,
-                              oy + (kHeartsY - kHeartsRise * p) * s0, (18.0f + 6.0f * p) * s0,
-                              Dim(kHeartColor, Clamp(fade, 0.0f, 1.0f)));
-                    }
+                    // Loving shows its hearts as the eyes themselves (Eye()); the rising
+                    // pair would only repeat them.
                     break;
                 case NB_GESTURE_ZS:
                     for (int i = 0; i < NB_OVERLAY_ZS; ++i) {

@@ -63,6 +63,8 @@ fica um pouco maior, confused um pouco menor e dizzy perde a alternância
 vertical dos olhos. Validado em host-tests (38/38 + galeria) e build; falta ver
 na placa e comparar lado a lado na galeria antes de aceitar a vivacidade.
 
+**Faces redesenhadas no FACE 04 (02/11):** a pedido do usuário, as formas passam a seguir a prancha FACE 04: feliz em arcos largos e finos, confuso com uma cápsula alta e uma meia-lua pequena, triste, envergonhado e sonolento em meias-luas de topo chato (envergonhado com bochechas), bravo mais largo e baixo, contente quase igual ao disponível. Carinhoso vira **dois corações no lugar dos olhos** (campo `heart` no olho, desenhado por `Painter::Eye`); os corações que subiam deixaram de ser desenhados. Dormindo continua sendo o arco fechado. Referência da galeria regravada. Bravo vermelho e os ícones de rede e parada ficam na etapa 5. Validado em host-tests, galeria e build; falta ver na placa.
+
 **Corte de fala por pausa curta (02/11):** o fim do turno é decidido pelo servidor; o cliente (e o StackChan, que usa o xiaozhi v2.2.4 sem alteração nessa parte) não tem limite de silêncio. Experimento D-025 implementado, com 38/38 host-tests e build, ainda sem gravar na placa: falta medir se esconder pausas de até 700 ms evita o corte e quanto atrasa a resposta.
 
 ## Visão geral

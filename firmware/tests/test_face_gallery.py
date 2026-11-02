@@ -1,9 +1,9 @@
 """Protects the poses of the 15 intentions and the channel contract.
 
-The gallery tool samples the real avatar core. Its reference poses are the
-keyframe catalog that stage 4 replaced with six generators; the held poses must
-stay near them. Record the reference again only on purpose
-(`build_gallery.py --record`) and say why in the commit.
+The gallery tool samples the real avatar core. Its reference poses are what the
+15 intentions look like now (recorded after the faces were redrawn on the FACE 04
+model); a change in them must be deliberate: run `build_gallery.py --record` and
+say why in the commit.
 """
 import json
 from pathlib import Path
@@ -25,26 +25,9 @@ class FaceGalleryTests(unittest.TestCase):
     def setUpClass(cls):
         cls.current, cls.rest, cls.contract = build_gallery.dump_all()
 
-    @staticmethod
-    def held(scenario):
-        target = scenario['release_ms'] - 100
-        return min(scenario['frames'], key=lambda f: abs(f[0] - target))
-
-    def test_held_poses_stay_near_the_recorded_reference(self):
-        # The reference is the 15 keyframe catalog that stage 4 replaced; the six
-        # generators land near it, not on it. Frame layout: see dump_frames.c.
+    def test_rest_poses_match_the_recorded_reference(self):
         reference = json.loads(build_gallery.REFERENCE.read_text(encoding='utf-8'))
-        self.assertEqual([s['expression'] for s in reference['scenarios']], EXPECTED)
-        for old, new in zip(reference['scenarios'], self.rest['scenarios']):
-            with self.subTest(expression=old['expression']):
-                a, b = self.held(old), self.held(new)
-                for eye in (6, 7):
-                    for i in range(4):  # x, y, width, height in design units
-                        self.assertLessEqual(abs(a[eye][i] - b[eye][i]), 45.0)
-                    for i in (5, 6):  # lid, lid tilt
-                        self.assertLessEqual(abs(a[eye][i] - b[eye][i]), 0.4)
-                    self.assertLessEqual(abs(a[eye][9] - b[eye][9]), 2.0)  # eye angle
-                self.assertLessEqual(abs(a[5] - b[5]), 10.0)  # face height
+        self.assertEqual(reference, self.rest)
 
     def test_every_intention_has_every_look(self):
         found = {(s['expression'], s['look']) for s in self.current['scenarios']}
@@ -72,14 +55,14 @@ class FaceGalleryTests(unittest.TestCase):
         # the gallery first.
         self.assertLessEqual(self.touching('bars'), {
             ('EXCITED', 'down_left'), ('EXCITED', 'down_right'),
-            ('CURIOUS', 'down_right'), ('THINKING', 'down_right')})
+            ('CURIOUS', 'down_right'), ('THINKING', 'down_right'), ('CONFUSED', 'down_right')})
 
     def test_hand_touches_the_eyes_only_in_the_measured_cases(self):
         self.assertLessEqual(self.touching('hand'), {
             ('IDLE', 'down_right'), ('LISTENING', 'down_left'), ('LISTENING', 'down_right'),
             ('THINKING', 'down_right'), ('EXCITED', 'up_right'), ('EXCITED', 'down_left'),
             ('EXCITED', 'down_right'), ('CURIOUS', 'up_right'), ('CURIOUS', 'down_right'),
-            ('CONFUSED', 'down_right'), ('SURPRISED', 'down_right'), ('DIZZY', 'rest'),
+            ('CONFUSED', 'up_right'), ('CONFUSED', 'down_right'), ('SURPRISED', 'down_right'), ('DIZZY', 'rest'),
             ('DIZZY', 'up_left'), ('DIZZY', 'up_right'), ('DIZZY', 'down_left'),
             ('DIZZY', 'down_right'), ('CONTENT', 'down_right')})
 

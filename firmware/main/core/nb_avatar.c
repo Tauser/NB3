@@ -60,7 +60,8 @@ typedef struct {
     float pitch;   // head, degrees
     float yaw;
     float roll;
-    float lid;     // half-moon lid of the left eye (CURIOSITY)
+    float lid;     // half-moon lid of the right eye (CURIOSITY)
+    float heart;   // the eyes are hearts (JOY)
 } nb_avatar_shape_t;
 
 typedef struct {
@@ -129,6 +130,8 @@ static nb_avatar_pose_t assemble(const nb_avatar_shape_t *s, float base_w, float
     nb_avatar_pose_t pose;
     pose.left_eye = make_eye(-x + s->lx, base_y + s->ly - drop, wl, hl, lid_left, tilt, crescent);
     pose.right_eye = make_eye(x + s->lx, base_y + s->ly + drop, wr, hr, lid, -tilt, crescent);
+    pose.left_eye.heart = s->heart;
+    pose.right_eye.heart = s->heart;
     pose.face_scale = 1.0f + s->zoom;
     pose.face_x = 0.0f;
     pose.face_y = FACE_Y + s->fy + face_fy;
@@ -150,35 +153,36 @@ static nb_avatar_pose_t gen_joy(const nb_avatar_shape_t *s)
     return assemble(s, REST_W, REST_H, REST_Y, 0, 0, 0, s->a, 0, 0);
 }
 
-/* v: the size imbalance of the pair (the bigger eye rides higher); the left
+/* v: the size imbalance of the pair (the bigger eye rides higher); the right
  * eye takes the half-moon lid `lid`. a is unused. */
 static nb_avatar_pose_t gen_curiosity(const nb_avatar_shape_t *s)
 {
-    return assemble(s, 160.0f, 320.0f, -16.0f, s->lid, 0, 0, 0, 0.23f, 0);
+    return assemble(s, 160.0f, 320.0f, -16.0f, 0, s->lid, 0, 0, 0.23f, 0);
 }
 
 /* a: how far the half-moons slant toward the middle (the lid drop follows). */
 static nb_avatar_pose_t gen_contrary(const nb_avatar_shape_t *s)
 {
-    return assemble(s, REST_W + 50.0f * s->a, REST_H - 100.0f * s->a, REST_Y, 0.14f * s->a,
+    return assemble(s, REST_W + 90.0f * s->a, REST_H - 170.0f * s->a, REST_Y, 0.14f * s->a,
                     0.14f * s->a, 0.75f * s->a, 0, 0, 0);
 }
 
 /* a: how far the half-moons droop outward. v: 0 sad .. 1 shy (a heavier lid). */
 static nb_avatar_pose_t gen_sadness(const nb_avatar_shape_t *s)
 {
-    const float lid = 0.12f + 0.20f * s->v;
+    const float lid = 0.15f + 0.30f * s->v;
     nb_avatar_shape_t even = *s;
     even.v = 0.0f;
     return assemble(&even, 185.0f, 255.0f, REST_Y, lid, lid, -s->a, 0, 0, 0);
 }
 
-/* a: how far the eyes have closed (a lid first, then an upside-down arc). */
+/* a: how far the lids have come down over small round eyes (flat-topped
+ * half-moons); closing the eyes into arcs is the sleep, not this. */
 static nb_avatar_pose_t gen_sleepiness(const nb_avatar_shape_t *s)
 {
-    const float lid = 0.28f * (1.0f - s->a);
-    return assemble(s, 245.0f - 25.0f * s->a, 165.0f - 5.0f * s->a, 18.0f + 12.0f * s->a, lid,
-                    lid, 0, -0.72f * s->a, 0, 26.0f + 8.0f * s->a);
+    const float lid = 0.4f * s->a;
+    return assemble(s, 190.0f - 20.0f * s->a, 190.0f - 25.0f * s->a, 18.0f + 12.0f * s->a, lid,
+                    lid, 0, 0, 0, 26.0f + 8.0f * s->a);
 }
 
 static nb_avatar_pose_t generate(nb_avatar_family_t family, const nb_avatar_shape_t *s)
@@ -239,9 +243,9 @@ static const nb_avatar_recipe_t s_recipes[NB_AVATAR_EXPR_COUNT] = {
         MOTION(3, .68f, -2, 2.8f, .52f, 4, .63f, .003f, .72f, 320, 420)},
     [NB_AVATAR_EXPR_HAPPY] = {
         .name = "HAPPY", .family = FAMILY_JOY, .springy = true,
-        .peak = SHAPE(.a = 0.70f, .dw = 0.32f, .dh = -0.46f, .spread = -3.0f, .ly = 5.0f,
+        .peak = SHAPE(.a = 0.78f, .dw = 0.8f, .dh = -0.5f, .spread = -3.0f, .ly = 5.0f,
                       .fy = -4.0f, .zoom = 0.035f),
-        .settle = 1.057f, .antic_open = 0.79f, TIMES(115, 0, 225, 900, 200, 420),
+        .settle = 1.03f, .antic_open = 0.79f, TIMES(115, 0, 225, 900, 200, 420),
         .blink = BLINK_QUICK, MOTION(15, 8, 0, 0, 0, 3.5f, 1.1f, .008f, 2.4f, 180, 240)},
     [NB_AVATAR_EXPR_EXCITED] = {
         .name = "EXCITED", .family = FAMILY_JOY, .springy = true,
@@ -258,7 +262,7 @@ static const nb_avatar_recipe_t s_recipes[NB_AVATAR_EXPR_COUNT] = {
         MOTION(3.5f, 1.15f, -1, 2, .9f, 3, .8f, .006f, 1.25f, 160, 300)},
     [NB_AVATAR_EXPR_CONFUSED] = {
         .name = "CONFUSED", .family = FAMILY_CURIOSITY, .springy = true,
-        .peak = SHAPE(.dw = 0.03f, .dh = -0.06f, .ly = 4.0f, .fy = 2.0f, .pitch = 3.5f,
+        .peak = SHAPE(.v = 0.15f, .dw = -0.05f, .ly = 4.0f, .fy = 2.0f, .pitch = 3.5f,
                       .lid = 0.5f),
         .settle = 1.0f, .ant_amount = 1.0f, .roll_sway = 5.0f, TIMES(165, 300, 280, 420, 260, 720),
         .blink = BLINK_QUICK, MOTION(2, 1.1f, 0, 6, 4.2f, 3.5f, 3.8f, .004f, 1, 170, 320)},
@@ -274,8 +278,8 @@ static const nb_avatar_recipe_t s_recipes[NB_AVATAR_EXPR_COUNT] = {
         .blink = BLINK_NONE, MOTION(3, 2, -1, 1.5f, 2.2f, 1.5f, 1.4f, .021f, 9, 120, 260)},
     [NB_AVATAR_EXPR_SAD] = {
         .name = "SAD", .family = FAMILY_SADNESS,
-        .peak = SHAPE(.a = 0.65f, .spread = -9.0f, .ly = 35.0f, .fy = 28.0f, .zoom = -0.015f,
-                      .pitch = 15.0f),
+        .peak = SHAPE(.a = 0.22f, .dw = -0.15f, .dh = -0.25f, .spread = -9.0f, .ly = 35.0f,
+                      .fy = 28.0f, .zoom = -0.015f, .pitch = 15.0f),
         .settle = 1.04f, .ant_amount = 0.46f, TIMES(280, 260, 430, 1250, 360, 760),
         .blink = BLINK_SLOW, MOTION(3.5f, .72f, 8, 1.2f, .55f, 1.2f, .48f, .0025f, .62f, 300, 460)},
     [NB_AVATAR_EXPR_SLEEPY] = {
@@ -292,19 +296,19 @@ static const nb_avatar_recipe_t s_recipes[NB_AVATAR_EXPR_COUNT] = {
         MOTION(7, 6.4f, 0, 18, 10.5f, 5, 7, .012f, 4.2f, 140, 300)},
     [NB_AVATAR_EXPR_LOVING] = {
         .name = "LOVING", .family = FAMILY_JOY, .springy = true,
-        .peak = SHAPE(.a = 0.80f, .dw = 0.42f, .dh = -0.53f, .spread = -3.0f, .ly = 9.0f,
-                      .zoom = 0.03f),
-        .settle = 1.025f, .antic_open = 0.78f, TIMES(140, 0, 260, 700, 220, 600),
+        .peak = SHAPE(.dw = 0.35f, .dh = -0.45f, .spread = -3.0f, .ly = 9.0f, .zoom = 0.03f,
+                      .heart = 1.0f),
+        .settle = 1.0f, .antic_open = 0.78f, TIMES(140, 0, 260, 700, 220, 600),
         .blink = BLINK_SLOW, MOTION(6, 2.4f, 0, 0, 0, 2, .9f, .005f, 1.6f, 220, 300)},
     [NB_AVATAR_EXPR_EMBARRASSED] = {
         .name = "EMBARRASSED", .family = FAMILY_SADNESS,
-        .peak = SHAPE(.a = 0.30f, .v = 1.0f, .dw = -0.19f, .dh = -0.02f, .lx = -22.0f,
-                      .ly = 55.0f, .fy = 18.0f, .zoom = -0.01f, .pitch = 10.0f, .yaw = -6.0f),
+        .peak = SHAPE(.v = 1.0f, .dw = -0.2f, .dh = -0.3f, .lx = -22.0f, .ly = 45.0f,
+                      .fy = 18.0f, .zoom = -0.01f, .pitch = 10.0f, .yaw = -6.0f),
         .settle = 0.93f, .antic_open = 0.92f, TIMES(140, 0, 300, 700, 400, 900),
         .blink = BLINK_ATTENTIVE, MOTION(2, .9f, 0, 1.5f, .8f, 2.5f, .7f, .003f, .9f, 220, 320)},
     [NB_AVATAR_EXPR_CONTENT] = {
         .name = "CONTENT", .family = FAMILY_JOY, .persistent = false,
-        .peak = SHAPE(.dh = -0.17f, .dw = 0.1f, .spread = -3.0f, .ly = 11.0f, .fy = 2.0f),
+        .peak = SHAPE(.dh = -0.08f, .spread = -3.0f, .ly = 6.0f, .fy = 1.0f),
         .settle = 1.0f, TIMES(0, 0, 320, 600, 400, 800), .blink = BLINK_CALM,
         MOTION(2.5f, .9f, 0, 0, 0, 0, 0, .003f, .8f, 300, 400)},
 };
@@ -575,6 +579,7 @@ static nb_avatar_eye_pose_t mix_eye(const nb_avatar_eye_pose_t *a,
     MIX_EYE(brow_opacity);
     MIX_EYE(angle);
     MIX_EYE(crescent);
+    MIX_EYE(heart);
 #undef MIX_EYE
     return out;
 }

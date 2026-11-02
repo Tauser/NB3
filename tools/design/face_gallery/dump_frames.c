@@ -54,8 +54,9 @@ static void start(nb_avatar_core_state_t *st, nb_avatar_expression_t expr,
 }
 
 static void print_eye(const nb_avatar_eye_pose_t *e) {
-    printf("[%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f]", e->x, e->y, e->width, e->height,
-           e->roundness, e->upper_lid, e->upper_lid_tilt, e->lower_lid, e->crescent, e->angle);
+    printf("[%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f]", e->x, e->y, e->width,
+           e->height, e->roundness, e->upper_lid, e->upper_lid_tilt, e->lower_lid, e->crescent,
+           e->angle, e->heart);
 }
 
 static void print_frame(uint32_t t, const nb_avatar_render_frame_t *f) {

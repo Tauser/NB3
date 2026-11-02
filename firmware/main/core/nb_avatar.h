@@ -51,6 +51,7 @@ typedef struct {
     float angle;           // eye rotation, degrees
     float crescent;        // >0 a curved cut rises from below (happy arc), <0 it
                            // comes down from above (sleepy arc); |1| leaves a sliver
+    float heart;           // >0.5 the eye is drawn as a heart (loving)
 } nb_avatar_eye_pose_t;
 
 typedef struct {

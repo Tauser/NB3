@@ -422,12 +422,13 @@ static void test_v2_arcs_are_crescents(void)
     const nb_avatar_render_frame_t happy = held_frame(NB_AVATAR_EXPR_HAPPY);
     const nb_avatar_render_frame_t loving = held_frame(NB_AVATAR_EXPR_LOVING);
     const nb_avatar_render_frame_t sleepy = held_frame(NB_AVATAR_EXPR_SLEEPY);
-    // Happy and loving close from below; loving is the thinner arc.
+    // Happy closes from below into thin arcs; loving has hearts, not arcs.
     NB_CHECK(happy.pose.left_eye.crescent > 0.6f);
     NB_CHECK(happy.pose.right_eye.crescent > 0.6f);
-    NB_CHECK(loving.pose.left_eye.crescent > happy.pose.left_eye.crescent);
-    // Sleepy closes from above.
-    NB_CHECK(sleepy.pose.left_eye.crescent < -0.6f);
+    NB_CHECK(loving.pose.left_eye.heart > 0.5f && loving.pose.left_eye.crescent == 0.0f);
+    // Sleepy is a flat-topped half-moon (a lid), not an arc: the arc is the sleep.
+    NB_CHECK(sleepy.pose.left_eye.upper_lid > 0.3f);
+    NB_CHECK(sleepy.pose.left_eye.crescent == 0.0f);
     // A plain capsule has no cut.
     const nb_avatar_render_frame_t idle = held_frame(NB_AVATAR_EXPR_IDLE);
     NB_CHECK(idle.pose.left_eye.crescent == 0.0f);
@@ -440,14 +441,14 @@ static void test_v2_half_moons_slant_the_right_way(void)
     NB_CHECK(angry.pose.left_eye.upper_lid_tilt > 0.5f);   // low toward the middle
     NB_CHECK(angry.pose.right_eye.upper_lid_tilt < -0.5f);
     const nb_avatar_render_frame_t sad = held_frame(NB_AVATAR_EXPR_SAD);
-    NB_CHECK(sad.pose.left_eye.upper_lid_tilt < -0.5f);    // low toward the outside
-    NB_CHECK(sad.pose.right_eye.upper_lid_tilt > 0.5f);
+    NB_CHECK(sad.pose.left_eye.upper_lid_tilt < -0.15f);    // low toward the outside
+    NB_CHECK(sad.pose.right_eye.upper_lid_tilt > 0.15f);
     const nb_avatar_render_frame_t shy = held_frame(NB_AVATAR_EXPR_EMBARRASSED);
     NB_CHECK(shy.pose.left_eye.upper_lid > 0.25f);
     NB_CHECK(shy.pose.left_eye.y > 0.0f);                  // looking down
     const nb_avatar_render_frame_t confused = held_frame(NB_AVATAR_EXPR_CONFUSED);
-    NB_CHECK(confused.pose.left_eye.upper_lid > 0.4f);     // one half-moon
-    NB_CHECK(confused.pose.right_eye.upper_lid < 0.01f);   // one capsule
+    NB_CHECK(confused.pose.right_eye.upper_lid > 0.4f);    // one half-moon
+    NB_CHECK(confused.pose.left_eye.upper_lid < 0.01f);    // one capsule
 }
 
 static void test_v2_has_no_brows(void)
@@ -560,13 +561,15 @@ static void test_each_family_sits_in_its_corner_of_the_catalog(void)
     // Pairs that must stay apart, even with no label: same family, different look.
     const nb_avatar_render_frame_t neutral = held_frame(NB_AVATAR_EXPR_IDLE);
     const nb_avatar_render_frame_t content = held_frame(NB_AVATAR_EXPR_CONTENT);
-    NB_CHECK(content.pose.left_eye.height < neutral.pose.left_eye.height - 40.0f);
+    NB_CHECK(content.pose.left_eye.height < neutral.pose.left_eye.height - 20.0f);
     const nb_avatar_render_frame_t sad = held_frame(NB_AVATAR_EXPR_SAD);
     const nb_avatar_render_frame_t sleepy = held_frame(NB_AVATAR_EXPR_SLEEPY);
     const nb_avatar_render_frame_t shy = held_frame(NB_AVATAR_EXPR_EMBARRASSED);
-    NB_CHECK(fabsf(sad.pose.left_eye.upper_lid_tilt) > 0.5f);
+    NB_CHECK(fabsf(sad.pose.left_eye.upper_lid_tilt) > 0.15f);
     NB_CHECK(fabsf(sleepy.pose.left_eye.upper_lid_tilt) < 0.01f);  // sleep is symmetric
-    NB_CHECK(fabsf(shy.pose.left_eye.upper_lid_tilt) < fabsf(sad.pose.left_eye.upper_lid_tilt));
+    NB_CHECK(fabsf(shy.pose.left_eye.upper_lid_tilt) < 0.01f);   // flat-topped, with cheeks
+    NB_CHECK(held_frame(NB_AVATAR_EXPR_LOVING).pose.left_eye.heart > 0.5f);  // hearts for eyes
+    NB_CHECK(held_frame(NB_AVATAR_EXPR_HAPPY).pose.left_eye.heart == 0.0f);
     NB_CHECK(shy.pose.left_eye.x < shy.pose.right_eye.x - 380.0f);
     NB_CHECK(shy.pose.left_eye.x + shy.pose.right_eye.x < -20.0f);  // the look is to the side
     const nb_avatar_render_frame_t curious = held_frame(NB_AVATAR_EXPR_CURIOUS);
