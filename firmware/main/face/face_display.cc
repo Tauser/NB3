@@ -55,6 +55,7 @@ constexpr float kHandTop = 47.0f;
 constexpr float kBubbleCentre[2] = {108.0f, -80.0f};
 constexpr float kArcFrom = 0.3f;   // crescent depth from which an eye is drawn as an arc
 constexpr int kArcSteps = 10;
+constexpr int kHeartSteps = 28;
 constexpr float kHeartsY = -60.0f;    // where a heart starts rising
 constexpr float kHeartsRise = 36.0f;
 constexpr float kZStart[2] = {70.0f, -58.0f};  // where a Z appears, beside the eyes
@@ -226,10 +227,8 @@ struct Painter {
         const int height = static_cast<int>(
             fmaxf(4.0f, roundf(eye.height * scale * Clamp(blink, 0.08f, 1.0f))));
         if (eye.heart > 0.5f) {
-            // Loving: the eye is a heart. Heart() is anchored at its top edge, and its
-            // body is centered 0.085 of its size below that.
-            const float size = fmaxf(width, height) * 1.02f;
-            Heart(eye_x, eye_y - size * 0.085f, size, kHeartColor);
+            // Loving: the eye is a heart.
+            Heart(eye_x, eye_y, fmaxf(width, height) * 1.3f, kHeartColor);
             return;
         }
         const int left = static_cast<int>(roundf(eye_x - width * 0.5f));
@@ -367,11 +366,27 @@ struct Painter {
         }
     }
 
+    // A heart centred on (x, y), `size` wide: the classic parametric curve
+    // (x = 16 sin^3 t, y = 13 cos t - 5 cos 2t - 2 cos 3t - cos 4t) filled as a
+    // fan of triangles from its middle, so the lobes and the point are smooth.
     void Heart(float x, float y, float size, lv_color_t color) const {
-        const int r = static_cast<int>(fmaxf(2.0f, roundf(size * 0.28f)));
-        Circle(x - size * 0.24f, y - size * 0.1f, r, color);
-        Circle(x + size * 0.24f, y - size * 0.1f, r, color);
-        Triangle(x - size * 0.5f, y, x + size * 0.5f, y, x, y + size * 0.55f, color);
+        const float k = size / 32.0f;
+        float px = 0.0f;
+        float py = 0.0f;
+        for (int i = 0; i <= kHeartSteps; ++i) {
+            const float t = 2.0f * kPi * static_cast<float>(i) / kHeartSteps;
+            const float s = sinf(t);
+            const float cx_ = 16.0f * s * s * s;
+            const float cy_ = 13.0f * cosf(t) - 5.0f * cosf(2.0f * t) - 2.0f * cosf(3.0f * t) -
+                              cosf(4.0f * t);
+            const float hx = x + cx_ * k;
+            const float hy = y - (cy_ + 2.5f) * k;  // +2.5: centre of the curve's height
+            if (i > 0) {
+                Triangle(x, y, px, py, hx, hy, color);
+            }
+            px = hx;
+            py = hy;
+        }
     }
 
     // A small salmon pill under the outer corner of an eye, tilted.
