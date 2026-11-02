@@ -57,6 +57,22 @@ constexpr float kHeartsY = -60.0f;    // where a heart starts rising
 constexpr float kHeartsRise = 36.0f;
 constexpr float kZStart[2] = {70.0f, -58.0f};  // where a Z appears, beside the eyes
 constexpr float kZDrift[2] = {38.0f, -52.0f};  // how far it travels up and out
+
+// What each channel draws, in the same units, for keeping it on the screen and
+// clear of the banner. The hand image is 54x50 (hand_think_image.c).
+constexpr float kHandW = 54.0f;
+constexpr float kHandH = 50.0f;
+constexpr nb_overlay_rect_t kBarsExtent = {kBarsLeft, kBarsCentreY - kBarsMaxHeight * 0.5f,
+                                           kBarsLeft + (NB_OVERLAY_BARS - 1) * kBarsStep + 5.0f,
+                                           kBarsCentreY + kBarsMaxHeight * 0.5f};
+constexpr nb_overlay_rect_t kBubbleExtent = {kBubbleCentre[0] - 34.0f, kBubbleCentre[1] - 22.0f,
+                                             kBubbleCentre[0] + 36.0f, kBubbleCentre[1] + 36.0f};
+constexpr nb_overlay_rect_t kHandExtent = {kHandLeft, kHandTop, kHandLeft + kHandW,
+                                           kHandTop + kHandH};
+constexpr nb_overlay_rect_t kHeartsExtent = {-20.0f, kHeartsY - kHeartsRise - 14.0f, 22.0f,
+                                             kHeartsY + 20.0f};
+constexpr nb_overlay_rect_t kZsExtent = {kZStart[0] - 9.0f, kZStart[1] + kZDrift[1] - 9.0f,
+                                         kZStart[0] + kZDrift[0] + 9.0f, kZStart[1] + 9.0f};
 }  // namespace
 
 // Generated from the user's hand drawing by tools/design/svg_to_lvgl.py.
@@ -368,46 +384,45 @@ struct Painter {
         Line(x - w, y + h, x + w, y + h, stroke, color);
     }
 
-    // The face V2 overlay, one at a time (docs/FACE.md). Fades are dims
-    // toward the black background.
-    void Overlay(const nb_overlay_frame_t& o, const nb_avatar_pose_t& pose) const {
-        nb_overlay_anchor_t anchor;
-        nb_overlay_anchor_from_pose(&pose, kDesignScale, &anchor);
-        const float s0 = anchor.scale;
-        const float ox = cx + anchor.dx;  // origin of the overlay layout
-        const float oy = cy + anchor.dy;
-        switch (o.kind) {
-            case NB_OVERLAY_LISTEN:
+    // The face V2 overlay channels (docs/FACE.md): activity, then gesture; the
+    // technical channel has no mark to draw yet. Fades are dims toward the
+    // black background. Activity marks get a 1 px black outline so they stay
+    // legible when they pass over an eye.
+    void Overlay(const nb_overlay_frame_t& o, const ChannelLayout& layout,
+                 const nb_avatar_pose_t& pose) const {
+        nb_overlay_anchor_t pose_anchor;
+        nb_overlay_anchor_from_pose(&pose, kDesignScale, &pose_anchor);
+        if (o.cheeks) {
+            Cheek(pose.left_eye, pose, -1.0f, pose_anchor.scale);
+            Cheek(pose.right_eye, pose, 1.0f, pose_anchor.scale);
+        }
+        if (layout.activity_visible) {
+            const float s0 = layout.activity.scale;
+            const float ox = cx + layout.activity.dx;  // origin of the overlay layout
+            const float oy = cy + layout.activity.dy;
+            if (o.activity == NB_ACTIVITY_BARS) {
                 for (int i = 0; i < NB_OVERLAY_BARS; ++i) {
                     const float h = fmaxf(4.0f, kBarsMaxHeight * o.bars[i] * s0);
-                    RoundRect(static_cast<int>(lroundf(ox + (kBarsLeft + i * kBarsStep) * s0)),
-                              static_cast<int>(lroundf(oy + kBarsCentreY * s0 - h * 0.5f)),
-                              std::max(3, static_cast<int>(lroundf(5.0f * s0))),
-                              static_cast<int>(lroundf(h)), 2, kEyeColor);
+                    const int x = static_cast<int>(lroundf(ox + (kBarsLeft + i * kBarsStep) * s0));
+                    const int y = static_cast<int>(lroundf(oy + kBarsCentreY * s0 - h * 0.5f));
+                    const int w = std::max(3, static_cast<int>(lroundf(5.0f * s0)));
+                    const int ih = static_cast<int>(lroundf(h));
+                    RoundRect(x - 1, y - 1, w + 2, ih + 2, 3, kBackground);
+                    RoundRect(x, y, w, ih, 2, kEyeColor);
                 }
-                break;
-            case NB_OVERLAY_THINK:
-                if (o.hand > 0.01f) {
-                    // The knuckles on the chin are the anchor point of the hand.
-                    const float pivot_x = static_cast<float>(nb_hand_think_image.header.w) / 5.0f;
-                    const float pivot_y = static_cast<float>(nb_hand_think_image.header.h) * 0.3f;
-                    const float knuckle_x = ox + (kHandLeft + pivot_x) * s0;
-                    const float knuckle_y = oy + (kHandTop + (1.0f - o.hand) * 20.0f + pivot_y) * s0;
-                    HandImage(knuckle_x - pivot_x, knuckle_y - pivot_y, o.hand, o.hand_angle, s0);
-                }
-                break;
-            case NB_OVERLAY_SPEECH: {
+            } else if (o.activity == NB_ACTIVITY_SPEECH && o.bubble >= 0.02f) {
                 const float s = o.bubble * s0;
-                if (o.bubble < 0.02f) {
-                    break;
-                }
                 const float bx = ox + kBubbleCentre[0] * s0;
                 const float by = oy + kBubbleCentre[1] * s0;
                 const int w = static_cast<int>(lroundf(72.0f * s));
                 const int h = static_cast<int>(lroundf(44.0f * s));
-                RoundRect(static_cast<int>(lroundf(bx - w * 0.5f)),
-                          static_cast<int>(lroundf(by - h * 0.5f)), w, h,
-                          static_cast<int>(lroundf(16.0f * s)), kEyeColor);
+                const int left = static_cast<int>(lroundf(bx - w * 0.5f));
+                const int top = static_cast<int>(lroundf(by - h * 0.5f));
+                const int radius = static_cast<int>(lroundf(16.0f * s));
+                RoundRect(left - 1, top - 1, w + 2, h + 2, radius + 1, kBackground);
+                Triangle(bx - 25.5f * s, by + 17.0f * s, bx - 36.5f * s, by + 38.0f * s,
+                         bx - 4.5f * s, by + 20.0f * s, kBackground);
+                RoundRect(left, top, w, h, radius, kEyeColor);
                 // Tail pointing down-left toward the face.
                 Triangle(bx - 24.0f * s, by + 18.0f * s, bx - 34.0f * s, by + 36.0f * s,
                          bx - 6.0f * s, by + 20.0f * s, kEyeColor);
@@ -415,35 +430,53 @@ struct Painter {
                     Circle(bx + (i - 1) * 16.0f * s, by - o.dots[i] * 5.0f * s,
                            static_cast<int>(fmaxf(1.0f, roundf(5.0f * s))), kBackground);
                 }
-                break;
             }
-            case NB_OVERLAY_AFFECTION:
-                for (int i = 0; i < 2; ++i) {
-                    const float p = o.hearts[i];
-                    const float fade = p < 0.15f ? p / 0.15f : (p > 0.8f ? (1.0f - p) / 0.2f : 1.0f);
-                    Heart(ox + (i == 0 ? -8.0f : 10.0f) * s0, oy + (kHeartsY - kHeartsRise * p) * s0,
-                          (18.0f + 6.0f * p) * s0, Dim(kHeartColor, Clamp(fade, 0.0f, 1.0f)));
-                }
-                Cheek(pose.left_eye, pose, -1.0f, s0);
-                Cheek(pose.right_eye, pose, 1.0f, s0);
-                break;
-            case NB_OVERLAY_CHEEKS:
-                Cheek(pose.left_eye, pose, -1.0f, s0);
-                Cheek(pose.right_eye, pose, 1.0f, s0);
-                break;
-            case NB_OVERLAY_SLEEP:
-                for (int i = 0; i < NB_OVERLAY_ZS; ++i) {
-                    const float p = o.zs[i];
-                    if (p <= 0.0f) {
-                        continue;
+        }
+        if (layout.gesture_visible) {
+            const float s0 = layout.gesture.scale;
+            const float ox = cx + layout.gesture.dx;
+            const float oy = cy + layout.gesture.dy;
+            switch (o.gesture) {
+                case NB_GESTURE_HAND:
+                    if (o.hand > 0.01f) {
+                        // The knuckles on the chin are the anchor point of the hand.
+                        const float pivot_x =
+                            static_cast<float>(nb_hand_think_image.header.w) / 5.0f;
+                        const float pivot_y =
+                            static_cast<float>(nb_hand_think_image.header.h) * 0.3f;
+                        const float knuckle_x = ox + (kHandLeft + pivot_x) * s0;
+                        const float knuckle_y =
+                            oy + (kHandTop + (1.0f - o.hand) * 20.0f + pivot_y) * s0;
+                        HandImage(knuckle_x - pivot_x, knuckle_y - pivot_y, o.hand, o.hand_angle,
+                                  s0);
                     }
-                    const float fade = p < 0.2f ? p / 0.2f : (p > 0.7f ? (1.0f - p) / 0.3f : 1.0f);
-                    Zee(ox + (kZStart[0] + kZDrift[0] * p) * s0, oy + (kZStart[1] + kZDrift[1] * p) * s0,
-                        (9.0f + 9.0f * p) * s0, Dim(kEyeColor, Clamp(fade, 0.0f, 1.0f)));
-                }
-                break;
-            default:
-                break;
+                    break;
+                case NB_GESTURE_HEARTS:
+                    for (int i = 0; i < 2; ++i) {
+                        const float p = o.hearts[i];
+                        const float fade =
+                            p < 0.15f ? p / 0.15f : (p > 0.8f ? (1.0f - p) / 0.2f : 1.0f);
+                        Heart(ox + (i == 0 ? -8.0f : 10.0f) * s0,
+                              oy + (kHeartsY - kHeartsRise * p) * s0, (18.0f + 6.0f * p) * s0,
+                              Dim(kHeartColor, Clamp(fade, 0.0f, 1.0f)));
+                    }
+                    break;
+                case NB_GESTURE_ZS:
+                    for (int i = 0; i < NB_OVERLAY_ZS; ++i) {
+                        const float p = o.zs[i];
+                        if (p <= 0.0f) {
+                            continue;
+                        }
+                        const float fade =
+                            p < 0.2f ? p / 0.2f : (p > 0.7f ? (1.0f - p) / 0.3f : 1.0f);
+                        Zee(ox + (kZStart[0] + kZDrift[0] * p) * s0,
+                            oy + (kZStart[1] + kZDrift[1] * p) * s0, (9.0f + 9.0f * p) * s0,
+                            Dim(kEyeColor, Clamp(fade, 0.0f, 1.0f)));
+                    }
+                    break;
+                default:
+                    break;
+            }
         }
     }
 
@@ -489,13 +522,13 @@ struct Painter {
 // One frame of the face: for drawing, and again in recording mode to know
 // where it will draw.
 void PaintFace(const Painter& painter, const nb_avatar_render_frame_t& frame,
-               const nb_overlay_frame_t& overlay) {
+               const nb_overlay_frame_t& overlay, const ChannelLayout& channels) {
     if (!frame.enabled) {
         return;
     }
     painter.Eye(frame.pose.left_eye, frame.pose, frame.blink_scale);
     painter.Eye(frame.pose.right_eye, frame.pose, frame.blink_scale);
-    painter.Overlay(overlay, frame.pose);
+    painter.Overlay(overlay, channels, frame.pose);
     if (frame.dizzy_overlay) {
         painter.Dizzy(frame.pose.left_eye, frame.pose, -1, frame.animation_ms);
         painter.Dizzy(frame.pose.right_eye, frame.pose, 1, frame.animation_ms);
@@ -656,9 +689,8 @@ void FaceDisplay::SetTheme(Theme* theme) {
     }
 }
 
-void FaceDisplay::SetEnergy(float arousal, bool sleeping) {
+void FaceDisplay::SetEnergy(float arousal) {
     energy_arousal_ = arousal;
-    sleeping_ = sleeping;
 }
 
 bool FaceDisplay::FaceLook(float* yaw, float* pitch) const {
@@ -697,7 +729,6 @@ void FaceDisplay::Tick() {
     const bool wander = !sleeping && (winner == NB_SOURCE_COUNT || winner == NB_SOURCE_MOOD ||
                                       winner == NB_SOURCE_ENERGY);
     nb_avatar_core_set_eyes_closed(&avatar_, sleeping);
-    nb_overlay_set_sleeping(&overlay_, sleeping);
     // An arc that wins brings its own look and slow blink.
     bool arc;
     nb_avatar_look_t arc_look;
@@ -718,12 +749,65 @@ void FaceDisplay::Tick() {
     nb_avatar_core_tick(&avatar_, now - last_tick_ms_);
     last_tick_ms_ = now;
     nb_avatar_core_get_frame(&avatar_, &frame_);
-    const bool speaking = Application::GetInstance().GetDeviceState() == kDeviceStateSpeaking;
-    const float level = speaking ? levels_.Speaker(now) : levels_.Mic(now);
-    nb_overlay_update(&overlay_, expression, speaking, level, now, &overlay_frame_);
+    // The banner first, so the channels are placed around where it really is.
+    UpdateBanner();
+    const DeviceState device = Application::GetInstance().GetDeviceState();
+    nb_overlay_input_t channels_in = {};
+    channels_in.winner = expression;
+    channels_in.listening = device == kDeviceStateListening;
+    channels_in.speaking = device == kDeviceStateSpeaking;
+    channels_in.sleeping = sleeping;
+    // No producer yet for a confirmed wait or the technical marks.
+    channels_in.audio_level = channels_in.speaking ? levels_.Speaker(now) : levels_.Mic(now);
+    nb_overlay_update(&overlay_, &channels_in, now, &overlay_frame_);
+    PlaceChannels();
     InvalidateChanged(now);
     ticks_++;
-    UpdateBanner();
+}
+
+// Anchors each channel to the eyes, keeps it on the screen and hides it where
+// the banner (its real height, measured by LVGL) covers it.
+void FaceDisplay::PlaceChannels() {
+    const float screen_w = static_cast<float>(lv_display_get_horizontal_resolution(nullptr));
+    const float screen_h = static_cast<float>(lv_display_get_vertical_resolution(nullptr));
+    float banner_top = screen_h;
+    if (banner_shown_) {
+        lv_obj_update_layout(banner_box_);
+        lv_area_t area;
+        lv_obj_get_coords(banner_box_, &area);
+        banner_top = static_cast<float>(area.y1);
+    }
+    nb_overlay_anchor_t pose_anchor;
+    nb_overlay_anchor_from_pose(&frame_.pose, kDesignScale, &pose_anchor);
+
+    const nb_overlay_rect_t* activity_extent = nullptr;
+    if (overlay_frame_.activity == NB_ACTIVITY_BARS) {
+        activity_extent = &kBarsExtent;
+    } else if (overlay_frame_.activity == NB_ACTIVITY_SPEECH) {
+        activity_extent = &kBubbleExtent;
+    }
+    channels_.activity = pose_anchor;
+    channels_.activity_visible = true;
+    if (activity_extent != nullptr) {
+        nb_overlay_clamp_anchor(activity_extent, screen_w, screen_h, &channels_.activity);
+        channels_.activity_visible = !nb_overlay_hidden_by_banner(
+            activity_extent, &channels_.activity, screen_h, banner_top);
+    }
+
+    const nb_overlay_rect_t* gesture_extent = nullptr;
+    switch (overlay_frame_.gesture) {
+        case NB_GESTURE_HAND: gesture_extent = &kHandExtent; break;
+        case NB_GESTURE_HEARTS: gesture_extent = &kHeartsExtent; break;
+        case NB_GESTURE_ZS: gesture_extent = &kZsExtent; break;
+        default: break;
+    }
+    channels_.gesture = pose_anchor;
+    channels_.gesture_visible = true;
+    if (gesture_extent != nullptr) {
+        nb_overlay_clamp_anchor(gesture_extent, screen_w, screen_h, &channels_.gesture);
+        channels_.gesture_visible = !nb_overlay_hidden_by_banner(
+            gesture_extent, &channels_.gesture, screen_h, banner_top);
+    }
 }
 
 // Runs on the LVGL task. Takes the lock only to expire the banner and copy
@@ -785,7 +869,7 @@ void FaceDisplay::OnDraw(lv_event_t* event) {
     lv_obj_get_coords(self->face_, &area);
     const Painter painter = {lv_event_get_layer(event), (area.x1 + area.x2 + 1) * 0.5f,
                              (area.y1 + area.y2 + 1) * 0.5f};
-    PaintFace(painter, self->frame_, self->overlay_frame_);
+    PaintFace(painter, self->frame_, self->overlay_frame_, self->channels_);
     const uint32_t us = static_cast<uint32_t>(esp_timer_get_time() - started);
     self->draw_frames_++;
     self->draw_us_sum_ += us;
@@ -805,7 +889,7 @@ void FaceDisplay::InvalidateChanged(uint32_t now) {
     Recorder rec;
     const Painter painter = {nullptr, (face.x1 + face.x2 + 1) * 0.5f, (face.y1 + face.y2 + 1) * 0.5f,
                              &rec};
-    PaintFace(painter, frame_, overlay_frame_);
+    PaintFace(painter, frame_, overlay_frame_, channels_);
 
     const bool same = have_drawn_ && rec.any == drawn_any_ && rec.hash == drawn_hash_ &&
                       (!rec.any || (rec.box.x1 == drawn_box_.x1 && rec.box.y1 == drawn_box_.y1 &&

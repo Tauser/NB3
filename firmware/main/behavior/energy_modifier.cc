@@ -103,7 +103,7 @@ void EnergyModifier::Tick() {
         }
     }
     if (display_ != nullptr) {
-        display_->SetEnergy(arousal, sleeping);
+        display_->SetEnergy(arousal);
     }
 }
 

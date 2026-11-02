@@ -391,6 +391,8 @@ private:
                                    DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y,
                                    DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY, arbiter_,
                                    mood_, audio_levels_);
+        // Sleep reaches the face on the behavior transition, not on a poll.
+        behavior_.SetSleepSink([display = display_](bool sleeping) { display->SetSleeping(sleeping); });
     }
 
     // GPIO0 is also the strap pin of the USB-UART bridge's auto-reset: plugging

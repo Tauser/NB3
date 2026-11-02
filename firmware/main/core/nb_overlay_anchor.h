@@ -1,6 +1,8 @@
 #ifndef NB_OVERLAY_ANCHOR_H
 #define NB_OVERLAY_ANCHOR_H
 
+#include <stdbool.h>
+
 #include "nb_avatar.h"
 
 #ifdef __cplusplus
@@ -24,6 +26,27 @@ typedef struct {
 // design_scale converts the avatar's design units to screen pixels.
 void nb_overlay_anchor_from_pose(const nb_avatar_pose_t *pose, float design_scale,
                                  nb_overlay_anchor_t *out);
+
+// What a channel draws, in the layout units of the overlay (screen pixels from
+// the eyes' rest centre, before the anchor's scale).
+typedef struct {
+    float x0;
+    float y0;
+    float x1;
+    float y1;
+} nb_overlay_rect_t;
+
+// Moves the anchor so the whole extent stays on a screen_w x screen_h screen
+// whose centre is where the overlay origin sits at rest, instead of being cut
+// off at an edge. An extent larger than the screen keeps its top left corner.
+void nb_overlay_clamp_anchor(const nb_overlay_rect_t *extent, float screen_w, float screen_h,
+                             nb_overlay_anchor_t *anchor);
+
+// The banner wins over what it covers: true when any part of the extent, as
+// placed by the anchor, reaches below banner_top (a screen y; use a value at or
+// beyond screen_h when there is no banner).
+bool nb_overlay_hidden_by_banner(const nb_overlay_rect_t *extent, const nb_overlay_anchor_t *anchor,
+                                 float screen_h, float banner_top);
 
 #ifdef __cplusplus
 }

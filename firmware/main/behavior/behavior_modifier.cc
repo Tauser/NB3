@@ -55,6 +55,10 @@ void BehaviorModifier::Apply(const nb_behavior_transition_t& transition) {
     if (transition.to == NB_BEHAVIOR_IDLE) {
         arbiter_.EnterIdle();
     }
+    if (sleep_sink_ && (transition.to == NB_BEHAVIOR_SLEEPING ||
+                        transition.from == NB_BEHAVIOR_SLEEPING)) {
+        sleep_sink_(transition.to == NB_BEHAVIOR_SLEEPING);
+    }
 }
 
 void BehaviorModifier::OnDevice(DeviceState state) {

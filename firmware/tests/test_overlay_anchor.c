@@ -52,7 +52,53 @@ static void test_face_offset_and_scale(void) {
     NB_CHECK(a.scale > NB_OVERLAY_SIZE && a.scale < NB_OVERLAY_SIZE * 1.2f);
 }
 
+static const nb_overlay_rect_t kBars = {-35.5f, 66.0f, 35.5f, 98.0f};
+
+static void test_clamp_leaves_an_extent_that_fits(void) {
+    nb_overlay_anchor_t a = {3.0f, -4.0f, 0.8f};
+    nb_overlay_clamp_anchor(&kBars, 320.0f, 240.0f, &a);
+    NB_CHECK(fabsf(a.dx - 3.0f) < 1e-4f && fabsf(a.dy + 4.0f) < 1e-4f);
+}
+
+static void test_clamp_pulls_bars_back_from_the_bottom(void) {
+    // Eyes low and looking down: the bars would end at y = 120 + 60 + 98*.8.
+    nb_overlay_anchor_t a = {0.0f, 60.0f, 0.8f};
+    nb_overlay_clamp_anchor(&kBars, 320.0f, 240.0f, &a);
+    NB_CHECK(fabsf((120.0f + a.dy + kBars.y1 * a.scale) - 240.0f) < 1e-3f);
+    NB_CHECK(fabsf(a.dx) < 1e-4f);
+}
+
+static void test_clamp_pushes_in_from_the_left_and_top(void) {
+    const nb_overlay_rect_t zs = {61.0f, -119.0f, 117.0f, -49.0f};
+    nb_overlay_anchor_t a = {-200.0f, -50.0f, 1.0f};
+    nb_overlay_clamp_anchor(&zs, 320.0f, 240.0f, &a);
+    NB_CHECK(120.0f + a.dy + zs.y0 * a.scale >= -1e-3f);
+    NB_CHECK(160.0f + a.dx + zs.x0 * a.scale >= -1e-3f);
+}
+
+static void test_clamp_keeps_the_top_left_of_an_extent_bigger_than_the_screen(void) {
+    const nb_overlay_rect_t huge = {-300.0f, -300.0f, 300.0f, 300.0f};
+    nb_overlay_anchor_t a = {0.0f, 0.0f, 1.0f};
+    nb_overlay_clamp_anchor(&huge, 320.0f, 240.0f, &a);
+    NB_CHECK(fabsf(160.0f + a.dx + huge.x0) < 1e-3f);
+    NB_CHECK(fabsf(120.0f + a.dy + huge.y0) < 1e-3f);
+}
+
+static void test_banner_hides_what_it_reaches(void) {
+    nb_overlay_anchor_t a = {0.0f, 0.0f, 0.8f};
+    // Bars end at 120 + 98*.8 = 198.4.
+    NB_CHECK(!nb_overlay_hidden_by_banner(&kBars, &a, 240.0f, 240.0f));  // no banner
+    NB_CHECK(!nb_overlay_hidden_by_banner(&kBars, &a, 240.0f, 200.0f));
+    NB_CHECK(nb_overlay_hidden_by_banner(&kBars, &a, 240.0f, 198.0f));
+    NB_CHECK(nb_overlay_hidden_by_banner(&kBars, &a, 240.0f, 150.0f));
+}
+
 int main(void) {
+    NB_RUN(test_clamp_leaves_an_extent_that_fits);
+    NB_RUN(test_clamp_pulls_bars_back_from_the_bottom);
+    NB_RUN(test_clamp_pushes_in_from_the_left_and_top);
+    NB_RUN(test_clamp_keeps_the_top_left_of_an_extent_bigger_than_the_screen);
+    NB_RUN(test_banner_hides_what_it_reaches);
     NB_RUN(test_rest_pose_leaves_overlay_in_place);
     NB_RUN(test_overlay_moves_with_the_eyes);
     NB_RUN(test_head_turn_uses_the_eye_midpoint);

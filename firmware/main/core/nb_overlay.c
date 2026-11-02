@@ -34,16 +34,6 @@ void nb_overlay_init(nb_overlay_t *overlay) {
     }
 }
 
-static nb_overlay_kind_t kind_for(nb_expression_t winner) {
-    switch (winner) {
-    case NB_EXPR_LISTENING: return NB_OVERLAY_LISTEN;
-    case NB_EXPR_THINKING: return NB_OVERLAY_THINK;
-    case NB_EXPR_LOVING: return NB_OVERLAY_AFFECTION;
-    case NB_EXPR_EMBARRASSED: return NB_OVERLAY_CHEEKS;
-    default: return NB_OVERLAY_NONE;
-    }
-}
-
 // Bubble scale: pops past full size and settles; shrinks away when leaving.
 static float bubble_scale(uint32_t since, uint32_t leaving) {
     float scale;
@@ -60,85 +50,108 @@ static float bubble_scale(uint32_t since, uint32_t leaving) {
     return scale;
 }
 
-void nb_overlay_set_sleeping(nb_overlay_t *overlay, bool sleeping)
-{
-    overlay->sleeping = sleeping;
-}
-
-void nb_overlay_update(nb_overlay_t *overlay, nb_expression_t winner, bool speaking,
-                       float audio_level, uint32_t now_ms, nb_overlay_frame_t *out) {
-    if (overlay == NULL || out == NULL) {
+void nb_overlay_update(nb_overlay_t *overlay, const nb_overlay_input_t *input, uint32_t now_ms,
+                       nb_overlay_frame_t *out) {
+    if (overlay == NULL || input == NULL || out == NULL) {
         return;
     }
     memset(out, 0, sizeof(*out));
     if (!overlay->started) {
         overlay->started = true;
         overlay->last_ms = now_ms;
-        overlay->since_ms = now_ms;
+        overlay->activity_since_ms = now_ms;
+        overlay->gesture_since_ms = now_ms;
     }
 
     // Smoothed level, by elapsed time so the frame rate does not matter.
     const float dt = (float)(now_ms - overlay->last_ms);
     overlay->last_ms = now_ms;
-    const float target = clampf(audio_level, 0.0f, 1.0f);
+    const float target = clampf(input->audio_level, 0.0f, 1.0f);
     const float tau = target > overlay->level ? NB_OVERLAY_ATTACK_MS : NB_OVERLAY_RELEASE_MS;
     overlay->level += (target - overlay->level) * (1.0f - expf(-dt / tau));
 
-    nb_overlay_kind_t kind = overlay->sleeping ? NB_OVERLAY_SLEEP : kind_for(winner);
+    // A: activity.
+    nb_activity_kind_t activity = NB_ACTIVITY_NONE;
     uint32_t leaving = 0u;
-    if (speaking) {
-        kind = NB_OVERLAY_SPEECH;
+    if (input->speaking) {
+        activity = NB_ACTIVITY_SPEECH;
         overlay->speech_ending = false;
-    } else if (overlay->kind == NB_OVERLAY_SPEECH) {
+    } else if (overlay->activity == NB_ACTIVITY_SPEECH) {
         if (!overlay->speech_ending) {
             overlay->speech_ending = true;
             overlay->speech_end_ms = now_ms;
         }
         leaving = now_ms - overlay->speech_end_ms;
         if (leaving < NB_OVERLAY_SPEECH_LINGER_MS) {
-            kind = NB_OVERLAY_SPEECH;
+            activity = NB_ACTIVITY_SPEECH;
         }
     }
-    if (kind != overlay->kind) {
-        overlay->kind = kind;
-        overlay->since_ms = now_ms;
-        if (kind != NB_OVERLAY_SPEECH) {
+    if (activity == NB_ACTIVITY_NONE && input->listening && !input->wait_confirmed) {
+        activity = NB_ACTIVITY_BARS;
+    }
+    if (activity != overlay->activity) {
+        overlay->activity = activity;
+        overlay->activity_since_ms = now_ms;
+        if (activity != NB_ACTIVITY_SPEECH) {
             overlay->speech_ending = false;
         }
     }
-    const uint32_t since = now_ms - overlay->since_ms;
-    out->kind = kind;
-
-    switch (kind) {
-    case NB_OVERLAY_LISTEN:
+    out->activity = activity;
+    const uint32_t activity_since = now_ms - overlay->activity_since_ms;
+    if (activity == NB_ACTIVITY_BARS) {
         for (int i = 0; i < NB_OVERLAY_BARS; ++i) {
             const float wobble = fabsf(sinf(now_ms * kBarRate[i] + kBarPhase[i]));
             out->bars[i] = clampf(NB_OVERLAY_BAR_FLOOR + overlay->level * (0.45f + 0.55f * wobble),
                                   0.0f, 1.0f);
         }
-        break;
-    case NB_OVERLAY_THINK:
-        if (since >= NB_OVERLAY_HAND_DELAY_MS) {
-            const uint32_t in = since - NB_OVERLAY_HAND_DELAY_MS;
+    } else if (activity == NB_ACTIVITY_SPEECH) {
+        out->bubble = bubble_scale(activity_since, leaving);
+        for (int i = 0; i < 3; ++i) {
+            const float hop =
+                sinf(NB_OVERLAY_TAU * ((float)activity_since / 900.0f - (float)i * 0.13f));
+            out->dots[i] = fmaxf(0.0f, hop) * (0.4f + 0.6f * overlay->level);
+        }
+    }
+
+    // G: gesture. Sleep, then a confirmed wait, then the winning intention.
+    nb_gesture_kind_t gesture = NB_GESTURE_NONE;
+    bool after_wait = false;
+    if (input->sleeping) {
+        gesture = NB_GESTURE_ZS;
+    } else if (input->wait_confirmed) {
+        gesture = NB_GESTURE_HAND;
+        after_wait = true;
+    } else if (input->winner == NB_EXPR_THINKING && activity != NB_ACTIVITY_BARS) {
+        gesture = NB_GESTURE_HAND;
+    } else if (input->winner == NB_EXPR_LOVING) {
+        gesture = NB_GESTURE_HEARTS;
+    }
+    if (gesture != overlay->gesture || after_wait != overlay->gesture_after_wait) {
+        overlay->gesture = gesture;
+        overlay->gesture_after_wait = after_wait;
+        overlay->gesture_since_ms = now_ms;
+    }
+    out->gesture = gesture;
+    out->cheeks = !input->sleeping &&
+                  (input->winner == NB_EXPR_LOVING || input->winner == NB_EXPR_EMBARRASSED);
+    const uint32_t since = now_ms - overlay->gesture_since_ms;
+    switch (gesture) {
+    case NB_GESTURE_HAND: {
+        const uint32_t delay = after_wait ? 0u : NB_OVERLAY_HAND_DELAY_MS;
+        if (since >= delay) {
+            const uint32_t in = since - delay;
             out->hand = smooth(in / 250.0f);
             out->hand_angle =
                 -7.0f * (0.5f - 0.5f * cosf(NB_OVERLAY_TAU * (float)in / 1100.0f));
         }
         break;
-    case NB_OVERLAY_SPEECH:
-        out->bubble = bubble_scale(since, leaving);
-        for (int i = 0; i < 3; ++i) {
-            const float hop = sinf(NB_OVERLAY_TAU * ((float)since / 900.0f - (float)i * 0.13f));
-            out->dots[i] = fmaxf(0.0f, hop) * (0.4f + 0.6f * overlay->level);
-        }
-        break;
-    case NB_OVERLAY_AFFECTION:
+    }
+    case NB_GESTURE_HEARTS:
         for (int i = 0; i < 2; ++i) {
             out->hearts[i] = fmodf((float)(since + (uint32_t)i * 1200u) / 2400.0f, 1.0f);
         }
-        out->cheeks = true;
         break;
-    case NB_OVERLAY_SLEEP:
+    case NB_GESTURE_ZS:
         for (int i = 0; i < NB_OVERLAY_ZS; ++i) {
             // One Z at a time starts, so the first frame shows none yet.
             const uint32_t offset = (uint32_t)i * (NB_OVERLAY_Z_RISE_MS / NB_OVERLAY_ZS);
@@ -147,10 +160,10 @@ void nb_overlay_update(nb_overlay_t *overlay, nb_expression_t winner, bool speak
                                                 1.0f);
         }
         break;
-    case NB_OVERLAY_CHEEKS:
-        out->cheeks = true;
-        break;
     default:
         break;
     }
+
+    // T: technical condition.
+    out->tech = input->safety_stop ? NB_TECH_SAFETY : (input->net_down ? NB_TECH_NET : NB_TECH_NONE);
 }

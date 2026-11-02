@@ -11,12 +11,22 @@
 #include "behavior/expression_arbiter.h"
 #include "behavior/mood_modifier.h"
 #include "core/nb_overlay.h"
+#include "core/nb_overlay_anchor.h"
 #include "face/audio_levels.h"
 #include "core/nb_avatar.h"
 #include "core/nb_gaze.h"
 #include "core/nb_banner.h"
 #include "display/lcd_display.h"
 #include "display/lvgl_display/lvgl_font.h"
+
+// Where each overlay channel is drawn this frame: the anchor follows the eyes
+// and is kept on the screen, and a channel the banner covers is not drawn.
+struct ChannelLayout {
+    nb_overlay_anchor_t activity = {};
+    nb_overlay_anchor_t gesture = {};
+    bool activity_visible = true;
+    bool gesture_visible = true;
+};
 
 // The NB3 screen on the ST7789. SpiLcdDisplay is used only for the panel,
 // LVGL port and display lock; none of xiaozhi's layout is created. Every UI
@@ -25,9 +35,9 @@
 // banner, and the rest (status bar, chat subtitles, previews) is not shown.
 //
 // The face is the NB avatar (core/nb_avatar), redrawn every frame from the
-// expression the arbiter resolves, with at most one overlay on top
-// (core/nb_overlay: listening bars, thought dots and hand, speech bubble,
-// hearts, cheeks).
+// expression the arbiter resolves, with three overlay channels on top
+// (core/nb_overlay): activity (listening bars or speech bubble), gesture (hand,
+// hearts or Zs) and technical condition. Cheeks belong to the pose.
 class FaceDisplay : public SpiLcdDisplay {
 public:
     FaceDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handle_t panel, int width,
@@ -48,9 +58,11 @@ public:
     void SetHideSubtitle(bool) override {}
     void SetTheme(Theme* theme) override;
 
-    // From the energy: the calmest arousal the gaze may show, and sleep
-    // (eyes nearly shut, no looking around).
-    void SetEnergy(float arousal, bool sleeping);
+    // From the energy: the calmest arousal the gaze may show.
+    void SetEnergy(float arousal);
+    // From the behavior, on entering or leaving sleep (eyes nearly shut, no
+    // looking around, Zs). Any task.
+    void SetSleeping(bool sleeping) { sleeping_ = sleeping; }
     // From the arc: where to look and how open the eyes are, used while the
     // arc's face wins the arbiter.
     void SetArc(bool active, const nb_avatar_look_t& look, float eye_open);
@@ -83,6 +95,7 @@ private:
     void InvalidateChanged(uint32_t now);
     void ShowBanner(nb_banner_kind_t kind, const char* text, uint32_t timeout_ms);
     void UpdateBanner();
+    void PlaceChannels();
 
     ExpressionArbiter& arbiter_;
     MoodModifier& mood_;
@@ -111,6 +124,7 @@ private:
     uint32_t last_tick_ms_ = 0;
     nb_overlay_t overlay_;
     nb_overlay_frame_t overlay_frame_ = {};
+    ChannelLayout channels_ = {};
     // What the last invalidated frame draws (LVGL task only).
     bool have_drawn_ = false;
     bool drawn_any_ = false;

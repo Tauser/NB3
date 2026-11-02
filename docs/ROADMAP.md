@@ -39,6 +39,15 @@ em excited e curious com olhar para baixo, e a mão em 17 combinações. Falta:
 comparar com a tela física, altura real do banner e o teste de leitura com
 avaliadores (etapa 6). O contrato dos canais em código é da etapa 3.
 
+**Etapa 3 da revisão da face (02/11):** `nb_overlay` virou um compositor de
+três canais pós-árbitro: as barras seguem a escuta real (estado do dispositivo,
+não a expressão), gesto vem de sono, espera confirmada ou intenção vencedora, e
+o canal técnico existe com precedência da parada segura. A âncora é mantida na
+tela, o banner oculta o que cobre, barras e balão ganharam contorno preto de
+1 px, e o sono chega à face pela transição do comportamento. Validado em
+host-tests (37/37) e build. Falta ver na placa; ainda sem produtor para espera
+confirmada nem ícones de rede e parada (etapa 5).
+
 ## Visão geral
 
 | Etapa | Entrega | Prova de sucesso | Situação |

@@ -10,19 +10,35 @@
 extern "C" {
 #endif
 
-// The face V2 overlay layer (docs/FACE.md): one adornment at a time drawn
-// over the eyes. This core picks which one and computes its animation; the
-// display only draws the numbers it gets.
+// The face V2 overlay layer (docs/FACE.md, docs/PLANO-FACE-E-COMPORTAMENTO).
+// It sits after the arbiter: it never chooses the expression, it only decides
+// what is drawn over the eyes, in three channels that do not depend on one
+// another. Each channel shows one thing at a time:
+//   A activity   listening bars or the speech bubble, from the real audio state
+//   G gesture    the hand, hearts or Zs, from sleep, a confirmed wait or the
+//                winning intention
+//   T technical  the network or safety-stop mark, from health flags
+// This core computes each channel's animation; the display draws the numbers
+// it gets.
 
 typedef enum {
-    NB_OVERLAY_NONE = 0,
-    NB_OVERLAY_LISTEN,     // audio bars following the microphone
-    NB_OVERLAY_THINK,      // the hand on the chin once the wait gets long
-    NB_OVERLAY_SPEECH,     // speech bubble with dots in the voice's rhythm
-    NB_OVERLAY_AFFECTION,  // rising hearts and cheeks
-    NB_OVERLAY_CHEEKS,     // cheeks only
-    NB_OVERLAY_SLEEP,      // Zs drifting up while asleep
-} nb_overlay_kind_t;
+    NB_ACTIVITY_NONE = 0,
+    NB_ACTIVITY_BARS,    // audio bars following the microphone
+    NB_ACTIVITY_SPEECH,  // speech bubble with dots in the voice's rhythm
+} nb_activity_kind_t;
+
+typedef enum {
+    NB_GESTURE_NONE = 0,
+    NB_GESTURE_HAND,    // the hand on the chin
+    NB_GESTURE_HEARTS,  // rising hearts
+    NB_GESTURE_ZS,      // Zs drifting up while asleep
+} nb_gesture_kind_t;
+
+typedef enum {
+    NB_TECH_NONE = 0,
+    NB_TECH_NET,     // the last attempt to reach the server failed
+    NB_TECH_SAFETY,  // the motion safety stopped the servos
+} nb_tech_kind_t;
 
 #define NB_OVERLAY_ZS 3
 // Each Z takes this long to rise and fade; they follow one another.
@@ -30,45 +46,63 @@ typedef enum {
 
 #define NB_OVERLAY_BARS 7
 
-// Thinking shows the hand only once the wait gets long.
+// A thinking intention shows the hand only once the thought gets long. A
+// confirmed wait is already long: its own delay belongs to whoever confirms it.
 #define NB_OVERLAY_HAND_DELAY_MS 1000u
 // The bubble lingers this long after the voice stops, shrinking away.
 #define NB_OVERLAY_SPEECH_LINGER_MS 500u
 
 typedef struct {
-    nb_overlay_kind_t kind;
-    float bars[NB_OVERLAY_BARS];  // LISTEN: bar heights, 0..1
+    nb_expression_t winner;  // what the arbiter resolved; read only by G
+    bool listening;          // the microphone is really open for the user
+    bool speaking;           // the robot's voice is playing
+    bool wait_confirmed;     // the server has the question and has not answered
+    bool sleeping;
+    bool net_down;
+    bool safety_stop;
+    float audio_level;       // microphone while listening, speaker while speaking, 0..1
+} nb_overlay_input_t;
+
+typedef struct {
+    nb_activity_kind_t activity;
+    nb_gesture_kind_t gesture;
+    nb_tech_kind_t tech;
+    bool cheeks;                  // part of the pose: loving and embarrassed
+    float bars[NB_OVERLAY_BARS];  // BARS: bar heights, 0..1
     float dots[3];                // SPEECH: lift 0..1
-    float hand;                   // THINK: 0 hidden .. 1 in place
-    float hand_angle;             // THINK: nod, degrees
     float bubble;                 // SPEECH: bubble scale, 0 hidden .. ~1.1
-    float hearts[2];              // AFFECTION: rise phase 0..1 of each heart
-    bool cheeks;                  // AFFECTION, CHEEKS
-    float zs[NB_OVERLAY_ZS];      // SLEEP: rise phase 0..1 of each Z
+    float hand;                   // HAND: 0 hidden .. 1 in place
+    float hand_angle;             // HAND: nod, degrees
+    float hearts[2];              // HEARTS: rise phase 0..1 of each heart
+    float zs[NB_OVERLAY_ZS];      // ZS: rise phase 0..1 of each Z
 } nb_overlay_frame_t;
 
 typedef struct {
-    nb_overlay_kind_t kind;
-    uint32_t since_ms;       // when the current kind began
-    uint32_t speech_end_ms;  // when the voice stopped, valid while speech_ending
+    nb_activity_kind_t activity;
+    nb_gesture_kind_t gesture;
+    bool gesture_after_wait;   // the hand came from a confirmed wait
+    uint32_t activity_since_ms;
+    uint32_t gesture_since_ms;
+    uint32_t speech_end_ms;    // when the voice stopped, valid while speech_ending
     bool speech_ending;
     uint32_t last_ms;
-    float level;             // smoothed audio level 0..1
+    float level;               // smoothed audio level 0..1
     bool started;
-    bool sleeping;
 } nb_overlay_t;
 
 void nb_overlay_init(nb_overlay_t *overlay);
 
-// Asleep, the Zs show whatever the expression (it is the sleepy one).
-void nb_overlay_set_sleeping(nb_overlay_t *overlay, bool sleeping);
-
-// Speaking wins over everything, then sleep; otherwise the winning
-// expression decides.
-// audio_level (0..1) is the microphone while listening and the speaker while
-// speaking. Writes the frame to draw now.
-void nb_overlay_update(nb_overlay_t *overlay, nb_expression_t winner, bool speaking,
-                       float audio_level, uint32_t now_ms, nb_overlay_frame_t *out);
+// Writes the frame to draw now. Rules:
+//  - A: the voice wins; the bubble lingers briefly after it. Otherwise the
+//    bars show for as long as the microphone is really open, whatever the
+//    face expression says, except during a confirmed wait, which hands the
+//    place to the hand.
+//  - G: sleep, then a confirmed wait, then the winning intention. The hand of
+//    a thinking intention gives way to the bars while listening.
+//  - T: the safety stop wins over the network mark.
+//  - An expression never invents a microphone or a wait state.
+void nb_overlay_update(nb_overlay_t *overlay, const nb_overlay_input_t *input, uint32_t now_ms,
+                       nb_overlay_frame_t *out);
 
 #ifdef __cplusplus
 }

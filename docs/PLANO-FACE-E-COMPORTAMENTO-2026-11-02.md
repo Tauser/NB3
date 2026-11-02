@@ -346,9 +346,9 @@ Executar host-tests e build ESP-IDF nas etapas de código, sob os warnings exist
 - [x] Linha de base de desempenho (§4) e prova de STT/TTS (§7), medidas na placa em 02/11.
 - [x] Galeria determinística das 15 intenções (`tools/design/face_gallery/`; gerar com `build_gallery.py`). Limites: mão e ícones são marcadores, o banner usa altura estimada, antialiasing difere do LVGL; falta comparar com a tela física e o teste de leitura com avaliadores (etapa 6).
 - [x] Poses atuais gravadas como referência antes da etapa 4 (`reference/poses.json`, protegidas por `test_face_gallery.py`).
-- [ ] Três canais e política de banner implementados, sem encolher os olhos.
-- [ ] Compositor não arbitra expressão.
-- [ ] Sono publicado por transição.
+- [x] Três canais e política de banner implementados, sem encolher os olhos (etapa 3: `nb_overlay` com A/G/T, âncora restringida à tela e ocultação pelo banner medido pelo LVGL). Falta ver na placa; T tem núcleo e testes, mas sem ícone nem produtor até a etapa 5; o produtor de espera confirmada também.
+- [x] Compositor não arbitra expressão: recebe o vencedor só para G, e A vem do estado real do áudio.
+- [x] Sono publicado por transição (`BehaviorModifier::SetSleepSink` → `FaceDisplay::SetSleeping`); o tick de energia só calcula energia.
 - [ ] Seis famílias e quinze receitas escalares.
 - [ ] Quinze arrays antigos e catálogo duplicado removidos, com saldo de linhas registrado.
 - [ ] Antecipação, balanço, oscilação e piscar preservados na comparação com a referência.
