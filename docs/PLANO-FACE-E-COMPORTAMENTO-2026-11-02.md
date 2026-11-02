@@ -102,6 +102,32 @@ Os valores numéricos de intensidade serão calibrados; as diferenças abaixo s�
 | embarrassed | TRISTEZA | Inclinação mais leve, olhar lateral baixo e bochechas | Timidez distinta de tristeza e sonolência |
 | content | ALEGRIA | Cápsulas abertas com recorte inferior suave | Satisfação distinguível de neutral sem legenda |
 
+### Linha de base medida (etapa 1)
+
+Catálogo atual em `core/nb_avatar.c` (valor a conservar na comparação da etapa 4). Duração é a soma de transição e permanência dos keyframes, sem balanço nem piscar:
+
+| Intenção | Keyframes | Duração (ms) | Reprodução | Piscar |
+|---|---|---|---|---|
+| neutral (IDLE) | 1 | 260 | loop | sim |
+| listening | 2 | 3300 | loop | sim |
+| thinking | 2 | 5520 | loop | sim |
+| happy | 3 | 1860 | uma vez | sim |
+| excited | 3 | 1310 | uma vez | sim |
+| curious | 3 | 2020 | uma vez | sim |
+| confused | 3 | 2145 | uma vez | sim |
+| angry | 3 | 2155 | uma vez | sim |
+| surprised | 3 | 1740 | uma vez | não |
+| sad | 3 | 3340 | uma vez | sim |
+| sleepy | 2 | 2600 | uma vez | não |
+| dizzy | 3 | 1260 | uma vez | não |
+| loving | 3 | 1920 | uma vez | sim |
+| embarrassed | 3 | 2440 | uma vez | sim |
+| content | 2 | 2120 | uma vez | sim |
+
+Os 15 arrays ocupam cerca de 157 linhas (85–241) e cada intenção tem um oscilador próprio de balanço (`MOTION`) e um de piscar. Esse é o saldo de linhas de partida.
+
+Render na placa (02/11, conversa real, AEC desligado, 20 janelas de 30 s, linha `Cpu:` do próprio firmware): face entre 18,6 e 22,6 fps desenhados (o desenho só ocorre quando o quadro muda, então não é queda do alvo de 30 fps), 3,2 a 6,0 chamadas de desenho por quadro, tempo médio de desenho de 0,9 a 2,7 ms, máximo por janela de 9 a 57 ms, `taskLVGL` com 15% a 26% de CPU e CPU ociosa de 53% a 69%. Os picos de 20 a 57 ms acontecem durante a fala. Qualquer etapa seguinte deve ficar dentro dessa faixa.
+
 Envergonhado usar a família geométrica TRISTEZA não altera sua semântica nem seu estímulo de humor.
 
 Tonto continua aceito por MCP/nuvem. No primeiro patch de safety, sua reação atual é preservada para isolar a correção de slot. Só na etapa de indicação técnica a chamada automática de tonto por safety será retirada, substituída pelo aviso âmbar persistente. O safety não fica sem sinal entre as etapas.
@@ -186,25 +212,29 @@ Substituir o único kind final por um frame composto: atividade, gesto e condiç
 - Uma falha técnica não transforma automaticamente a emoção escolhida; seu canal permanece visível independentemente da intenção.
 - Se a placa permanecer em sono diante de um alerta, T continua visível; a política de despertar físico por lembrete não é redesenhada nesta entrega.
 
-## 7. Espera: STT como início, Speaking como fim
+## 7. Espera: STT como início, primeira frase da resposta como fim
 
-O caminho existe na cópia local do upstream, sem novo patch: stt com texto agenda SetChatMessage("user", ...), e tts/start agenda a transição para Speaking.
+O caminho existe na cópia local do upstream, sem novo patch: stt com texto agenda SetChatMessage("user", ...), e tts/start agenda a transição para Speaking. A medição na placa (abaixo) mostrou que Speaking começa até 50 ms depois do STT, antes de qualquer áudio. Por isso a espera termina na **primeira frase da resposta** (`tts sentence_start`), não na entrada em Speaking.
 
-Usar o intervalo **recebimento de STT → entrada em Speaking** como medida de espera após transcrição recebida. Ele não mede todo o tempo entre o fim acústico da fala e a resposta, nem prova que áudio já está audível em Speaking.
+Usar o intervalo **recebimento de STT → primeira frase da resposta** como medida de espera. Ele não mede o tempo entre o fim acústico da fala e o STT (a face já está em `thinking` nesse trecho) nem prova que o áudio já está audível.
 
 ### Passo de evidência antes da troca
 
-Registrar timestamps monotônicos, número local de turno e eventos STT, Speaking, Idle, erro/desconexão e interrupção pelo botão BOOT. Não é necessário registrar conteúdo de fala adicional. Confirmar em pelo menos dez turnos normais, e nos cenários de BOOT e reconexão, se o servidor envia STT, a ordem observada e a distribuição do intervalo. A medição vale para o AEC desligado (D-024); se ele voltar, repetir.
+Registrar timestamps monotônicos, número local de turno e eventos STT, Speaking, Idle, erro/desconexão e interrupção da fala, se ocorrer (o corte de fala está adiado e fora desta medição). Não é necessário registrar conteúdo de fala adicional. Confirmar em pelo menos dez turnos normais, e no cenário de reconexão, se o servidor envia STT, a ordem observada e a distribuição do intervalo. A medição vale para o AEC desligado (D-024); se ele voltar, repetir.
+
+### Evidência medida na placa (02/11, AEC desligado, 15 turnos)
+
+Log do console, sem corte de fala. O STT apareceu em todos os turnos, uma vez só, nunca durante Speaking e nunca atrasado. O estado passou de Listening para Speaking entre 0 e 50 ms depois do STT, então **o STT não separa "esperando resposta" de "falando"**: uma espera armada pelo STT e encerrada pela entrada em Speaking dura praticamente zero. O silêncio real fica dentro do Speaking: do STT até a primeira frase da resposta (`tts sentence_start`) passaram de 0,76 s a 2,18 s (mediana cerca de 1,2 s). A face já entra em `thinking` de 0,14 s a 1,4 s antes do STT. Nenhuma espera chegou perto de 20 s; as mais longas apareceram com ferramenta (`get_weather`), já em Speaking. Log bruto: não versionado (scratchpad da sessão).
 
 ### Regras propostas
 
 - STT não vazio durante uma sessão válida arma a espera; deduplicar repetição idêntica de evento no mesmo turno.
-- Entrada em Speaking encerra a espera; indicador de fala pode usar atividade de saída já existente para acompanhar a reprodução.
+- A primeira frase da resposta encerra a espera (Speaking já pode ter começado); indicador de fala pode usar atividade de saída já existente para acompanhar a reprodução. Se Speaking terminar sem nenhuma frase, a espera também termina.
 - Idle, erro, desconexão, cancelamento ou nova sessão invalidam espera anterior.
 - Com o microfone fechado durante a fala, não se espera STT em Speaking. Se chegar um (tardio do turno anterior), não substituir a fala por espera nem armar espera nova; registrar nos logs.
-- BOOT durante a fala encerra Speaking; a espera anterior já terminou e não é reativada.
+- Interrupção durante a fala encerra Speaking; a espera anterior já terminou e não é reativada. O corte de fala está adiado por decisão do usuário (problemas em andamento) e não faz parte da etapa 1. Pelo código do upstream, a palavra de ativação só é detectada em Speaking se o detector for do AFE (`IsAfeWakeWord`); o dispositivo usa microWakeWord com AEC desligado, então provavelmente não interrompe. Quando o tema voltar, provar na placa e decidir (D-024).
 - Não há garantia de correlação remota por ID neste caminho. Ordenação local e limpezas de sessão devem impedir estado preso; testar STT tardio ou repetido.
-- Manter atraso visual inicial de 700 ms como ponto de partida para evitar piscadas.
+- Atraso visual inicial: **2,5 s** a contar do STT, acima do maior intervalo medido (2,18 s), para a mão não aparecer em respostas normais. Com 700 ms ela apareceria em quase todo turno. Valor a calibrar na etapa 6 com ferramentas lentas e rede ruim, que a medição não cobriu.
 - **A espera não tem desenho novo: é a mão de pensar.** O commit 34573d7 removeu as bolinhas do pensar, e elas não voltam.
 - Aos 20 s, limpar a mão, devolver as barras e mostrar “Demorando para responder” pelo banner existente; não fingir conclusão nem cancelar o protocolo remotamente.
 - Sem STT comprovado, manter indicação de escuta/conexão e o comportamento atual como fallback identificado. Não rotular silêncio do VAD como confirmação de processamento remoto.
@@ -291,7 +321,7 @@ A etapa 4 reescreve o avatar e 78 referências em test_avatar.c e test_face_link
 - Qualquer expressão comandada durante escuta preserva A.
 - Thinking comandado/iniciativa sem STT não inventa espera remota.
 - STT duplicado, tardio, ausente, seguido de erro, seguido de Speaking e chegando durante a fala.
-- BOOT durante a fala: balão sai, escuta ou repouso conforme o modo, sem espera presa.
+- Interrupção durante a fala (adiada; testar quando o corte de fala voltar): balão sai, escuta ou repouso conforme o modo, sem espera presa.
 - Voz do robô termina/interrompe sem deixar balão ou espera presos.
 - Sono → toque/wake publica abertura sem esperar o timer de energia.
 - Todas as 15 intenções têm receita e sequência de teste; nenhuma cai silenciosamente em neutral por falta de mapeamento.
@@ -312,7 +342,7 @@ Executar host-tests e build ESP-IDF nas etapas de código, sob os warnings exist
 
 - [x] Patch isolado de slot safety/lembrete e regressão (host-tests e build; roteiro na placa pendente).
 - [ ] Evidência em placa para STT → Speaking.
-- [ ] Linha de base de desempenho.
+- [x] Linha de base de desempenho (§4) e prova de STT/TTS (§7), medidas na placa em 02/11.
 - [ ] Galeria determinística das 15 intenções.
 - [ ] Poses atuais gravadas como referência antes da etapa 4.
 - [ ] Três canais e política de banner implementados, sem encolher os olhos.

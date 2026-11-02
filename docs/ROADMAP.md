@@ -17,8 +17,18 @@ altera o status das entregas abaixo.
 **Etapa 0 da revisão da face:** o aviso facial de safety tem fonte própria no
 árbitro (`NB_SOURCE_SAFETY`), então um lembrete não apaga mais a cara de tonto
 da parada. O aviso segue durando 3 s; o aviso persistente fica para a etapa 5.
-Validado em host-tests e build. Falta validar na placa: provocar um FAULT com
-um lembrete tocando durante o aviso.
+Validado em host-tests e build, e o firmware com o patch roda na placa em
+conversa real. Falta validar na placa: provocar um FAULT com um lembrete
+tocando durante o aviso.
+
+**Etapa 1 da revisão da face (02/11):** linha de base e prova de STT/TTS na
+placa, AEC desligado, 21 mensagens em 8 sessões sem estado preso. O STT chega
+uma vez por turno e o Speaking começa até 50 ms depois dele; a espera real vai
+do STT à primeira frase (0,76 a 2,18 s). Por isso o plano passa a encerrar a
+espera na primeira frase, com atraso visual de 2,5 s. Render: 18,6 a 22,6 fps
+desenhados, 0,9 a 2,7 ms médios por desenho, picos de até 57 ms na fala. Corte
+de fala adiado (mic ruidoso e fim de fala curto, fora desta entrega). Falta:
+ferramentas lentas e rede ruim ainda não medidas.
 
 ## Visão geral
 
