@@ -3,12 +3,12 @@
 
 #include <atomic>
 #include <cstdint>
+#include <functional>
 #include <mutex>
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
-#include "behavior/expression_arbiter.h"
 #include "behavior/sound_bank.h"
 #include "core/nb_bus_backoff.h"
 #include "core/nb_head_gesture.h"
@@ -37,11 +37,15 @@
 //   by itself when the feedback stops.
 class MotionService {
 public:
-    MotionService(uint8_t pan_id, uint8_t tilt_id, ExpressionArbiter* arbiter, SoundBank* sounds);
+    MotionService(uint8_t pan_id, uint8_t tilt_id, SoundBank* sounds);
     ~MotionService();
 
     MotionService(const MotionService&) = delete;
     MotionService& operator=(const MotionService&) = delete;
+
+    // Told, from the motion task, whenever the safety enters or leaves FAULT (the
+    // face shows a persistent warning while it lasts). Set before the first move.
+    void SetSafetySink(std::function<void(bool)> sink) { safety_sink_ = std::move(sink); }
 
     // Where the head is, its limits and how it is mounted, for planning.
     nb_head_geometry_t Geometry() const { return geometry_; }
@@ -91,8 +95,9 @@ private:
     static constexpr int kRecoverPending = 0;
 
     ScsBus bus_;
-    ExpressionArbiter* arbiter_;
     SoundBank* sounds_;
+    std::function<void(bool)> safety_sink_;
+    bool safety_told_ = false;  // motion task only
     uint8_t ids_[NB_MOTION_SAFETY_AXIS_COUNT];
     nb_head_geometry_t geometry_;
     std::mutex mutex_;  // pending_plan_, status_

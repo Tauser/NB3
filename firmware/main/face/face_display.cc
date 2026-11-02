@@ -42,6 +42,9 @@ const lv_color_t kBackground = lv_color_black();
 // The only colours on the screen besides white (docs/FACE.md).
 const lv_color_t kCheekColor = lv_color_hex(0xE8907A);  // salmon pills
 const lv_color_t kHeartColor = lv_color_hex(0xFF7AAE);
+const lv_color_t kAngryColor = lv_color_hex(0xFF3B30);
+const lv_color_t kAngryEdgeColor = lv_color_hex(0x7A1D18);  // the red at 48%
+const lv_color_t kTechColor = lv_color_hex(0xF0B35A);       // amber: a technical warning
 
 // Overlay placement, in screen pixels from the eyes' rest centre, taken from
 // the face V2 mocks (a 320x240 screen centred at 160,120). The painter moves
@@ -53,6 +56,8 @@ constexpr float kBarsMaxHeight = 32.0f;
 constexpr float kHandLeft = -32.0f;   // hand image top-left, once in place
 constexpr float kHandTop = 47.0f;
 constexpr float kBubbleCentre[2] = {108.0f, -80.0f};
+constexpr float kTechLeft = 122.0f;   // channel T's mark, from the screen centre (x 282..314)
+constexpr float kTechTop = -112.0f;   // (y 8..40)
 constexpr float kArcFrom = 0.3f;   // crescent depth from which an eye is drawn as an arc
 constexpr int kArcSteps = 10;
 constexpr int kHeartSteps = 28;
@@ -136,6 +141,8 @@ struct Painter {
     float cx;  // screen position of the design-space origin
     float cy;
     Recorder* rec = nullptr;
+    lv_color_t eye_color = kEyeColor;    // angry turns the eyes red
+    lv_color_t edge_color = kEdgeColor;  // and their rim dark red
 
     void RoundRect(int x, int y, int w, int h, int radius, lv_color_t color) const {
         if (rec != nullptr) {
@@ -256,20 +263,20 @@ struct Painter {
             const float axis_y = vertical ? cosf(angle) : sinf(angle);
             if (half_line < 0.5f) {
                 const int r = static_cast<int>(fmaxf(2.0f, roundf(minor * 0.5f)));
-                Circle(eye_x, eye_y, r + 1, kEdgeColor);
-                Circle(eye_x, eye_y, r, kEyeColor);
+                Circle(eye_x, eye_y, r + 1, edge_color);
+                Circle(eye_x, eye_y, r, eye_color);
             } else {
                 // A capsule is a line with round caps as wide as the eye.
                 const float x0 = eye_x - axis_x * half_line;
                 const float y0 = eye_y - axis_y * half_line;
                 const float x1 = eye_x + axis_x * half_line;
                 const float y1 = eye_y + axis_y * half_line;
-                Line(x0, y0, x1, y1, minor + 2.4f, kEdgeColor);
-                Line(x0, y0, x1, y1, minor, kEyeColor);
+                Line(x0, y0, x1, y1, minor + 2.4f, edge_color);
+                Line(x0, y0, x1, y1, minor, eye_color);
             }
         } else {
-            RoundRect(left - 1, top - 1, width + 2, height + 2, radius + 1, kEdgeColor);
-            RoundRect(left, top, width, height, radius, kEyeColor);
+            RoundRect(left - 1, top - 1, width + 2, height + 2, radius + 1, edge_color);
+            RoundRect(left, top, width, height, radius, eye_color);
         }
 
         const int upper_cover =
@@ -284,10 +291,10 @@ struct Painter {
             const float r = static_cast<float>(left + width);
             if (eye.upper_lid_tilt > 0.0f) {
                 Triangle(l, lid_y, r, lid_y, r, lid_y + upper_tilt, kBackground);
-                Line(l, lid_y, r, lid_y + upper_tilt, 1.0f, kEdgeColor, false);
+                Line(l, lid_y, r, lid_y + upper_tilt, 1.0f, edge_color, false);
             } else {
                 Triangle(l, lid_y + upper_tilt, l, lid_y, r, lid_y, kBackground);
-                Line(l, lid_y + upper_tilt, r, lid_y, 1.0f, kEdgeColor, false);
+                Line(l, lid_y + upper_tilt, r, lid_y, 1.0f, edge_color, false);
             }
         }
         const int lower_cover =
@@ -331,7 +338,7 @@ struct Painter {
             const float brow_y = eye_y + eye.brow_y * scale;
             const float thickness = fmaxf(2.0f, fminf(eye.width, eye.height) * scale * 0.04f);
             Line(eye_x - dx, brow_y - dy, eye_x + dx, brow_y + dy, thickness * 2.0f,
-                 Dim(kEyeColor, 0.63f + 0.37f * brow_opacity));
+                 Dim(eye_color, 0.63f + 0.37f * brow_opacity));
         }
     }
 
@@ -351,7 +358,7 @@ struct Painter {
         float prev_y = 0.0f;
         for (int pass = 0; pass < 2; ++pass) {
             const float w = pass == 0 ? thickness + 2.4f : thickness;
-            const lv_color_t color = pass == 0 ? kEdgeColor : kEyeColor;
+            const lv_color_t color = pass == 0 ? edge_color : eye_color;
             for (int i = 0; i <= kArcSteps; ++i) {
                 const float angle = -half_angle + 2.0f * half_angle * i / kArcSteps;
                 const float x = eye_x + radius * sinf(angle);
@@ -449,14 +456,39 @@ struct Painter {
         Line(x - w, y + h, x + w, y + h, stroke, color);
     }
 
-    // The face V2 overlay channels (docs/FACE.md): activity, then gesture; the
-    // technical channel has no mark to draw yet. Fades are dims toward the
+    // The technical mark of channel T, fixed on the screen (not following the
+    // eyes), 32x32 at the top right: bars struck through for the network, a
+    // shield with a pause for the safety stop.
+    void TechMark(nb_tech_kind_t kind) const {
+        const float x0 = cx + kTechLeft;
+        const float y0 = cy + kTechTop;
+        const int ix = static_cast<int>(lroundf(x0));
+        const int iy = static_cast<int>(lroundf(y0));
+        if (kind == NB_TECH_NET) {
+            for (int i = 0; i < 3; ++i) {
+                const int h = 8 + 8 * i;
+                RoundRect(ix + 3 + 9 * i, iy + 29 - h, 6, h, 2, kTechColor);
+            }
+            Line(x0 + 3.0f, y0 + 30.0f, x0 + 29.0f, y0 + 3.0f, 6.0f, kBackground, false);
+            Line(x0 + 3.0f, y0 + 30.0f, x0 + 29.0f, y0 + 3.0f, 3.0f, kTechColor);
+        } else if (kind == NB_TECH_SAFETY) {
+            RoundRect(ix + 3, iy + 2, 26, 16, 3, kTechColor);
+            Triangle(x0 + 3.0f, y0 + 17.0f, x0 + 29.0f, y0 + 17.0f, x0 + 16.0f, y0 + 31.0f,
+                     kTechColor);
+            RoundRect(ix + 11, iy + 8, 3, 13, 1, kBackground);
+            RoundRect(ix + 18, iy + 8, 3, 13, 1, kBackground);
+        }
+    }
+
+    // The face V2 overlay channels (docs/FACE.md): activity, then gesture, then
+    // the technical mark. Fades are dims toward the
     // black background. Activity marks get a 1 px black outline so they stay
     // legible when they pass over an eye.
     void Overlay(const nb_overlay_frame_t& o, const ChannelLayout& layout,
                  const nb_avatar_pose_t& pose) const {
         nb_overlay_anchor_t pose_anchor;
         nb_overlay_anchor_from_pose(&pose, kDesignScale, &pose_anchor);
+        TechMark(o.tech);
         if (o.cheeks) {
             Cheek(pose.left_eye, pose, -1.0f, pose_anchor.scale);
             Cheek(pose.right_eye, pose, 1.0f, pose_anchor.scale);
@@ -585,8 +617,14 @@ void PaintFace(const Painter& painter, const nb_avatar_render_frame_t& frame,
     if (!frame.enabled) {
         return;
     }
-    painter.Eye(frame.pose.left_eye, frame.pose, frame.blink_scale);
-    painter.Eye(frame.pose.right_eye, frame.pose, frame.blink_scale);
+    // Red for as long as angry is the face on screen, not only at its entrance.
+    Painter eyes = painter;
+    if (frame.expression == NB_AVATAR_EXPR_ANGRY) {
+        eyes.eye_color = kAngryColor;
+        eyes.edge_color = kAngryEdgeColor;
+    }
+    eyes.Eye(frame.pose.left_eye, frame.pose, frame.blink_scale);
+    eyes.Eye(frame.pose.right_eye, frame.pose, frame.blink_scale);
     painter.Overlay(overlay, channels, frame.pose);
     if (frame.dizzy_overlay) {
         painter.Dizzy(frame.pose.left_eye, frame.pose, -1, frame.animation_ms);
@@ -817,7 +855,9 @@ void FaceDisplay::Tick() {
     channels_in.voice = Application::GetInstance().GetAudioService().IsVoiceDetected();
     channels_in.speaking = device == kDeviceStateSpeaking;
     channels_in.sleeping = sleeping;
-    // No producer yet for a confirmed wait or the technical marks.
+    channels_in.net_down = net_down_;
+    channels_in.safety_stop = safety_stop_;
+    // No producer yet for a confirmed wait.
     channels_in.audio_level = channels_in.speaking ? levels_.Speaker(now) : levels_.Mic(now);
     nb_overlay_update(&overlay_, &channels_in, now, &overlay_frame_);
     PlaceChannels();

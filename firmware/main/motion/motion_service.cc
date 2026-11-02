@@ -13,7 +13,6 @@ namespace {
 
 constexpr uint32_t kPeriodMs = 50;
 constexpr uint32_t kLogPeriodMs = 5000;
-constexpr uint32_t kFaultFaceMs = 3000;
 // Silent servos: a few quiet cycles tell it is not a lost frame.
 constexpr nb_bus_backoff_cfg_t kBackoff = {5, 500};
 // A waypoint is given a little more than its travel time before the next.
@@ -33,10 +32,8 @@ bool Reached(uint32_t now, uint32_t due) {
 
 }  // namespace
 
-MotionService::MotionService(uint8_t pan_id, uint8_t tilt_id, ExpressionArbiter* arbiter,
-                             SoundBank* sounds)
+MotionService::MotionService(uint8_t pan_id, uint8_t tilt_id, SoundBank* sounds)
     : bus_(SERVO_UART_PORT, SERVO_UART_TX, SERVO_UART_RX, SERVO_UART_BAUD),
-      arbiter_(arbiter),
       sounds_(sounds) {
     ids_[NB_MOTION_SAFETY_AXIS_PAN] = pan_id;
     ids_[NB_MOTION_SAFETY_AXIS_TILT] = tilt_id;
@@ -392,7 +389,14 @@ void MotionService::Run() {
         }
         nb_motion_safety_heartbeat(&safety_, now);
         nb_motion_safety_tick(&safety_, now);
-        if (nb_motion_safety_get_state(&safety_) == NB_MOTION_SAFETY_STATE_FAULT) {
+        const bool faulted = nb_motion_safety_get_state(&safety_) == NB_MOTION_SAFETY_STATE_FAULT;
+        if (faulted != safety_told_) {
+            safety_told_ = faulted;
+            if (safety_sink_) {
+                safety_sink_(faulted);
+            }
+        }
+        if (faulted) {
             plan_ = {};
             if (torque_on_ && use_bus) {
                 torque_on_ = !Release();  // tried again every cycle until both are free
@@ -403,11 +407,6 @@ void MotionService::Run() {
                          nb_motion_safety_fault_name(nb_motion_safety_get_fault(&safety_)),
                          AxisName(nb_motion_safety_get_fault_axis(&safety_)));
                 LogReadings();
-                if (arbiter_ != nullptr) {
-                    // A start, not a mood: the face says it, then the robot goes on.
-                    nb_proposal_t dizzy = {NB_EXPR_DIZZY, priority::kFault, kFaultFaceMs, false};
-                    arbiter_->Propose(NB_SOURCE_SAFETY, dizzy);
-                }
                 if (sounds_ != nullptr) {
                     sounds_->Play(SoundBank::kSafetyStop);
                 }

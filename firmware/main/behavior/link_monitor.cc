@@ -102,6 +102,9 @@ void LinkMonitor::Tick() {
             offline_notices_ = 0;
         }
     }
+    if (display_ != nullptr) {
+        display_->SetNetDown(link_.state == NB_LINK_NO_WIFI || link_.state == NB_LINK_NO_SERVER);
+    }
     // Offline: said now, again a little later (boot notices tend to cover
     // the first one), then every few minutes.
     if (link_.state == NB_LINK_NO_WIFI || link_.state == NB_LINK_NO_SERVER) {

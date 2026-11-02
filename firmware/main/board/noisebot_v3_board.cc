@@ -459,7 +459,8 @@ public:
         static PowerCutTest power_cut(store_, display_);  // bench builds only
         power_cut.Start();
         static ArcModifier arcs(arbiter_, behavior_, mood_, energy, display_);
-        static MotionService motion(SERVO_ID_PAN, SERVO_ID_TILT, &arbiter_, &sounds);
+        static MotionService motion(SERVO_ID_PAN, SERVO_ID_TILT, &sounds);
+        motion.SetSafetySink([display = display_](bool stopped) { display->SetSafetyStop(stopped); });
         static HeadBehavior head(motion, display_, behavior_, energy);
         RegisterHeadTools(motion, head);
         StartMotionBench(motion);  // bench builds only

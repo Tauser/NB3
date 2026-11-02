@@ -63,6 +63,11 @@ public:
     // From the behavior, on entering or leaving sleep (eyes nearly shut, no
     // looking around, Zs). Any task.
     void SetSleeping(bool sleeping) { sleeping_ = sleeping; }
+    // The technical marks of channel T: the last try to reach the server failed
+    // (LinkMonitor) and the motion safety stopped the servos (MotionService).
+    // They stay while the condition lasts. Any task.
+    void SetNetDown(bool down) { net_down_ = down; }
+    void SetSafetyStop(bool stopped) { safety_stop_ = stopped; }
     // From the arc: where to look and how open the eyes are, used while the
     // arc's face wins the arbiter.
     void SetArc(bool active, const nb_avatar_look_t& look, float eye_open);
@@ -102,6 +107,8 @@ private:
     const AudioLevels& levels_;
     std::atomic<float> energy_arousal_{1.0f};
     std::atomic<bool> sleeping_{false};
+    std::atomic<bool> net_down_{false};
+    std::atomic<bool> safety_stop_{false};
     std::mutex arc_mutex_;  // held for a copy
     bool arc_active_ = false;
     nb_avatar_look_t arc_look_ = {};
