@@ -8,6 +8,18 @@ andamento em linguagem de produto.
 iniciativa, hábitos e personalidade pela rotina); etapa 4 retomada pelo
 safety.
 
+**Planejamento de 02/11/2026:** a [revisão da face](PLANO-FACE-E-COMPORTAMENTO-2026-11-02.md)
+define uma entrega restrita à simplificação visual e correções de integração,
+começando pelo isolamento do slot de safety. Galeria, composição em três
+canais e seis famílias ainda são propostas; esta revisão documental não
+altera o status das entregas abaixo.
+
+**Etapa 0 da revisão da face:** o aviso facial de safety tem fonte própria no
+árbitro (`NB_SOURCE_SAFETY`), então um lembrete não apaga mais a cara de tonto
+da parada. O aviso segue durando 3 s; o aviso persistente fica para a etapa 5.
+Validado em host-tests e build. Falta validar na placa: provocar um FAULT com
+um lembrete tocando durante o aviso.
+
 ## Visão geral
 
 | Etapa | Entrega | Prova de sucesso | Situação |

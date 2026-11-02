@@ -406,7 +406,7 @@ void MotionService::Run() {
                 if (arbiter_ != nullptr) {
                     // A start, not a mood: the face says it, then the robot goes on.
                     nb_proposal_t dizzy = {NB_EXPR_DIZZY, priority::kFault, kFaultFaceMs, false};
-                    arbiter_->Propose(NB_SOURCE_REFLEX, dizzy);
+                    arbiter_->Propose(NB_SOURCE_SAFETY, dizzy);
                 }
                 if (sounds_ != nullptr) {
                     sounds_->Play(SoundBank::kSafetyStop);

@@ -180,6 +180,37 @@ static void test_resolve_says_who_won(void) {
     NB_CHECK_EQ_INT(NB_SOURCE_MOOD, winner);
 }
 
+// A reminder rings while the safety stop is on the face: the stop keeps its
+// full time, and the reminder shows for whatever is left of its own.
+static void test_reflex_does_not_replace_safety(void) {
+    nb_arbiter_t a;
+    nb_arbiter_init(&a, NB_EXPR_NEUTRAL);
+    nb_proposal_t safety = proposal(NB_EXPR_DIZZY, 60, 3000, false);
+    nb_proposal_t reminder = proposal(NB_EXPR_SURPRISED, 50, 4000, false);
+    NB_CHECK(nb_arbiter_propose(&a, NB_SOURCE_SAFETY, &safety, 0));
+    NB_CHECK(nb_arbiter_propose(&a, NB_SOURCE_REFLEX, &reminder, 1000));
+
+    nb_source_t winner = NB_SOURCE_COUNT;
+    NB_CHECK_EQ_INT(NB_EXPR_DIZZY, nb_arbiter_resolve_source(&a, 2999, &winner));
+    NB_CHECK_EQ_INT(NB_SOURCE_SAFETY, winner);
+    NB_CHECK_EQ_INT(NB_EXPR_SURPRISED, nb_arbiter_resolve_source(&a, 3000, &winner));
+    NB_CHECK_EQ_INT(NB_SOURCE_REFLEX, winner);
+    NB_CHECK_EQ_INT(NB_EXPR_NEUTRAL, nb_arbiter_resolve(&a, 5000));
+}
+
+// The same two the other way round: the stop covers a reminder already showing.
+static void test_safety_covers_reflex(void) {
+    nb_arbiter_t a;
+    nb_arbiter_init(&a, NB_EXPR_NEUTRAL);
+    nb_proposal_t reminder = proposal(NB_EXPR_SURPRISED, 50, 4000, false);
+    nb_proposal_t safety = proposal(NB_EXPR_DIZZY, 60, 3000, false);
+    NB_CHECK(nb_arbiter_propose(&a, NB_SOURCE_REFLEX, &reminder, 0));
+    NB_CHECK_EQ_INT(NB_EXPR_SURPRISED, nb_arbiter_resolve(&a, 500));
+    NB_CHECK(nb_arbiter_propose(&a, NB_SOURCE_SAFETY, &safety, 1000));
+    NB_CHECK_EQ_INT(NB_EXPR_DIZZY, nb_arbiter_resolve(&a, 3999));
+    NB_CHECK_EQ_INT(NB_EXPR_NEUTRAL, nb_arbiter_resolve(&a, 4000));
+}
+
 int main(void) {
     NB_RUN(test_baseline_when_nothing_proposed);
     NB_RUN(test_higher_priority_wins);
@@ -195,5 +226,7 @@ int main(void) {
     NB_RUN(test_withdraw_removes_only_that_source);
     NB_RUN(test_invalid_input_is_rejected);
     NB_RUN(test_resolve_says_who_won);
+    NB_RUN(test_reflex_does_not_replace_safety);
+    NB_RUN(test_safety_covers_reflex);
     NB_TEST_MAIN_END();
 }
