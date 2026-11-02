@@ -353,7 +353,7 @@ Executar host-tests e build ESP-IDF nas etapas de código, sob os warnings exist
 - [x] Quinze arrays antigos e catálogo duplicado removidos. Saldo registrado: tabelas de 183 para 87 linhas de código e cerca de 1.350 números para cerca de 450, mas o arquivo passou de 800 para 912 linhas (geradores, tipos e montador de entrada são código novo). O critério "se o saldo não cair, reavaliar" foi lido como saldo de dados, que caiu; decisão de aceitar fica registrada aqui.
 - [x] Antecipação, balanço, oscilação e piscar preservados (testes: durações idênticas, achatamento antes de abrir, balanço de confused e dizzy, quem não pisca). Diferenças conhecidas: dizzy perde a alternância vertical dos olhos; excited e surprised assentam um pouco maiores; confused fica menos largo. Falta a comparação em movimento na galeria e na tela física.
 - [x] Compatibilidade MCP: enum e nomes públicos não mudaram (host-tests de face_link e face_tools passam). TTL não foi tocado.
-- [~] Cores e avisos técnicos coerentes: bravo vermelho e ícones de rede e parada (âmbar) em T implementados; falta ver na placa. A espera confirmada e o balão na primeira frase seguem pendentes.
+- [~] Cores e avisos técnicos coerentes: bravo vermelho e ícones de rede e parada (âmbar) em T implementados e vistos na placa em 02/11. A espera confirmada e o balão na primeira frase seguem pendentes.
 - [ ] Seis efeitos reutilizados; nenhuma expansão social oculta.
 - [ ] Critérios visuais e de desempenho atendidos.
 - [ ] FACE e ROADMAP atualizados com implementação e evidências reais.
