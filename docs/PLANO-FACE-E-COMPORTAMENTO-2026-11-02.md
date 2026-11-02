@@ -1,7 +1,7 @@
 # Plano revisado: simplificação da face — NoiseBot v3
 
 **Revisão:** 3 — 02/11/2026.
-**Situação:** etapas 0 (safety isolado), 1 (linha de base e prova de STT/TTS na placa) e 2 (galeria e poses de referência) entregues em 02/11; etapas 3 a 6 e as decisões D-023 continuam propostas.
+**Situação:** etapas 0 (safety isolado), 1 (linha de base e prova de STT/TTS na placa), 2 (galeria e poses de referência), 3 (compositor em três canais) e 4 (seis geradores e quinze receitas, 20ba55a) entregues em 02/11; etapas 5 e 6 continuam propostas.
 **Escopo:** face, composição visual e correções diretamente necessárias.
 **Substitui:** o plano amplo anterior deste mesmo arquivo.
 
@@ -349,10 +349,10 @@ Executar host-tests e build ESP-IDF nas etapas de código, sob os warnings exist
 - [x] Três canais e política de banner implementados, sem encolher os olhos (etapa 3: `nb_overlay` com A/G/T, âncora restringida à tela e ocultação pelo banner medido pelo LVGL). Falta ver na placa; T tem núcleo e testes, mas sem ícone nem produtor até a etapa 5; o produtor de espera confirmada também.
 - [x] Compositor não arbitra expressão: recebe o vencedor só para G, e A vem do estado real do áudio.
 - [x] Sono publicado por transição (`BehaviorModifier::SetSleepSink` → `FaceDisplay::SetSleeping`); o tick de energia só calcula energia.
-- [ ] Seis famílias e quinze receitas escalares.
-- [ ] Quinze arrays antigos e catálogo duplicado removidos, com saldo de linhas registrado.
-- [ ] Antecipação, balanço, oscilação e piscar preservados na comparação com a referência.
-- [ ] Compatibilidade MCP e TTL comprovada.
+- [x] Seis famílias e quinze receitas escalares (`nb_avatar.c`: `FAMILY_*`, `gen_*`, `s_recipes`).
+- [x] Quinze arrays antigos e catálogo duplicado removidos. Saldo registrado: tabelas de 183 para 87 linhas de código e cerca de 1.350 números para cerca de 450, mas o arquivo passou de 800 para 912 linhas (geradores, tipos e montador de entrada são código novo). O critério "se o saldo não cair, reavaliar" foi lido como saldo de dados, que caiu; decisão de aceitar fica registrada aqui.
+- [x] Antecipação, balanço, oscilação e piscar preservados (testes: durações idênticas, achatamento antes de abrir, balanço de confused e dizzy, quem não pisca). Diferenças conhecidas: dizzy perde a alternância vertical dos olhos; excited e surprised assentam um pouco maiores; confused fica menos largo. Falta a comparação em movimento na galeria e na tela física.
+- [x] Compatibilidade MCP: enum e nomes públicos não mudaram (host-tests de face_link e face_tools passam). TTL não foi tocado.
 - [ ] Cores e avisos técnicos coerentes.
 - [ ] Seis efeitos reutilizados; nenhuma expansão social oculta.
 - [ ] Critérios visuais e de desempenho atendidos.

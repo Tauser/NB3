@@ -49,6 +49,20 @@ tela, o banner oculta o que cobre, barras e balão ganharam contorno preto de
 host-tests (37/37) e build. Falta ver na placa; ainda sem produtor para espera
 confirmada nem ícones de rede e parada (etapa 5).
 
+**Etapa 4 da revisão da face (02/11, 20ba55a):** os 15 arrays de keyframes e as
+15 specs de `core/nb_avatar.c` deram lugar a seis geradores de pose
+(presença, alegria, curiosidade, contrariedade, tristeza, sonolência) e 15
+receitas escalares: família, intensidade, variante, olhar, antecipação, balanço,
+tempos, piscar e movimento. A entrada (antecipação, pico, pose assentada) sai da
+receita; nomes, enum público e durações ficam como eram. Saldo medido: a tabela
+de dados caiu de 183 para 87 linhas de código (cerca de 1.350 números para
+cerca de 450), mas o arquivo cresceu de 800 para 912 linhas, porque geradores,
+tipos e o montador de entrada são código novo. Poses seguradas ficam a até 45
+unidades de projeto da referência (teste por tolerância); dentro disso, excited
+fica um pouco maior, confused um pouco menor e dizzy perde a alternância
+vertical dos olhos. Validado em host-tests (38/38 + galeria) e build; falta ver
+na placa e comparar lado a lado na galeria antes de aceitar a vivacidade.
+
 **Corte de fala por pausa curta (02/11):** o fim do turno é decidido pelo servidor; o cliente (e o StackChan, que usa o xiaozhi v2.2.4 sem alteração nessa parte) não tem limite de silêncio. Experimento D-025 implementado, com 38/38 host-tests e build, ainda sem gravar na placa: falta medir se esconder pausas de até 700 ms evita o corte e quanto atrasa a resposta.
 
 ## Visão geral
