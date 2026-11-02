@@ -64,9 +64,11 @@ Antialiasing do navegador difere do LVGL: confirme na tela física.</p>
 const CURRENT = /*CURRENT*/null;
 const REFERENCE = /*REFERENCE*/null;
 const CONTRACT = /*CONTRACT*/null;
+const LEVELS = /*LEVELS*/null;
 
 const W = 320, H = 240, CX = W / 2, CY = H / 2, DESIGN = CURRENT.design_scale, TICK = CURRENT.tick_ms;
-const WHITE = '#fff', EDGE = '#7a7a7a', BLACK = '#000', CHEEK = '#e8907a', HEART = '#ff7aae';
+let WHITE = '#fff';
+const  EDGE = '#7a7a7a', BLACK = '#000', CHEEK = '#e8907a', HEART = '#ff7aae';
 const ICON = {x0:282, y0:8, x1:314, y1:40};
 
 // C roundf: half away from zero.
@@ -101,6 +103,21 @@ function drawEye(ctx, f, e) {
     const size = Math.max(width, height) * 1.02, hx = ex, hy = ey - size * 0.085, r = Math.max(2, rnd(size * 0.28));
     circle(ctx, hx - size * 0.24, hy - size * 0.1, r, HEART); circle(ctx, hx + size * 0.24, hy - size * 0.1, r, HEART);
     tri(ctx, [hx - size * 0.5, hy], [hx + size * 0.5, hy], [hx, hy + size * 0.55], HEART);
+    return;
+  }
+  if (Math.abs(e[8]) >= 0.3) {  // a deep crescent is a thick round-ended arc, as face_display.cc draws it
+    const thick = Math.max(3, height * (1 - Math.abs(e[8]))), chord = Math.max(1, width - thick);
+    const sag = Math.max(1, Math.min(0.25 * width, height - thick) * 0.9);
+    const R = (chord * chord * 0.25 + sag * sag) / (2 * sag), half = Math.asin(Math.min(1, chord * 0.5 / R));
+    const arch = e[8] > 0, apex = arch ? top + thick * 0.5 : top + height - thick * 0.5, cyy = arch ? apex + R : apex - R;
+    for (const pass of [0, 1]) {
+      let px = 0, py = 0;
+      for (let i = 0; i <= 10; i++) {
+        const a = -half + 2 * half * i / 10, x = ex + R * Math.sin(a), y = arch ? cyy - R * Math.cos(a) : cyy + R * Math.cos(a);
+        if (i > 0) line(ctx, px, py, x, y, pass ? thick : thick + 2.4, pass ? WHITE : EDGE);
+        px = x; py = y;
+      }
+    }
     return;
   }
   const radius = Math.max(2, rnd(Math.min(width, height) * 0.5 * clamp(e[4], 0, 1)));
@@ -298,7 +315,41 @@ $('play').onclick = () => { playing = !playing; $('play').textContent = playing 
 $('seek').oninput = () => { playing = false; $('play').textContent = 'Tocar'; index = +$('seek').value; };
 for (const id of ['expr', 'look', 'compare']) $(id).onchange = setScenario;
 $('zoom').onchange = size;
-size(); setScenario(); requestAnimationFrame(tick);
+const EVOLUTION_LABELS = {
+  PRESENCA: ['PRESENÇA', 'repouso → atenção → surpresa'], ALEGRIA: ['ALEGRIA', 'contente → feliz → carinhoso'],
+  CURIOSIDADE: ['CURIOSIDADE', 'percebe → observa → investiga'], TRISTEZA: ['TRISTEZA', 'abatido → triste → recolhido'],
+  CONTRARIEDADE: ['CONTRARIEDADE', 'incômodo → firme → bravo'], SONO: ['SONO', 'cansado → sonolento → dormindo']};
+function renderEvolution() {
+  document.body.innerHTML = '';
+  document.body.style.cssText = 'background:#fbfbf6;color:#111;font-family:sans-serif;margin:0;padding:24px 28px;width:760px';
+  const head = document.createElement('div');
+  head.innerHTML = '<div style="font:900 44px/1 Impact,Arial Narrow,sans-serif">NOISEBOT / EVOLUÇÃO</div>' +
+    '<div style="font-size:20px;margin:6px 0 14px">6 famílias • evolução expressiva — gerado pelos geradores do firmware</div>';
+  document.body.appendChild(head);
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:150px repeat(3,196px);gap:8px;align-items:center';
+  grid.appendChild(document.createElement('div'));
+  for (const t of ['SUTIL', 'EXPRESSIVO', 'INTENSO']) {
+    const h = document.createElement('div'); h.textContent = t; h.style.cssText = 'text-align:center;font:800 15px sans-serif'; grid.appendChild(h);
+  }
+  for (const row of LEVELS.rows) {
+    const [title, sub] = EVOLUTION_LABELS[row.name];
+    const label = document.createElement('div');
+    label.innerHTML = `<div style="font:800 15px sans-serif">${title}</div><div style="font-size:11px;color:#345;margin-top:3px">${sub}</div>`;
+    grid.appendChild(label);
+    row.levels.forEach((f, i) => {
+      const c = document.createElement('canvas'); c.width = 320; c.height = 240; c.style.width = '196px'; c.style.borderRadius = '4px';
+      const ctx = c.getContext('2d'); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 320, 240);
+      const heart = f[6][10] > 0.5;
+      WHITE = (row.name === 'CONTRARIEDADE' && i === 2) ? '#ff3b30' : '#fff';  // red arrives with stage 5
+      drawEye(ctx, f, f[6]); drawEye(ctx, f, f[7]); WHITE = '#fff';
+      grid.appendChild(c);
+    });
+  }
+  document.body.appendChild(grid);
+}
+if (location.hash === '#evolucao') renderEvolution();
+else { size(); setScenario(); requestAnimationFrame(tick); }
 </script>
 </body>
 </html>

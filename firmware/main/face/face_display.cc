@@ -53,6 +53,8 @@ constexpr float kBarsMaxHeight = 32.0f;
 constexpr float kHandLeft = -32.0f;   // hand image top-left, once in place
 constexpr float kHandTop = 47.0f;
 constexpr float kBubbleCentre[2] = {108.0f, -80.0f};
+constexpr float kArcFrom = 0.3f;   // crescent depth from which an eye is drawn as an arc
+constexpr int kArcSteps = 10;
 constexpr float kHeartsY = -60.0f;    // where a heart starts rising
 constexpr float kHeartsRise = 36.0f;
 constexpr float kZStart[2] = {70.0f, -58.0f};  // where a Z appears, beside the eyes
@@ -232,6 +234,11 @@ struct Painter {
         }
         const int left = static_cast<int>(roundf(eye_x - width * 0.5f));
         const int top = static_cast<int>(roundf(eye_y - height * 0.5f));
+        if (fabsf(eye.crescent) >= kArcFrom) {
+            ArcEye(eye_x, static_cast<float>(top), static_cast<float>(width),
+                   static_cast<float>(height), eye.crescent);
+            return;
+        }
         const int radius = static_cast<int>(fmaxf(
             2.0f, roundf(fminf(width, height) * 0.5f * Clamp(eye.roundness, 0.0f, 1.0f))));
 
@@ -326,6 +333,37 @@ struct Painter {
             const float thickness = fmaxf(2.0f, fminf(eye.width, eye.height) * scale * 0.04f);
             Line(eye_x - dx, brow_y - dy, eye_x + dx, brow_y + dy, thickness * 2.0f,
                  Dim(kEyeColor, 0.63f + 0.37f * brow_opacity));
+        }
+    }
+
+    // A deep crescent is drawn as a thick arc with round ends (the happy arch, the
+    // closed sleeping eye) instead of a capsule with a circle cut out of it, whose
+    // ends would be sharp. The thickness is what the cut leaves at the middle.
+    void ArcEye(float eye_x, float top, float width, float height, float crescent) const {
+        const float thickness = fmaxf(3.0f, height * (1.0f - fabsf(crescent)));
+        const float chord = fmaxf(1.0f, width - thickness);
+        const float sag = fmaxf(1.0f, fminf(0.25f * width, height - thickness) * 0.9f);
+        const float radius = (chord * chord * 0.25f + sag * sag) / (2.0f * sag);
+        const float half_angle = asinf(fminf(1.0f, chord * 0.5f / radius));
+        const bool arch = crescent > 0.0f;
+        const float apex = arch ? top + thickness * 0.5f : top + height - thickness * 0.5f;
+        const float centre_y = arch ? apex + radius : apex - radius;
+        float prev_x = 0.0f;
+        float prev_y = 0.0f;
+        for (int pass = 0; pass < 2; ++pass) {
+            const float w = pass == 0 ? thickness + 2.4f : thickness;
+            const lv_color_t color = pass == 0 ? kEdgeColor : kEyeColor;
+            for (int i = 0; i <= kArcSteps; ++i) {
+                const float angle = -half_angle + 2.0f * half_angle * i / kArcSteps;
+                const float x = eye_x + radius * sinf(angle);
+                const float y = arch ? centre_y - radius * cosf(angle)
+                                     : centre_y + radius * cosf(angle);
+                if (i > 0) {
+                    Line(prev_x, prev_y, x, y, w, color);
+                }
+                prev_x = x;
+                prev_y = y;
+            }
         }
     }
 

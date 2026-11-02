@@ -49,7 +49,7 @@ typedef struct {
  * they look, the head's lift and turn. */
 typedef struct {
     float a;       // main intensity (see each generator)
-    float v;       // variant: size imbalance, or the shy lid of SADNESS
+    float v;       // variant: added size imbalance between the eyes
     float dw;      // width change, as a fraction of the family's
     float dh;      // height change
     float spread;  // added to the distance of each eye from the middle
@@ -141,48 +141,57 @@ static nb_avatar_pose_t assemble(const nb_avatar_shape_t *s, float base_w, float
     return pose;
 }
 
-/* a: how far the capsules open and widen (0 rest .. 1 a round 255 circle). */
+/* Each generator takes its intensity in a, 0 (subtle) to 1 (the peak), and the
+ * level alone decides the look; the recipe picks where on that line an
+ * intention sits. */
+
+/* a: capsules open and widen into round circles (0 rest .. 1 a 255 circle). */
 static nb_avatar_pose_t gen_presence(const nb_avatar_shape_t *s)
 {
     return assemble(s, REST_W + 100.0f * s->a, REST_H - 105.0f * s->a, REST_Y, 0, 0, 0, 0, 0, 0);
 }
 
-/* a: how far the capsule closes into an arc (0 capsule .. 1 a sliver). */
+/* a: a capsule with a small notch below grows into a thick crescent, then a
+ * thin wide arc. */
 static nb_avatar_pose_t gen_joy(const nb_avatar_shape_t *s)
 {
-    return assemble(s, REST_W, REST_H, REST_Y, 0, 0, 0, s->a, 0, 0);
+    return assemble(s, REST_W + 190.0f * s->a, REST_H - 190.0f * s->a, REST_Y, 0, 0, 0,
+                    fmaxf(0.0f, fminf(0.95f, 1.55f * s->a - 0.08f)), 0, 0);
 }
 
-/* v: the size imbalance of the pair (the bigger eye rides higher); the right
- * eye takes the half-moon lid `lid`. a is unused. */
+/* a: the pair grows uneven and tilts (v adds to the imbalance); the right eye
+ * takes the half-moon lid `lid`. */
 static nb_avatar_pose_t gen_curiosity(const nb_avatar_shape_t *s)
 {
-    return assemble(s, 160.0f, 320.0f, -16.0f, 0, s->lid, 0, 0, 0.23f, 0);
+    nb_avatar_shape_t pair = *s;
+    pair.v += 0.25f * s->a;
+    pair.roll -= 9.0f * s->a;
+    return assemble(&pair, 160.0f, 320.0f, -16.0f, 0, s->lid, 0, 0, 0.23f, 0);
 }
 
-/* a: how far the half-moons slant toward the middle (the lid drop follows). */
+/* a: tall slanted-top eyes shrink into short wide half-moons, slanted toward
+ * the middle. */
 static nb_avatar_pose_t gen_contrary(const nb_avatar_shape_t *s)
 {
-    return assemble(s, REST_W + 90.0f * s->a, REST_H - 170.0f * s->a, REST_Y, 0.14f * s->a,
-                    0.14f * s->a, 0.75f * s->a, 0, 0, 0);
+    const float lid = 0.08f + 0.10f * s->a;
+    return assemble(s, 160.0f + 90.0f * s->a, 300.0f - 110.0f * s->a, REST_Y, lid, lid,
+                    0.35f + 0.35f * s->a, 0, 0, 0);
 }
 
-/* a: how far the half-moons droop outward. v: 0 sad .. 1 shy (a heavier lid). */
+/* a: tall slanted-top eyes shrink into small half-moons drooping outward. */
 static nb_avatar_pose_t gen_sadness(const nb_avatar_shape_t *s)
 {
-    const float lid = 0.15f + 0.30f * s->v;
-    nb_avatar_shape_t even = *s;
-    even.v = 0.0f;
-    return assemble(&even, 185.0f, 255.0f, REST_Y, lid, lid, -s->a, 0, 0, 0);
+    const float lid = 0.08f + 0.25f * s->a;
+    return assemble(s, 150.0f + 40.0f * s->a, 300.0f - 150.0f * s->a, REST_Y, lid, lid, -0.4f, 0,
+                    0, 0);
 }
 
-/* a: how far the lids have come down over small round eyes (flat-topped
- * half-moons); closing the eyes into arcs is the sleep, not this. */
+/* a: a big half-disc (tired) flattens into a low slab with round bottom
+ * corners (sleepy); closing the eyes into arcs is the sleep, not this. */
 static nb_avatar_pose_t gen_sleepiness(const nb_avatar_shape_t *s)
 {
-    const float lid = 0.4f * s->a;
-    return assemble(s, 190.0f - 20.0f * s->a, 190.0f - 25.0f * s->a, 18.0f + 12.0f * s->a, lid,
-                    lid, 0, 0, 0, 26.0f + 8.0f * s->a);
+    return assemble(s, 275.0f - 25.0f * s->a, 290.0f - 130.0f * s->a, -37.0f + 40.0f * s->a, 0.5f,
+                    0.5f, 0, 0, 0, 10.0f * s->a);
 }
 
 static nb_avatar_pose_t generate(nb_avatar_family_t family, const nb_avatar_shape_t *s)
@@ -243,7 +252,7 @@ static const nb_avatar_recipe_t s_recipes[NB_AVATAR_EXPR_COUNT] = {
         MOTION(3, .68f, -2, 2.8f, .52f, 4, .63f, .003f, .72f, 320, 420)},
     [NB_AVATAR_EXPR_HAPPY] = {
         .name = "HAPPY", .family = FAMILY_JOY, .springy = true,
-        .peak = SHAPE(.a = 0.78f, .dw = 0.8f, .dh = -0.5f, .spread = -3.0f, .ly = 5.0f,
+        .peak = SHAPE(.a = 0.58f, .spread = -3.0f, .ly = 5.0f,
                       .fy = -4.0f, .zoom = 0.035f),
         .settle = 1.03f, .antic_open = 0.79f, TIMES(115, 0, 225, 900, 200, 420),
         .blink = BLINK_QUICK, MOTION(15, 8, 0, 0, 0, 3.5f, 1.1f, .008f, 2.4f, 180, 240)},
@@ -255,14 +264,14 @@ static const nb_avatar_recipe_t s_recipes[NB_AVATAR_EXPR_COUNT] = {
         .blink = BLINK_QUICK, MOTION(15, 8.5f, 0, 3.5f, 6.8f, 4, 5.2f, .014f, 6.2f, 110, 260)},
     [NB_AVATAR_EXPR_CURIOUS] = {
         .name = "CURIOUS", .family = FAMILY_CURIOSITY, .springy = true,
-        .peak = SHAPE(.v = 0.16f, .dh = 0.1f, .fy = -4.0f, .zoom = 0.02f, .pitch = -4.0f,
-                      .roll = -7.0f),
+        .peak = SHAPE(.a = 0.64f, .dh = 0.1f, .fy = -4.0f, .zoom = 0.02f, .pitch = -4.0f,
+                      .roll = -1.5f),
         .settle = 1.0f, .antic_open = 0.89f, TIMES(120, 40, 230, 850, 260, 520),
         .blink = BLINK_ATTENTIVE,
         MOTION(3.5f, 1.15f, -1, 2, .9f, 3, .8f, .006f, 1.25f, 160, 300)},
     [NB_AVATAR_EXPR_CONFUSED] = {
         .name = "CONFUSED", .family = FAMILY_CURIOSITY, .springy = true,
-        .peak = SHAPE(.v = 0.15f, .dw = -0.05f, .ly = 4.0f, .fy = 2.0f, .pitch = 3.5f,
+        .peak = SHAPE(.v = 0.15f, .ly = 4.0f, .fy = 2.0f, .pitch = 3.5f,
                       .lid = 0.5f),
         .settle = 1.0f, .ant_amount = 1.0f, .roll_sway = 5.0f, TIMES(165, 300, 280, 420, 260, 720),
         .blink = BLINK_QUICK, MOTION(2, 1.1f, 0, 6, 4.2f, 3.5f, 3.8f, .004f, 1, 170, 320)},
@@ -278,13 +287,13 @@ static const nb_avatar_recipe_t s_recipes[NB_AVATAR_EXPR_COUNT] = {
         .blink = BLINK_NONE, MOTION(3, 2, -1, 1.5f, 2.2f, 1.5f, 1.4f, .021f, 9, 120, 260)},
     [NB_AVATAR_EXPR_SAD] = {
         .name = "SAD", .family = FAMILY_SADNESS,
-        .peak = SHAPE(.a = 0.22f, .dw = -0.15f, .dh = -0.25f, .spread = -9.0f, .ly = 35.0f,
+        .peak = SHAPE(.a = 0.6f, .spread = -9.0f, .ly = 35.0f,
                       .fy = 28.0f, .zoom = -0.015f, .pitch = 15.0f),
         .settle = 1.04f, .ant_amount = 0.46f, TIMES(280, 260, 430, 1250, 360, 760),
         .blink = BLINK_SLOW, MOTION(3.5f, .72f, 8, 1.2f, .55f, 1.2f, .48f, .0025f, .62f, 300, 460)},
     [NB_AVATAR_EXPR_SLEEPY] = {
         .name = "SLEEPY", .family = FAMILY_SLEEPINESS,
-        .peak = SHAPE(.a = 0.4f, .spread = -10.0f, .zoom = -0.01f), .settle = 2.5f,
+        .peak = SHAPE(.a = 0.45f, .spread = -10.0f, .zoom = -0.01f), .settle = 1.33f,
         TIMES(0, 0, 320, 380, 520, 1380), .blink = BLINK_NONE,
         MOTION(4, .9f, 9, 0, 0, 0, 0, .003f, .7f, 320, 420)},
     [NB_AVATAR_EXPR_DIZZY] = {
@@ -302,13 +311,13 @@ static const nb_avatar_recipe_t s_recipes[NB_AVATAR_EXPR_COUNT] = {
         .blink = BLINK_SLOW, MOTION(6, 2.4f, 0, 0, 0, 2, .9f, .005f, 1.6f, 220, 300)},
     [NB_AVATAR_EXPR_EMBARRASSED] = {
         .name = "EMBARRASSED", .family = FAMILY_SADNESS,
-        .peak = SHAPE(.v = 1.0f, .dw = -0.2f, .dh = -0.3f, .lx = -22.0f, .ly = 45.0f,
+        .peak = SHAPE(.a = 0.85f, .lx = -22.0f, .ly = 45.0f,
                       .fy = 18.0f, .zoom = -0.01f, .pitch = 10.0f, .yaw = -6.0f),
         .settle = 0.93f, .antic_open = 0.92f, TIMES(140, 0, 300, 700, 400, 900),
         .blink = BLINK_ATTENTIVE, MOTION(2, .9f, 0, 1.5f, .8f, 2.5f, .7f, .003f, .9f, 220, 320)},
     [NB_AVATAR_EXPR_CONTENT] = {
         .name = "CONTENT", .family = FAMILY_JOY, .persistent = false,
-        .peak = SHAPE(.dh = -0.08f, .spread = -3.0f, .ly = 6.0f, .fy = 1.0f),
+        .peak = SHAPE(.a = 0.12f, .spread = -3.0f, .ly = 6.0f, .fy = 1.0f),
         .settle = 1.0f, TIMES(0, 0, 320, 600, 400, 800), .blink = BLINK_CALM,
         MOTION(2.5f, .9f, 0, 0, 0, 0, 0, .003f, .8f, 300, 400)},
 };

@@ -44,6 +44,13 @@ def build_dumper(workdir):
     return exe
 
 
+def build_levels(workdir):
+    exe = Path(workdir) / ("dump_levels.exe" if os.name == "nt" else "dump_levels")
+    subprocess.run([find_gcc(), "-std=c17", "-Wall", "-Wextra", "-Werror", "-O1", f"-I{CORE}",
+                    "-o", str(exe), str(HERE / "dump_levels.c"), "-lm"], check=True)
+    return exe
+
+
 def run_dumper(exe, *args):
     # Windows needs the MSYS2 runtime next to the executable on PATH.
     env = dict(os.environ)
@@ -58,6 +65,12 @@ def dump_all():
         exe = build_dumper(workdir)
         return (json.loads(run_dumper(exe)), json.loads(run_dumper(exe, "--rest")),
                 json.loads(run_dumper(exe, "--contract")))
+
+
+def dump_levels():
+    """The Study 02 matrix: six families at three intensities, from the generators."""
+    with tempfile.TemporaryDirectory() as workdir:
+        return json.loads(run_dumper(build_levels(workdir)))
 
 
 def compact(data):
@@ -82,7 +95,8 @@ def main():
     template = (HERE / "gallery.template.html").read_text(encoding="utf-8")
     page = (template.replace("/*CURRENT*/null", compact(current))
             .replace("/*REFERENCE*/null", compact(reference))
-            .replace("/*CONTRACT*/null", compact(contract)))
+            .replace("/*CONTRACT*/null", compact(contract))
+            .replace("/*LEVELS*/null", compact(dump_levels())))
     OUT.mkdir(exist_ok=True)
     target = OUT / "gallery.html"
     target.write_text(page, encoding="utf-8")

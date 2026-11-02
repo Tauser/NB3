@@ -64,7 +64,7 @@ class FaceGalleryTests(unittest.TestCase):
             ('EXCITED', 'down_right'), ('CURIOUS', 'up_right'), ('CURIOUS', 'down_right'),
             ('CONFUSED', 'up_right'), ('CONFUSED', 'down_right'), ('SURPRISED', 'down_right'), ('DIZZY', 'rest'),
             ('DIZZY', 'up_left'), ('DIZZY', 'up_right'), ('DIZZY', 'down_left'),
-            ('DIZZY', 'down_right'), ('CONTENT', 'down_right')})
+            ('DIZZY', 'down_right'), ('CONTENT', 'down_right'), ('SLEEPY', 'down_right')})
 
     def test_layout_constants_match_the_firmware(self):
         display = (ROOT / 'firmware' / 'main' / 'face' / 'face_display.cc').read_text(encoding='utf-8')

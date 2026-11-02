@@ -567,7 +567,7 @@ static void test_each_family_sits_in_its_corner_of_the_catalog(void)
     const nb_avatar_render_frame_t shy = held_frame(NB_AVATAR_EXPR_EMBARRASSED);
     NB_CHECK(fabsf(sad.pose.left_eye.upper_lid_tilt) > 0.15f);
     NB_CHECK(fabsf(sleepy.pose.left_eye.upper_lid_tilt) < 0.01f);  // sleep is symmetric
-    NB_CHECK(fabsf(shy.pose.left_eye.upper_lid_tilt) < 0.01f);   // flat-topped, with cheeks
+    NB_CHECK(shy.pose.left_eye.height < sad.pose.left_eye.height);  // the shy one withdraws more
     NB_CHECK(held_frame(NB_AVATAR_EXPR_LOVING).pose.left_eye.heart > 0.5f);  // hearts for eyes
     NB_CHECK(held_frame(NB_AVATAR_EXPR_HAPPY).pose.left_eye.heart == 0.0f);
     NB_CHECK(shy.pose.left_eye.x < shy.pose.right_eye.x - 380.0f);
