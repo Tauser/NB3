@@ -12,11 +12,10 @@ CONFIG_FIRMWARE_AUTO_UPGRADE=n
 CONFIG_SR_WN_WN9_NIHAOXIAOZHI_TTS=n
 CONFIG_SR_WN_WN9_JARVIS_TTS=y
 
-# Device-side AEC, so the user can talk over the robot: the board feeds the
-# AFE a speaker reference built from the I2S DMA (no codec loopback here),
-# and xiaozhi switches to realtime listening, where the server stops talking
-# when it hears the user.
-CONFIG_USE_DEVICE_AEC=y
+# No device-side AEC: the robot finishes what it is saying with the mic closed
+# (xiaozhi's "auto" listening), since the user's speech reached the server in
+# pieces with AEC and realtime listening. Interrupting takes the BOOT button.
+CONFIG_USE_DEVICE_AEC=n
 
 # Neural voice detector (VADNet) instead of WebRTC's: it tells speech from
 # knocks, fans and music far better, and while the robot speaks only what it

@@ -4,6 +4,14 @@ Vocabulário visual da tela 320×240. Decisão: D-011. Os mocks animados estão
 no canvas "Expressões NB3" (privado, no claude.ai); este arquivo é o que o
 firmware segue.
 
+**Revisão planejada (02/11/2026):** o [plano revisado de simplificação](PLANO-FACE-E-COMPORTAMENTO-2026-11-02.md)
+propõe seis famílias visuais, preservando os 15 nomes públicos, e três canais
+para atividade, gesto e condição técnica. Propõe também olhos vermelhos
+durante toda a expressão de bravo, ciano para atividade e âmbar para aviso
+técnico. Essa direção (D-023) ainda não foi implementada: as regras abaixo
+de olhos brancos e adorno único descrevem a especificação anterior e serão
+substituídas conforme a entrega for validada.
+
 ## Princípios
 
 - **Uma identidade:** olhos brancos sólidos sobre preto. Cápsula é o

@@ -642,9 +642,10 @@ trilho lógico) e ids conhecidos.
 
 - [ ] Placa carrier e case com acústica tratada (mic longe do alto-falante e
   do ventilador, vedação do furo do mic).
-- [ ] Decidir AEC: a referência por software (D-021) já funciona nesta
-  placa; codec com loopback (ES7210/ES8311) ou CoreS3 só se o corpo trouxer
-  eco que ela não segure.
+- [ ] Decidir AEC: desligado por enquanto (D-024), porque a fala do usuário
+  chegava em pedaços ao servidor e interromper passa a exigir o botão BOOT. A
+  referência por software (D-021) continua disponível; codec com loopback
+  (ES7210/ES8311) ou CoreS3 só se o corpo trouxer eco que ela não segure.
 - [ ] Dois mics só com geometria fixa definida pelo corpo. Pinos já
   escolhidos (D-019): o segundo INMP441 divide DIN 39, BCLK 40 e WS 41 com o
   primeiro, no outro slot (L/R em 3,3 V); sem pino novo. Muda a captura

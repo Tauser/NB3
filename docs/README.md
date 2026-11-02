@@ -29,6 +29,8 @@ cabe em uma.
 | D-020 | **Wake word "Nexo" com microWakeWord** (TFLite Micro), como terceiro detector do AFE do xiaozhi, alimentado com o áudio já processado; WakeNet "Jarvis" fica de reserva por Kconfig (`NB3_MICRO_WAKE_WORD`) e assume se o modelo não carregar. Features pelo frontend do `pymicro-features` por tag; decisão (média de 5 probabilidades, cutoff, aquecimento) em núcleo C17 | o WakeNet só traz palavras prontas, e "Nexo" é o nome do robô. Usar o mesmo código de features do treino garante que o modelo veja na placa o que viu no treino. "Nexo" sozinho é palavra comum em PT-BR ("sem nexo"): o modelo atual, treinado só com vozes sintéticas e negativos em inglês, é para validar o caminho; retreinar com negativos em PT-BR |
 | D-021 | **AEC do esp-sr com referência do alto-falante por software**: as callbacks de DMA do I2S copiam o que sai para o amplificador e o alinhamento com o mic é feito por contadores de amostras (núcleo C17 `nb_spk_ref`); liga o modo realtime do xiaozhi (`CONFIG_USE_DEVICE_AEC`). O wake word ignora detecções enquanto o robô diz o próprio nome, pelo texto da frase | mic e amplificador estão no mesmo I2S duplex, com o mesmo clock, então o atraso entre o que sai e o que volta é fixo e dispensa codec com loopback. Sem AEC não dá para interromper o robô falando. O filtro pelo texto custa uma comparação e cobre o caso que o AEC deixa passar |
 | D-022 | **Durante a fala do robô, o gate exige 300 ms de VAD positivo com média ≥ −24 dBFS para abrir**, enviando o pré-áudio guardado. Aberto, renova o hold de ~1 s após 180 ms consecutivos com VAD e nível ≥ −25 dBFS; no fim do playback, a liberação do pré-áudio exige dois quadros de voz junto à transição. Usa VADNet1 e núcleo C17 `nb_barge_gate` | Reduz interrupções por eco e ruído no realtime. Os limiares e a preservação de fala curta ainda exigem validação em hardware; um evento acústico pode ocupar dois quadros. VADNet1 consome ~20 KB de SRAM e modelo de 285 KB nos assets |
+| D-023 | **Direção planejada, não implementada:** simplificar a face em seis famílias visuais, preservar os 15 nomes públicos e compor atividade, gesto e condição técnica em três canais após o árbitro. Bravo fica vermelho durante toda a expressão visível; atividade usa ciano e aviso técnico usa âmbar | [Plano revisado de face](PLANO-FACE-E-COMPORTAMENTO-2026-11-02.md). Remover as 15 tabelas de keyframes independentes; corrigir primeiro o slot de safety. Validar galeria, leitura e desempenho antes da entrega. Não inclui novos movimentos de cabeça, rituais ou iniciativa |
+| D-024 | **AEC do dispositivo desligado** (`CONFIG_USE_DEVICE_AEC=n`), suspendendo D-021 e D-022: o robô termina a frase com o microfone fechado (escuta "auto" do xiaozhi) e interromper exige o botão BOOT | Com AEC e escuta realtime, a fala do usuário chegava ao servidor em pedaços. Perde-se a interrupção por voz. O código de D-021 e D-022 continua no repositório, atrás do Kconfig; religar exige repetir a validação de áudio |
 
 Cada decisão nova entra nesta tabela; se precisar de mais contexto, ganha um
 arquivo `D-XXX-<nome>.md` com contexto, decisão e consequências.
@@ -85,9 +87,9 @@ xiaozhi v2.5.2 com a board NB3, ativado no xiaozhi.me.
 
 - **Mic I2S de qualidade** — ver resultado da etapa 0; o alcance depende de
   um mic com piso de ruído normal.
-- **Mic único com AEC por software** (D-021) — depende do alinhamento por
-  contadores do I2S; se o corpo trouxer eco forte ou o atraso variar, o
-  codec com loopback ou o CoreS3 são o upgrade.
+- **Mic único com AEC por software** (D-021, desligado por D-024) — se for
+  religado, depende do alinhamento por contadores do I2S; se o corpo trouxer
+  eco forte ou o atraso variar, o codec com loopback ou o CoreS3 são o upgrade.
 - **Privacidade** — áudio e conversas trafegam pelos servidores do xiaozhi.me;
   a memória local fica em claro no microSD.
 - **Integridade do microSD** — queda de energia no meio de uma escrita;
@@ -99,6 +101,7 @@ xiaozhi v2.5.2 com a board NB3, ativado no xiaozhi.me.
 - [ROADMAP.md](ROADMAP.md) — etapas 0–6, prova de sucesso e andamento de cada uma
 - [VIDA.md](VIDA.md) — humor, estados comportamentais, personalidade e memória local
 - [FACE.md](FACE.md) — face V2: formas dos olhos, overlays, gestos e o que entra agora
+- [Plano revisado de face](PLANO-FACE-E-COMPORTAMENTO-2026-11-02.md) — simplificação proposta, contratos, sequência e critérios de aceite; não implementado
 
 Planejados:
 
