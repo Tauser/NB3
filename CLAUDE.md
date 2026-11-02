@@ -87,10 +87,13 @@ defaults. Host-tests usam o gcc do MSYS2 (`C:\msys64\ucrt64\bin`).
 ## Hardware e flash
 
 - Placa: Waveshare ESP32-S3-DEV-KIT N32R16V, MAC **`90:e5:b1:cc:3d:58`**.
-  Console/log na UART CH343 (em geral COM5); o USB nativo aparece como outra
-  porta (em geral COM6) quando os dois cabos estão ligados.
-- **Números de COM mudam** a cada reconexão: antes de qualquer flash,
-  identificar a placa pelo MAC (`esptool read-mac`) e abortar se não bater.
+  Console/log na UART CH343 (COM5); o USB nativo aparece como outra porta
+  (em geral COM6) quando os dois cabos estão ligados.
+- **Sempre gravar na COM5** (`idf.py -p COM5 -b 115200 flash`), nunca na COM6.
+  Antes de gravar, confirmar o MAC da COM5 (`esptool --port COM5 read-mac`) e
+  abortar se não for `90:e5:b1:cc:3d:58`. O número da COM muda a cada
+  reconexão: se a COM5 não existir, parar e pedir para reconectar, sem
+  tentar outra porta.
 - Gravar a **115200 baud** (`idf.py -b 115200`): a 460800 a conexão caiu no
   meio de uma gravação e corrompeu o bootloader.
 - Freenove ESP32-S3 CAM (MAC `20:6e:f1:b2:3c:f4`) está limpa e é bancada de
