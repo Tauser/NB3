@@ -30,6 +30,15 @@ desenhados, 0,9 a 2,7 ms médios por desenho, picos de até 57 ms na fala. Corte
 de fala adiado (mic ruidoso e fim de fala curto, fora desta entrega). Falta:
 ferramentas lentas e rede ruim ainda não medidas.
 
+**Etapa 2 da revisão da face (02/11):** galeria reproduzível em
+`tools/design/face_gallery/` (núcleo real, semente e relógio fixos; HTML com
+referência gravada ao lado do atual, 5 olhares, canais A/G/T e banner) e poses
+atuais gravadas como referência, protegidas por `test_face_gallery.py` (também
+no CI). A medição das 75 combinações corrigiu o plano: as barras tocam os olhos
+em excited e curious com olhar para baixo, e a mão em 17 combinações. Falta:
+comparar com a tela física, altura real do banner e o teste de leitura com
+avaliadores (etapa 6). O contrato dos canais em código é da etapa 3.
+
 ## Visão geral
 
 | Etapa | Entrega | Prova de sucesso | Situação |

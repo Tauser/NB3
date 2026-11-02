@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Galeria da face NB3</title>
+<style>
+  :root { --bg:#111; --panel:#1b1b1b; --line:#333; --text:#e8e8e8; --dim:#9a9a9a; --accent:#7cc4ff; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:16px; background:var(--bg); color:var(--text); font:14px/1.4 system-ui, sans-serif; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  p.note { color:var(--dim); margin:0 0 12px; max-width:900px; }
+  .bar { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; background:var(--panel);
+         border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-bottom:12px; }
+  label { display:inline-flex; gap:6px; align-items:center; color:var(--dim); }
+  select, button, input[type=range] { background:#222; color:var(--text); border:1px solid var(--line);
+         border-radius:6px; padding:4px 8px; font:inherit; }
+  button { cursor:pointer; }
+  button:hover { border-color:var(--accent); }
+  .screens { display:flex; flex-wrap:wrap; gap:16px; }
+  figure { margin:0; }
+  figcaption { color:var(--dim); margin-bottom:4px; }
+  canvas { display:block; background:#000; border:1px solid var(--line); image-rendering:pixelated; }
+  table { border-collapse:collapse; margin-top:12px; font-size:13px; }
+  th, td { border:1px solid var(--line); padding:3px 8px; text-align:right; }
+  th:first-child, td:first-child { text-align:left; }
+  .ok { color:#7fd48a; } .warn { color:#f0b35a; }
+  .status { color:var(--dim); margin-top:8px; }
+</style>
+</head>
+<body>
+<h1>Galeria da face NB3</h1>
+<p class="note">Poses do núcleo real (<code>nb_avatar.c</code>, semente e relógio fixos), desenhadas com as mesmas primitivas
+de <code>Painter::Eye</code>. Diferenças para a placa: a mão de pensar é um retângulo marcado (a imagem fica no firmware), o banner usa
+uma altura estimada (a real é medida pelo LVGL), os ícones de rede e parada são marcadores, e as barras e o balão usam movimento de exemplo.
+Antialiasing do navegador difere do LVGL: confirme na tela física.</p>
+
+<div class="bar">
+  <label>Intenção <select id="expr"></select></label>
+  <label>Olhar <select id="look"></select></label>
+  <button id="play">Pausar</button>
+  <label>Quadro <input id="seek" type="range" min="0" max="0" value="0" style="width:220px"></label>
+  <span id="time"></span>
+  <label>Zoom <select id="zoom"><option>1</option><option selected>2</option><option>3</option></select></label>
+  <label><input id="compare" type="checkbox" checked> Referência ao lado</label>
+</div>
+<div class="bar">
+  <label>A <select id="chA"><option value="none">nada</option><option value="bars">barras</option><option value="bubble">balão</option></select></label>
+  <label>G <select id="chG"><option value="none">nada</option><option value="hand">mão</option><option value="hearts">corações</option><option value="zs">Zs</option><option value="cheeks">bochechas</option></select></label>
+  <label>T <select id="chT"><option value="none">nada</option><option value="net">rede</option><option value="safety">parada</option></select></label>
+  <label>Banner <select id="banner"><option>0</option><option>1</option><option>2</option><option>3</option><option>4</option></select> linhas</label>
+  <label><input id="rects" type="checkbox"> Retângulos dos canais</label>
+  <label><input id="boxes" type="checkbox"> Caixas dos olhos</label>
+</div>
+
+<div class="screens">
+  <figure id="refFig"><figcaption>Referência gravada (02/11)</figcaption><canvas id="ref" width="320" height="240"></canvas></figure>
+  <figure><figcaption id="curCap">Atual (build do núcleo)</figcaption><canvas id="cur" width="320" height="240"></canvas></figure>
+</div>
+<div class="status" id="status"></div>
+<div id="contract"></div>
+
+<script>
+const CURRENT = /*CURRENT*/null;
+const REFERENCE = /*REFERENCE*/null;
+const CONTRACT = /*CONTRACT*/null;
+
+const W = 320, H = 240, CX = W / 2, CY = H / 2, DESIGN = CURRENT.design_scale, TICK = CURRENT.tick_ms;
+const WHITE = '#fff', EDGE = '#7a7a7a', BLACK = '#000', CHEEK = '#e8907a', HEART = '#ff7aae';
+const ICON = {x0:282, y0:8, x1:314, y1:40};
+
+// C roundf: half away from zero.
+const rnd = v => v < 0 ? -Math.floor(-v + 0.5) : Math.floor(v + 0.5);
+const clamp = (v, lo, hi) => v < lo ? lo : (v > hi ? hi : v);
+
+// frame = [t, blink, dizzy, faceScale, faceX, faceY, leftEye, rightEye, anchorDx, anchorDy, anchorScale]
+// eye = [x, y, w, h, roundness, upper, tilt, lower, crescent, angle]
+function fillRound(ctx, x, y, w, h, r, color) {
+  ctx.fillStyle = color; ctx.beginPath();
+  ctx.roundRect(x, y, w, h, Math.min(r, w / 2, h / 2)); ctx.fill();
+}
+function circle(ctx, x, y, r, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(rnd(x), rnd(y), r + 0.5, 0, 7); ctx.fill(); }
+function tri(ctx, a, b, c, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.lineTo(c[0], c[1]); ctx.fill(); }
+function line(ctx, x0, y0, x1, y1, w, color, round = true) {
+  ctx.strokeStyle = color; ctx.lineWidth = Math.max(1, rnd(w)); ctx.lineCap = round ? 'round' : 'butt';
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+}
+
+function eyeBox(f, e) {
+  const s = DESIGN * f[3], x = CX + (f[4] + e[0]) * s, y = CY + (f[5] + e[1]) * s;
+  return {x0: x - e[2] * s / 2, y0: y - e[3] * s / 2, x1: x + e[2] * s / 2, y1: y + e[3] * s / 2};
+}
+
+function drawEye(ctx, f, e) {
+  const scale = DESIGN * f[3];
+  const ex = CX + (f[4] + e[0]) * scale, ey = CY + (f[5] + e[1]) * scale;
+  const width = Math.max(4, rnd(e[2] * scale));
+  const height = Math.max(4, rnd(e[3] * scale * clamp(f[1], 0.08, 1)));
+  const left = rnd(ex - width * 0.5), top = rnd(ey - height * 0.5);
+  const radius = Math.max(2, rnd(Math.min(width, height) * 0.5 * clamp(e[4], 0, 1)));
+  const angle = e[9], upper = e[5], tilt = e[6], lower = e[7], cres = clamp(e[8], -1, 1);
+  const rotated = Math.abs(angle) > 0.25 && upper < 0.01 && lower < 0.01 && Math.abs(cres) < 0.01 && e[4] > 0.92;
+  if (rotated) {
+    const a = angle * Math.PI / 180, vertical = height >= width;
+    const major = vertical ? height : width, minor = vertical ? width : height;
+    const half = Math.max(0, major - minor) * 0.5;
+    const ax = vertical ? -Math.sin(a) : Math.cos(a), ay = vertical ? Math.cos(a) : Math.sin(a);
+    if (half < 0.5) { const r = Math.max(2, rnd(minor * 0.5)); circle(ctx, ex, ey, r + 1, EDGE); circle(ctx, ex, ey, r, WHITE); }
+    else {
+      line(ctx, ex - ax * half, ey - ay * half, ex + ax * half, ey + ay * half, minor + 2.4, EDGE);
+      line(ctx, ex - ax * half, ey - ay * half, ex + ax * half, ey + ay * half, minor, WHITE);
+    }
+  } else {
+    fillRound(ctx, left - 1, top - 1, width + 2, height + 2, radius + 1, EDGE);
+    fillRound(ctx, left, top, width, height, radius, WHITE);
+  }
+  const cover = rnd(clamp(upper, 0, 1) * height);
+  if (cover > 0) ctx.fillStyle = BLACK, ctx.fillRect(left - 1, top - 1, width + 2, cover + 1);
+  const ut = rnd(Math.abs(tilt) * height * 0.34);
+  if (ut > 0) {
+    const ly = top + cover, l = left, r = left + width;
+    if (tilt > 0) { tri(ctx, [l, ly], [r, ly], [r, ly + ut], BLACK); line(ctx, l, ly, r, ly + ut, 1, EDGE, false); }
+    else { tri(ctx, [l, ly + ut], [l, ly], [r, ly], BLACK); line(ctx, l, ly + ut, r, ly, 1, EDGE, false); }
+  }
+  const lc = rnd(clamp(lower, 0, 1) * height);
+  if (lc > 0) ctx.fillStyle = BLACK, ctx.fillRect(left - 1, top + height - lc, width + 2, lc + 1);
+  if (Math.abs(cres) > 0.01) {
+    const cutR = rnd(Math.max(width * 0.9, width * 0.5 + 2)), keep = rnd(height * (1 - Math.abs(cres)));
+    if (cres > 0) {
+      const cutTop = top + keep; circle(ctx, ex, cutTop + cutR, cutR, BLACK);
+      const rest = top + height + 2 - (cutTop + cutR);
+      if (rest > 0) ctx.fillStyle = BLACK, ctx.fillRect(left - 2, cutTop + cutR, width + 4, rest);
+    } else {
+      const cutBottom = top + height - keep; circle(ctx, ex, cutBottom - cutR, cutR, BLACK);
+      const rest = cutBottom - cutR - (top - 2);
+      if (rest > 0) ctx.fillStyle = BLACK, ctx.fillRect(left - 2, top - 2, width + 4, rest);
+    }
+  }
+}
+
+function drawDizzy(ctx, f, e, side, t) {
+  const R = [0.74, 0.58, 0.43, 0.29, 0.14], scale = DESIGN * f[3];
+  const ex = CX + (f[4] + e[0]) * scale, ey = CY + (f[5] + e[1]) * scale;
+  const radius = Math.min(e[2], e[3]) * scale * 0.5;
+  if (radius < 8) return;
+  const phase = t / 1000 * 3 + (side > 0 ? Math.PI : 0);
+  for (let i = 0; i < 5; i++) {
+    const orbit = radius * (0.025 + i * 0.014), lp = phase + i * 0.82;
+    const x = ex + Math.cos(lp) * orbit, y = ey + Math.sin(lp) * orbit, r = Math.max(2, rnd(radius * R[i]));
+    circle(ctx, x, y, r + 1, EDGE); circle(ctx, x, y, r, i % 2 === 0 ? BLACK : WHITE);
+  }
+  const slot = (Math.floor(t / 85) + (side > 0 ? 6 : 0)) % 12;
+  if (slot > 1) return;
+  const dir = side < 0 ? -1 : 1, outer = Math.max(e[2], e[3]) * scale * 0.5;
+  const x0 = ex + dir * outer * 0.72, y0 = ey - outer * 0.48, x1 = x0 + dir * 9, y1 = y0 - 8, x2 = x1 - dir * 4, y2 = y1 - 9, x3 = x2 + dir * 11, y3 = y2 - 9;
+  line(ctx, x0, y0, x1, y1, 2, WHITE); line(ctx, x1, y1, x2, y2, 2, WHITE); line(ctx, x2, y2, x3, y3, 2, WHITE);
+}
+
+function dim(hex, a) { const n = parseInt(hex.slice(1), 16); const c = k => Math.floor(((n >> k) & 255) * a); return `rgb(${c(16)},${c(8)},${c(0)})`; }
+
+function cheek(ctx, f, e, side, s0) {
+  const scale = DESIGN * f[3];
+  const x = CX + (f[4] + e[0]) * scale + side * (e[2] * scale * 0.5 - 2), y = CY + (f[5] + e[1]) * scale + e[3] * scale * 0.3;
+  line(ctx, x - 11 * s0, y - 3 * s0, x + 11 * s0, y + 3 * s0, 9 * s0, CHEEK);
+}
+
+function drawOverlays(ctx, f, t, o) {
+  const dx = f[8], dy = f[9], s0 = f[10], ox = CX + dx, oy = CY + dy;
+  const L = f[6], R = f[7];
+  const banner = +o.banner, bannerTop = banner ? H - 8 - (12 + banner * 16) : H;
+  const hidden = r => banner && r.y1 > bannerTop;  // the banner wins over what it touches
+  if (o.A === 'bars') {
+    const r = {y1: oy + (82 + 16) * s0};
+    if (!hidden(r)) for (let i = 0; i < 7; i++) {
+      const lvl = 0.35 + 0.65 * Math.abs(Math.sin(t / 180 + i * 0.9)), h = Math.max(4, 32 * lvl * s0);
+      fillRound(ctx, rnd(ox + (-35.5 + i * 11) * s0), rnd(oy + 82 * s0 - h / 2), Math.max(3, rnd(5 * s0)), rnd(h), 2, WHITE);
+    }
+  } else if (o.A === 'bubble') {
+    const bx = ox + 108 * s0, by = oy - 80 * s0, w = rnd(72 * s0), h = rnd(44 * s0);
+    fillRound(ctx, rnd(bx - w / 2), rnd(by - h / 2), w, h, rnd(16 * s0), WHITE);
+    tri(ctx, [bx - 24 * s0, by + 18 * s0], [bx - 34 * s0, by + 36 * s0], [bx - 6 * s0, by + 20 * s0], WHITE);
+    for (let i = 0; i < 3; i++) circle(ctx, bx + (i - 1) * 16 * s0, by - Math.max(0, Math.sin(t / 150 - i)) * 5 * s0, Math.max(1, rnd(5 * s0)), BLACK);
+  }
+  if (o.G === 'hand' && !(o.A === 'bars')) {
+    ctx.strokeStyle = '#f0b35a'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+    ctx.strokeRect(rnd(ox + -32 * s0), rnd(oy + 47 * s0), rnd(54 * s0), rnd(50 * s0));
+    ctx.setLineDash([]); ctx.fillStyle = '#f0b35a'; ctx.font = '10px sans-serif'; ctx.fillText('mão', rnd(ox - 28 * s0), rnd(oy + 62 * s0));
+  } else if (o.G === 'hearts') {
+    for (let i = 0; i < 2; i++) {
+      const p = ((t / 1800) + i * 0.5) % 1, fade = p < 0.15 ? p / 0.15 : (p > 0.8 ? (1 - p) / 0.2 : 1);
+      const x = ox + (i === 0 ? -8 : 10) * s0, y = oy + (-60 - 36 * p) * s0, size = (18 + 6 * p) * s0, col = dim(HEART, clamp(fade, 0, 1));
+      const r = Math.max(2, rnd(size * 0.28));
+      circle(ctx, x - size * 0.24, y - size * 0.1, r, col); circle(ctx, x + size * 0.24, y - size * 0.1, r, col);
+      tri(ctx, [x - size * 0.5, y], [x + size * 0.5, y], [x, y + size * 0.55], col);
+    }
+    cheek(ctx, f, L, -1, s0); cheek(ctx, f, R, 1, s0);
+  } else if (o.G === 'cheeks') { cheek(ctx, f, L, -1, s0); cheek(ctx, f, R, 1, s0); }
+  else if (o.G === 'zs') {
+    for (let i = 0; i < 3; i++) {
+      const p = ((t / 2400) + i / 3) % 1, fade = p < 0.2 ? p / 0.2 : (p > 0.7 ? (1 - p) / 0.3 : 1);
+      const x = ox + (70 + 38 * p) * s0, y = oy + (-58 - 52 * p) * s0, size = (9 + 9 * p) * s0, h = size * 0.5, w = size * 0.45, st = Math.max(2, size * 0.16), col = dim(WHITE, clamp(fade, 0, 1));
+      line(ctx, x - w, y - h, x + w, y - h, st, col); line(ctx, x + w, y - h, x - w, y + h, st, col); line(ctx, x - w, y + h, x + w, y + h, st, col);
+    }
+  }
+  if (o.T !== 'none') {
+    const col = o.T === 'safety' ? '#f0a020' : WHITE;
+    ctx.fillStyle = BLACK; ctx.fillRect(ICON.x0 - 1, ICON.y0 - 1, 34, 34);
+    ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.strokeRect(ICON.x0 + 2, ICON.y0 + 2, 28, 28);
+    ctx.fillStyle = col; ctx.font = 'bold 18px sans-serif'; ctx.fillText(o.T === 'safety' ? '!' : '~', ICON.x0 + 12, ICON.y0 + 24);
+  }
+  if (banner) {
+    ctx.fillStyle = 'rgba(0,0,0,0.78)'; ctx.beginPath(); ctx.roundRect(8, bannerTop, W - 16, 12 + banner * 16, 10); ctx.fill();
+    ctx.strokeStyle = '#444'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = WHITE; ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
+    for (let i = 0; i < banner; i++) ctx.fillText('Mensagem de exemplo, linha ' + (i + 1), W / 2, bannerTop + 20 + i * 16);
+    ctx.textAlign = 'start';
+  }
+  if (o.rects) {
+    ctx.lineWidth = 1; ctx.setLineDash([2, 2]);
+    const box = (c, x0, y0, x1, y1) => { ctx.strokeStyle = c; ctx.strokeRect(rnd(x0) + .5, rnd(y0) + .5, rnd(x1 - x0), rnd(y1 - y0)); };
+    box('#7cc4ff', ox - 35.5 * s0, oy + 66 * s0, ox + 41.5 * s0, oy + 98 * s0);
+    box('#f0b35a', ox - 32 * s0, oy + 47 * s0, ox + 22 * s0, oy + 97 * s0);
+    box('#7cc4ff', ox + 72 * s0, oy - 102 * s0, ox + 144 * s0, oy - 44 * s0);
+    box('#ff7aae', ox - 20 * s0, oy - 110 * s0, ox + 22 * s0, oy - 40 * s0);
+    box('#c8a0ff', ox + 61 * s0, oy - 119 * s0, ox + 117 * s0, oy - 49 * s0);
+    box('#f0a020', ICON.x0, ICON.y0, ICON.x1, ICON.y1);
+    ctx.setLineDash([]);
+  }
+}
+
+function render(ctx, frame, o) {
+  ctx.fillStyle = BLACK; ctx.fillRect(0, 0, W, H);
+  if (!frame) return;
+  drawEye(ctx, frame, frame[6]); drawEye(ctx, frame, frame[7]);
+  drawOverlays(ctx, frame, frame[0], o);
+  if (frame[2]) { drawDizzy(ctx, frame, frame[6], -1, frame[0]); drawDizzy(ctx, frame, frame[7], 1, frame[0]); }
+  if (o.boxes) {
+    ctx.setLineDash([2, 2]); ctx.lineWidth = 1; ctx.strokeStyle = '#4a7';
+    for (const e of [frame[6], frame[7]]) { const b = eyeBox(frame, e); ctx.strokeRect(rnd(b.x0) + .5, rnd(b.y0) + .5, rnd(b.x1 - b.x0), rnd(b.y1 - b.y0)); }
+    ctx.setLineDash([]);
+  }
+}
+
+const $ = id => document.getElementById(id);
+const find = (data, expr, look) => data.scenarios.find(s => s.expression === expr && s.look === look);
+const exprs = [...new Set(CURRENT.scenarios.map(s => s.expression))];
+const looks = [...new Set(CURRENT.scenarios.map(s => s.look))];
+for (const e of exprs) $('expr').add(new Option(e.toLowerCase(), e));
+for (const l of looks) $('look').add(new Option(l, l));
+let playing = true, index = 0, last = 0;
+
+function options() {
+  return {A: $('chA').value, G: $('chG').value, T: $('chT').value, banner: $('banner').value, rects: $('rects').checked, boxes: $('boxes').checked};
+}
+function size() {
+  const z = +$('zoom').value;
+  for (const id of ['ref', 'cur']) { $(id).style.width = W * z + 'px'; $(id).style.height = H * z + 'px'; }
+}
+function current() { return find(CURRENT, $('expr').value, $('look').value); }
+function setScenario() {
+  const sc = current(); index = 0;
+  $('seek').max = sc.frames.length - 1;
+  const hasRef = !!find(REFERENCE, $('expr').value, $('look').value);
+  $('refFig').style.display = $('compare').checked && hasRef ? '' : 'none';
+  updateContract();
+}
+function draw() {
+  const sc = current(), o = options();
+  const fr = sc.frames[Math.min(index, sc.frames.length - 1)];
+  render($('cur').getContext('2d'), fr, o);
+  const ref = find(REFERENCE, $('expr').value, $('look').value);
+  if (ref && $('compare').checked) render($('ref').getContext('2d'), ref.frames[Math.min(index, ref.frames.length - 1)], o);
+  $('seek').value = index;
+  const phase = fr[0] <= sc.release_ms ? 'entrada e sustentação' : 'saída';
+  $('time').textContent = `${fr[0]} ms · ${phase}`;
+  let diff = '';
+  if (ref) { const same = JSON.stringify(ref.frames) === JSON.stringify(sc.frames); diff = same ? 'Atual idêntico à referência.' : 'Atual DIFERE da referência.'; }
+  $('status').textContent = `${sc.frames.length} quadros de ${TICK} ms. ${diff}`;
+}
+function updateContract() {
+  const rows = CONTRACT.scenarios.filter(s => s.expression === $('expr').value);
+  let html = '<table><tr><th>Olhar</th><th>Olhos y</th><th>Barras toca</th><th>Barras y máx</th><th>Mão toca</th><th>Balão toca</th><th>Corações toca</th><th>Zs toca</th><th>Ícone T toca</th></tr>';
+  const cls = v => v === 0 ? 'ok' : 'warn';
+  for (const s of rows) {
+    html += `<tr><td>${s.look}</td><td>${s.eyes.min_y}..${s.eyes.max_y}</td>` +
+      `<td class="${cls(s.bars.hit_pct)}">${s.bars.hit_pct}%</td><td>${s.bars.max_y}</td>` +
+      `<td class="${cls(s.hand.hit_pct)}">${s.hand.hit_pct}%</td><td class="${cls(s.bubble.hit_pct)}">${s.bubble.hit_pct}%</td>` +
+      `<td class="${cls(s.hearts.hit_pct)}">${s.hearts.hit_pct}%</td><td class="${cls(s.zs.hit_pct)}">${s.zs.hit_pct}%</td>` +
+      `<td class="${cls(s.icon.hit_pct)}">${s.icon.hit_pct}%</td></tr>`;
+  }
+  $('contract').innerHTML = html + '</table>';
+}
+function tick(now) {
+  if (playing && now - last >= TICK) { last = now; const n = current().frames.length; index = (index + 1) % n; }
+  draw(); requestAnimationFrame(tick);
+}
+$('play').onclick = () => { playing = !playing; $('play').textContent = playing ? 'Pausar' : 'Tocar'; };
+$('seek').oninput = () => { playing = false; $('play').textContent = 'Tocar'; index = +$('seek').value; };
+for (const id of ['expr', 'look', 'compare']) $(id).onchange = setScenario;
+$('zoom').onchange = size;
+size(); setScenario(); requestAnimationFrame(tick);
+</script>
+</body>
+</html>

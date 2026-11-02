@@ -11,6 +11,9 @@ pymicro-features/
 # Host tests
 build-host-tests/
 
+# Face gallery build output (tools/design/face_gallery/build_gallery.py)
+tools/design/face_gallery/out/
+
 # Editor / tooling
 .vscode/
 .cache/

@@ -174,8 +174,8 @@ Reservar retângulos exclusivos para os olhos não é viável. Com o nb_avatar.c
 
 | Overlay na posição atual | Toca a caixa de um olho | Observação |
 |---|---|---|
-| Barras | 0% dos quadros, nas 15 expressões e nos extremos de olhar amostrados | Ficam entre os olhos |
-| Mão de pensar | 0%, exceto dizzy (93%) e os extremos de olhar para baixo em neutral (93%) e content (33%) | Essas combinações são raras; verificar na galeria |
+| Barras | 0% em repouso nas 15 expressões. Com o olhar nos 4 extremos, toca em excited (98%, olhar para baixo) e curious (97% para baixo direita, 1% em cima direita) | A galeria (etapa 2) mediu as 75 combinações; a medição anterior amostrava só 6 expressões nos extremos |
+| Mão de pensar | 0% em repouso, exceto dizzy (93%). Nos extremos toca em 17 combinações, quase todas olhando para baixo (até 97%); em cima, só excited, curious e dizzy (2% a 89%) | Lista completa em `test_face_gallery.py`; qualquer caso novo reprova o teste |
 | Balão com cauda | Até 100% em cápsulas altas | Já ocorre hoje; branco sobre branco. Ciano e contorno preto resolvem a leitura |
 | Ícone em x=282..314, y=8..40 | 0% | A coluna lateral fica livre |
 
@@ -343,8 +343,8 @@ Executar host-tests e build ESP-IDF nas etapas de código, sob os warnings exist
 - [x] Patch isolado de slot safety/lembrete e regressão (host-tests e build; roteiro na placa pendente).
 - [ ] Evidência em placa para STT → Speaking.
 - [x] Linha de base de desempenho (§4) e prova de STT/TTS (§7), medidas na placa em 02/11.
-- [ ] Galeria determinística das 15 intenções.
-- [ ] Poses atuais gravadas como referência antes da etapa 4.
+- [x] Galeria determinística das 15 intenções (`tools/design/face_gallery/`; gerar com `build_gallery.py`). Limites: mão e ícones são marcadores, o banner usa altura estimada, antialiasing difere do LVGL; falta comparar com a tela física e o teste de leitura com avaliadores (etapa 6).
+- [x] Poses atuais gravadas como referência antes da etapa 4 (`reference/poses.json`, protegidas por `test_face_gallery.py`).
 - [ ] Três canais e política de banner implementados, sem encolher os olhos.
 - [ ] Compositor não arbitra expressão.
 - [ ] Sono publicado por transição.
