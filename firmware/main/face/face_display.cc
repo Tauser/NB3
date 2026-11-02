@@ -58,6 +58,7 @@ constexpr float kHandTop = 47.0f;
 constexpr float kBubbleCentre[2] = {108.0f, -80.0f};
 constexpr float kTechLeft = 122.0f;   // channel T's mark, from the screen centre (x 282..314)
 constexpr float kTechTop = -112.0f;   // (y 8..40)
+constexpr float kAudibleLevel = 0.03f;  // the speaker is playing, for the bubble without a sentence
 constexpr float kArcFrom = 0.3f;   // crescent depth from which an eye is drawn as an arc
 constexpr int kArcSteps = 10;
 constexpr int kHeartSteps = 28;
@@ -657,6 +658,7 @@ FaceDisplay::FaceDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handl
       mood_(mood),
       levels_(levels) {
     nb_overlay_init(&overlay_);
+    nb_turn_init(&turn_);
     nb_banner_init(&banner_);
     nb_avatar_core_init(&avatar_, esp_random());
     nb_gaze_init(&gaze_, esp_random());
@@ -761,6 +763,19 @@ void FaceDisplay::SetChatMessage(const char* role, const char* content) {
         return;
     }
     ESP_LOGI(TAG, "%s: %s", role, content);
+    // What the user and the assistant say is not shown, but the turn follows it:
+    // the text means the server has the question, the first sentence that it answers.
+    if (strcmp(role, "user") == 0) {
+        uint32_t id = 2166136261u;  // FNV-1a of the text, to tell a repeat from a new turn
+        for (const char* c = content; *c != '\0'; ++c) {
+            id = (id ^ static_cast<uint8_t>(*c)) * 16777619u;
+        }
+        std::lock_guard<std::mutex> lock(turn_mutex_);
+        nb_turn_user_text(&turn_, id, NowMs());
+    } else if (strcmp(role, "assistant") == 0) {
+        std::lock_guard<std::mutex> lock(turn_mutex_);
+        nb_turn_sentence(&turn_);
+    }
     if (strcmp(role, "system") != 0) {
         return;
     }
@@ -866,11 +881,31 @@ void FaceDisplay::Tick() {
     channels_in.winner = expression;
     channels_in.listening = device == kDeviceStateListening;
     channels_in.voice = Application::GetInstance().GetAudioService().IsVoiceDetected();
-    channels_in.speaking = device == kDeviceStateSpeaking;
     channels_in.sleeping = sleeping;
     channels_in.net_down = net_down_;
     channels_in.safety_stop = safety_stop_;
-    // No producer yet for a confirmed wait.
+    // The turn says whether the server has the question (the hand) and whether the
+    // answer has really begun (the bubble), which Speaking alone does not: it starts
+    // before any sentence or sound.
+    nb_turn_out_t turn_out;
+    {
+        std::lock_guard<std::mutex> lock(turn_mutex_);
+        nb_turn_device_t turn_device = NB_TURN_DEVICE_OTHER;
+        if (device == kDeviceStateIdle) {
+            turn_device = NB_TURN_DEVICE_IDLE;
+        } else if (device == kDeviceStateListening) {
+            turn_device = NB_TURN_DEVICE_LISTENING;
+        } else if (device == kDeviceStateSpeaking) {
+            turn_device = NB_TURN_DEVICE_SPEAKING;
+        }
+        nb_turn_device(&turn_, turn_device);
+        nb_turn_update(&turn_, levels_.Speaker(now) > kAudibleLevel, now, &turn_out);
+    }
+    if (turn_out.stalled_now) {
+        ShowNotification("Demorando para responder", 4000);
+    }
+    channels_in.wait_confirmed = turn_out.wait_confirmed;
+    channels_in.speaking = device == kDeviceStateSpeaking && turn_out.speech_started;
     channels_in.audio_level = channels_in.speaking ? levels_.Speaker(now) : levels_.Mic(now);
     nb_overlay_update(&overlay_, &channels_in, now, &overlay_frame_);
     PlaceChannels();

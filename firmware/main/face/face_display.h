@@ -12,6 +12,7 @@
 #include "behavior/mood_modifier.h"
 #include "core/nb_overlay.h"
 #include "core/nb_overlay_anchor.h"
+#include "core/nb_turn.h"
 #include "face/audio_levels.h"
 #include "core/nb_avatar.h"
 #include "core/nb_gaze.h"
@@ -107,6 +108,8 @@ private:
     const AudioLevels& levels_;
     std::atomic<float> energy_arousal_{1.0f};
     std::atomic<bool> sleeping_{false};
+    std::mutex turn_mutex_;  // held for a copy: events come from the main task
+    nb_turn_t turn_;
     std::atomic<bool> net_down_{false};
     std::atomic<bool> safety_stop_{false};
     std::mutex arc_mutex_;  // held for a copy
