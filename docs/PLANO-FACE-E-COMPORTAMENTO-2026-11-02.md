@@ -1,7 +1,7 @@
 # Plano revisado: simplificação da face — NoiseBot v3
 
 **Revisão:** 3 — 02/11/2026.
-**Situação:** direção e contratos propostos; implementação não iniciada.
+**Situação:** etapas 0 (safety isolado), 1 (linha de base e prova de STT/TTS na placa) e 2 (galeria e poses de referência) entregues em 02/11; etapas 3 a 6 e as decisões D-023 continuam propostas.
 **Escopo:** face, composição visual e correções diretamente necessárias.
 **Substitui:** o plano amplo anterior deste mesmo arquivo.
 
@@ -25,7 +25,7 @@ O mock FACE 04 omite surpreso, animado e tonto, usa posições conflitantes e co
 
 ## 2. Base conferida e limites da evidência
 
-A revisão releu os contratos do checkout local em main, HEAD 34573d7:
+Esta seção registra a base **no momento da revisão documental**, antes das etapas 0 a 2; o que mudou depois está em §7 (medição na placa), §11 e §13. A revisão releu os contratos do checkout local em main, HEAD 34573d7:
 
 - nb_expression_t possui 15 intenções.
 - nb_avatar_expression_t repete essas 15 categorias e nb_avatar.c mantém suas sequências próprias.
@@ -33,12 +33,12 @@ A revisão releu os contratos do checkout local em main, HEAD 34573d7:
 - nb_overlay_kind_t contém seis tipos visíveis, além de NONE; a composição atual escolhe apenas um.
 - face_tools.cc exige igualdade entre o nome recebido e o nome canônico da expressão.
 - HandImage está ligado à imagem da mão de pensar, com rotação e escala por software.
-- Safety e lembrete escrevem em NB_SOURCE_REFLEX.
+- Safety e lembrete escreviam ambos em NB_SOURCE_REFLEX (corrigido na etapa 0: safety agora usa NB_SOURCE_SAFETY).
 - A indicação de escuta depende da expressão vencedora; sono chega à face pelo tick de energia.
 
 Na cópia local firmware/xiaozhi-esp32/main/application.cc, o ramo stt chama SetChatMessage("user", ...), e tts/start agenda Speaking. FaceDisplay recebe e registra o texto do usuário, mas retorna antes de utilizá-lo.
 
-**Esta revisão não alterou firmware nem executou build do projeto, host-tests, captura de logs ou flash.** O único código executado foi um probe temporário, compilado fora do repositório contra o nb_avatar.c real, que amostrou as 15 expressões por 6 s para medir o alcance dos olhos (§6). Os 37 executáveis aprovados e o probe do conflito de slot pertencem à análise anterior. Nada disso equivale a validação da solução proposta.
+**(Situação da revisão documental; as etapas 0 a 2 depois alteraram firmware, rodaram host-tests, build, captura de logs e flash.) Esta revisão não alterou firmware nem executou build do projeto, host-tests, captura de logs ou flash.** O único código executado foi um probe temporário, compilado fora do repositório contra o nb_avatar.c real, que amostrou as 15 expressões por 6 s para medir o alcance dos olhos (§6). Os 37 executáveis aprovados e o probe do conflito de slot pertencem à análise anterior. Nada disso equivale a validação da solução proposta.
 
 ## 3. O que diminui e o que permanece
 
@@ -236,7 +236,8 @@ Log do console, sem corte de fala. O STT apareceu em todos os turnos, uma vez s�
 - Não há garantia de correlação remota por ID neste caminho. Ordenação local e limpezas de sessão devem impedir estado preso; testar STT tardio ou repetido.
 - Atraso visual inicial: **2,5 s** a contar do STT, acima do maior intervalo medido (2,18 s), para a mão não aparecer em respostas normais. Com 700 ms ela apareceria em quase todo turno. Valor a calibrar na etapa 6 com ferramentas lentas e rede ruim, que a medição não cobriu.
 - **A espera não tem desenho novo: é a mão de pensar.** O commit 34573d7 removeu as bolinhas do pensar, e elas não voltam.
-- Aos 20 s, limpar a mão, devolver as barras e mostrar “Demorando para responder” pelo banner existente; não fingir conclusão nem cancelar o protocolo remotamente.
+- Aos 20 s, limpar a mão e mostrar “Demorando para responder” pelo banner existente; não fingir conclusão nem cancelar o protocolo remotamente. As barras só voltam se houver escuta real; com o microfone fechado em Speaking (D-024) elas ficam ocultas, e o banner pode ocultá-las também.
+- O balão de fala não nasce na entrada em Speaking, que acontece antes de qualquer áudio: ele aparece na primeira frase da resposta (`tts sentence_start`) ou na reprodução audível, o que vier primeiro. Entre o STT e esse ponto não há balão nem barras.
 - Sem STT comprovado, manter indicação de escuta/conexão e o comportamento atual como fallback identificado. Não rotular silêncio do VAD como confirmação de processamento remoto.
 
 A nova política só substitui a atual depois dessa verificação. Não estimar latência real a partir do código.
@@ -249,7 +250,7 @@ Não expandir de seis para dezesseis efeitos sociais.
 |---|---|---|
 | Barras | Escuta real e nível do mic | A; barras atuais, limitadas à tela |
 | Mão de pensar | Espera confirmada ou intenção thinking vencedora | G; sprite atual após atraso |
-| Balão | Speaking/reprodução conforme política validada | A; renderer e tamanho atuais |
+| Balão | Primeira frase da resposta ou reprodução audível, nunca só a entrada em Speaking (§7) | A; renderer e tamanho atuais |
 | Corações | loving vencedor | G; efeito atual |
 | Bochechas | loving ou embarrassed vencedor | Pose; desenho e posição atuais |
 | Zs | Sono de comportamento | G; desenho atual |
@@ -341,7 +342,7 @@ Executar host-tests e build ESP-IDF nas etapas de código, sob os warnings exist
 ## 13. Checklist e encerramento
 
 - [x] Patch isolado de slot safety/lembrete e regressão (host-tests e build; roteiro na placa pendente).
-- [ ] Evidência em placa para STT → Speaking.
+- [x] Evidência em placa de STT, TTS e Speaking: ordem e intervalos no §7 (AEC desligado). Falta repetir com ferramentas lentas e rede ruim.
 - [x] Linha de base de desempenho (§4) e prova de STT/TTS (§7), medidas na placa em 02/11.
 - [x] Galeria determinística das 15 intenções (`tools/design/face_gallery/`; gerar com `build_gallery.py`). Limites: mão e ícones são marcadores, o banner usa altura estimada, antialiasing difere do LVGL; falta comparar com a tela física e o teste de leitura com avaliadores (etapa 6).
 - [x] Poses atuais gravadas como referência antes da etapa 4 (`reference/poses.json`, protegidas por `test_face_gallery.py`).
