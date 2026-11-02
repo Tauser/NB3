@@ -386,15 +386,18 @@ index f8b510f..4d96f5d 100644
      void OpusCodecTask();
      void PushTaskToEncodeQueue(AudioTaskType type, std::vector<int16_t>&& pcm);
 diff --git a/main/audio/engines/afe_audio_engine.cc b/main/audio/engines/afe_audio_engine.cc
-index 3823d10..30e2288 100644
+index 3823d10..f845e43 100644
 --- a/main/audio/engines/afe_audio_engine.cc
 +++ b/main/audio/engines/afe_audio_engine.cc
-@@ -12,6 +12,12 @@
+@@ -12,6 +12,15 @@
  
  #include "audio_service.h"
  #include "wake_words/custom_wake_word.h"
 +#if CONFIG_NB3_MICRO_WAKE_WORD
 +#include "wake/micro_wake_word.h"
++#endif
++#if CONFIG_NB3_GAP_BRIDGE_MS > 0
++#include "voice/gap_bridge.h"
 +#endif
 +#if CONFIG_NB3_BARGE_IN_GATE
 +#include "voice/barge_in_filter.h"
@@ -402,12 +405,15 @@ index 3823d10..30e2288 100644
  
  #define TAG "AfeAudioEngine"
  
-@@ -24,7 +30,13 @@
+@@ -24,7 +33,16 @@
  AfeAudioEngine::AfeAudioEngine() { event_group_ = xEventGroupCreate(); }
  
  AfeAudioEngine::~AfeAudioEngine() {
 +#if CONFIG_NB3_BARGE_IN_GATE
 +    barge_in_.reset();
++#endif
++#if CONFIG_NB3_GAP_BRIDGE_MS > 0
++    gap_bridge_.reset();
 +#endif
      custom_wake_word_.reset();
 +#if CONFIG_NB3_MICRO_WAKE_WORD
@@ -416,7 +422,7 @@ index 3823d10..30e2288 100644
      if (afe_data_ != nullptr) {
          afe_iface_->destroy(afe_data_);
      }
-@@ -61,7 +73,13 @@
+@@ -61,7 +79,16 @@
  
      codec_ = codec;
      frame_samples_ = frame_duration_ms * 16000 / 1000;
@@ -428,10 +434,13 @@ index 3823d10..30e2288 100644
 +        barge_in_ = std::make_unique<BargeInFilter>(frame_duration_ms);
 +    }
 +#endif
++#if CONFIG_NB3_GAP_BRIDGE_MS > 0
++    gap_bridge_ = std::make_unique<GapBridge>(frame_duration_ms, CONFIG_NB3_GAP_BRIDGE_MS, 300);
++#endif
  
      if (models_list == nullptr) {
          models_ = esp_srmodel_init("model");
-@@ -80,7 +98,34 @@
+@@ -80,7 +107,34 @@
          }
      }
  
@@ -467,7 +476,7 @@ index 3823d10..30e2288 100644
          wake_detector_ = WakeDetector::kMultiNet;
          custom_wake_word_ = std::make_unique<CustomWakeWord>();
          custom_wake_word_->OnWakeWordDetected([this](const std::string& wake_word) {
-@@ -239,7 +284,10 @@
+@@ -239,7 +293,10 @@
  
      const char* detector = wake_detector_ == WakeDetector::kWakeNet
                                 ? "WakeNet"
@@ -479,7 +488,7 @@ index 3823d10..30e2288 100644
      ESP_LOGI(TAG, "Initialized FD AFE, detector: %s, NS: off, feed: %d, fetch: %d", detector,
               afe_iface_->get_feed_chunksize(afe_data_), afe_iface_->get_fetch_chunksize(afe_data_));
      ESP_LOGI(TAG, "After AFE create: free=%u min=%u largest=%u",
-@@ -280,12 +328,20 @@
+@@ -280,12 +337,20 @@
      if (enable) {
          if (wake_detector_ == WakeDetector::kMultiNet) {
              custom_wake_word_->Start();
@@ -500,7 +509,7 @@ index 3823d10..30e2288 100644
          }
      }
      UpdateActiveState();
-@@ -329,6 +385,37 @@
+@@ -329,6 +394,43 @@
      wake_word_detected_callback_ = std::move(callback);
  }
  
@@ -531,6 +540,12 @@ index 3823d10..30e2288 100644
 +        return;
 +    }
 +#endif
++#if CONFIG_NB3_GAP_BRIDGE_MS > 0
++    if (gap_bridge_ != nullptr) {
++        gap_bridge_->Process(std::move(frame), speech, output_callback_);
++        return;
++    }
++#endif
 +    (void)speech;
 +    output_callback_(std::move(frame));
 +}
@@ -538,7 +553,7 @@ index 3823d10..30e2288 100644
  void AfeAudioEngine::OnOutput(std::function<void(std::vector<int16_t>&& data)> callback) {
      output_callback_ = std::move(callback);
  }
-@@ -446,6 +533,15 @@
+@@ -446,6 +548,15 @@
          custom_wake_word_->FeedMono(result->data, result->data_size / sizeof(int16_t));
          return;
      }
@@ -554,7 +569,7 @@ index 3823d10..30e2288 100644
  
  #if CONFIG_SEND_WAKE_WORD_DATA
      wake_word_audio_cache_.Store(result->data, result->data_size / sizeof(int16_t));
-@@ -472,7 +568,10 @@
+@@ -472,7 +583,13 @@
  
  void AfeAudioEngine::HandleVoiceResult(const afe_fetch_result_t* result) {
      if (output_reset_pending_.exchange(false)) {
@@ -563,10 +578,13 @@ index 3823d10..30e2288 100644
 +#if CONFIG_NB3_BARGE_IN_GATE
 +        if (barge_in_ != nullptr) barge_in_->Reset();
 +#endif
++#if CONFIG_NB3_GAP_BRIDGE_MS > 0
++        if (gap_bridge_ != nullptr) gap_bridge_->Reset();
++#endif
      }
      if (vad_state_change_callback_) {
          if (result->vad_state == VAD_SPEECH && !is_speaking_) {
-@@ -486,20 +585,11 @@
+@@ -486,20 +603,11 @@
      if (!output_callback_) {
          return;
      }
@@ -592,7 +610,7 @@ index 3823d10..30e2288 100644
  }
  
  void AfeAudioEngine::OutputRawAudio(const std::vector<int16_t>& data) {
-@@ -529,21 +619,32 @@
+@@ -529,21 +637,32 @@
          custom_wake_word_->EncodeWakeWordData();
          return;
      }
@@ -629,7 +647,7 @@ index 3823d10..30e2288 100644
      }
  
      wake_word_encode_task_ = xTaskCreateStatic(
-@@ -613,13 +714,21 @@
+@@ -613,13 +732,21 @@
          },
          "encode_wake_word", stack_size, this, 2, wake_word_encode_task_stack_,
          wake_word_encode_task_buffer_);
@@ -653,10 +671,10 @@ index 3823d10..30e2288 100644
      }
      std::unique_lock<std::mutex> lock(wake_word_mutex_);
 diff --git a/main/audio/engines/afe_audio_engine.h b/main/audio/engines/afe_audio_engine.h
-index 789a7e6..96d881a 100644
+index 789a7e6..12d4771 100644
 --- a/main/audio/engines/afe_audio_engine.h
 +++ b/main/audio/engines/afe_audio_engine.h
-@@ -17,8 +17,11 @@
+@@ -17,8 +17,12 @@
  
  #include "audio_engine.h"
  #include "wake_words/wake_word_audio_cache.h"
@@ -665,10 +683,11 @@ index 789a7e6..96d881a 100644
  class CustomWakeWord;
 +class MicroWakeWord;
 +class BargeInFilter;
++class GapBridge;
  
  class AfeAudioEngine : public AudioEngine {
  public:
-@@ -45,18 +48,22 @@
+@@ -45,18 +49,22 @@
      void EncodeWakeWordData() override;
      bool GetWakeWordOpus(std::vector<uint8_t>& opus) override;
      const std::string& GetLastDetectedWakeWord() const override { return last_detected_wake_word_; }
@@ -692,7 +711,7 @@ index 789a7e6..96d881a 100644
  
      AudioCodec* codec_ = nullptr;
      srmodel_list_t* models_ = nullptr;
-@@ -82,6 +89,13 @@
+@@ -82,6 +90,16 @@
      WakeDetector wake_detector_ = WakeDetector::kNone;
  
      std::unique_ptr<CustomWakeWord> custom_wake_word_;
@@ -702,11 +721,14 @@ index 789a7e6..96d881a 100644
 +#if CONFIG_NB3_BARGE_IN_GATE
 +    std::unique_ptr<BargeInFilter> barge_in_;
 +#endif
++#if CONFIG_NB3_GAP_BRIDGE_MS > 0
++    std::unique_ptr<GapBridge> gap_bridge_;
++#endif
 +    std::unique_ptr<VoiceFrames> voice_frames_;
      std::vector<std::string> wake_words_;
      std::string last_detected_wake_word_;
      std::vector<int16_t> input_buffer_;
-@@ -108,6 +122,7 @@
+@@ -108,6 +126,7 @@
      void OutputRawAudio(const std::vector<int16_t>& data);
      void HandleWakeWordResult(const afe_fetch_result_t* result);
      void HandleVoiceResult(const afe_fetch_result_t* result);

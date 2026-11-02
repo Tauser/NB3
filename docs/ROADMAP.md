@@ -49,6 +49,8 @@ tela, o banner oculta o que cobre, barras e balão ganharam contorno preto de
 host-tests (37/37) e build. Falta ver na placa; ainda sem produtor para espera
 confirmada nem ícones de rede e parada (etapa 5).
 
+**Corte de fala por pausa curta (02/11):** o fim do turno é decidido pelo servidor; o cliente (e o StackChan, que usa o xiaozhi v2.2.4 sem alteração nessa parte) não tem limite de silêncio. Experimento D-025 implementado, com 38/38 host-tests e build, ainda sem gravar na placa: falta medir se esconder pausas de até 700 ms evita o corte e quanto atrasa a resposta.
+
 ## Visão geral
 
 | Etapa | Entrega | Prova de sucesso | Situação |
