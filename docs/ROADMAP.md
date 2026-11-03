@@ -51,8 +51,10 @@ passagens em ordem aleatória, com o gabarito só no log;
 `docs/TESTE-LEITURA-FACES.md`. O projeto tem um avaliador só, então o critério
 de 3 avaliadores não se aplica: o teste roda como autoverificação (um
 avaliador que já conhece as faces, resultado mais otimista que o de um
-estranho) e o limite fica registrado junto com o número. Falta gravar a versão
-de bancada e rodar. A espera com rede ruim ficou de fora desta entrega.
+estranho) e o limite fica registrado junto com o número. Em 03/11 o dono
+conferiu todas as faces na tela física e não achou problema (verificação
+visual, sem folha nem contagem; a versão de bancada segue sem ser gravada). A
+espera com rede ruim ficou de fora desta entrega.
 
 **Etapa 2 da revisão da face (02/11):** galeria reproduzível em
 `tools/design/face_gallery/` (núcleo real, semente e relógio fixos; HTML com
