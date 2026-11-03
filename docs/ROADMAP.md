@@ -42,7 +42,7 @@ repintava tudo entre ele e os olhos; agora cada parte é invalidada à parte;
 sobrepostas, 8 ms por desenho com o rosto feliz parado; agora é um `lv_draw_arc`.
 Depois das duas: 21,7 a 23,1 fps, 1,9 a 2,3 ms médios, picos de 18 a 26 ms,
 taskLVGL 15 a 17%, CPU ociosa 66 a 68%, numa conversa com ferramenta (clima).
-Falta olhar na tela se o arco ficou igual ao de antes.
+O arco foi conferido na tela: igual ao de antes.
 
 **Etapa 2 da revisão da face (02/11):** galeria reproduzível em
 `tools/design/face_gallery/` (núcleo real, semente e relógio fixos; HTML com
