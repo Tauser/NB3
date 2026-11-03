@@ -21,6 +21,15 @@ config NB3_AUDIO_DIAGNOSTICS
         counters. No PCM is stored. For deliberate synchronized mic/ref capture,
         use USE_AUDIO_DEBUGGER with AUDIO_DEBUG_UDP_SERVER configured explicitly.
 
+config NB3_UPLINK_TAP
+    bool "Copy the Opus packets sent to the server to the audio debug host"
+    default n
+    depends on USE_AUDIO_DEBUGGER
+    help
+        Bench only. Sends each packet again, by UDP, to the port after the one
+        in AUDIO_DEBUG_UDP_SERVER, with marks at the start and end of each
+        listening session. tools/audio_capture.py turns them into audio files.
+
 config NB3_MICRO_WAKE_WORD
     bool "Wake on \"Nexo\" (microWakeWord on TFLite Micro)"
     default y

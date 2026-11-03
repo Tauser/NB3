@@ -192,6 +192,72 @@ não substituem a necessidade de reprodutibilidade e medição controlada.
    demonstra que mudanças na ordem das callbacks podem repetir/pular blocos.
    Não promover 0 sem observar `missing` e o alinhamento real.
 
+## Medição do caminho até o servidor
+
+Serve para decidir onde uma frase foi cortada. Toda sessão de escuta loga uma
+linha `Uplink:`, em qualquer build, com quadros entregues à fila, descartados,
+codificados e pendentes, pacotes descartados no envio, pacotes pequenos (DTX),
+bytes e tempo de voz segundo o VAD. A soma entregues = descartados + codificados
++ pendentes vale para os quadros da sessão. O áudio do wake word vai por outro
+caminho e não entra na conta.
+
+O firmware de bancada também envia por UDP, para o PC, o PCM antes do AFE
+(porta 8000) e uma cópia dos pacotes Opus enviados ao servidor (porta 8001). Ele
+parte do `sdkconfig` atual e fica em `firmware/build-bench/`, sem tocar no
+principal:
+
+```powershell
+python tools/audio_capture.py config --host IP_DO_PC
+cd firmware
+idf.py -B build-bench -D SDKCONFIG=D:/Projetos/NoiseBot-v3/firmware/build-bench/sdkconfig -D IDF_TARGET=esp32s3 build
+idf.py -B build-bench -D SDKCONFIG=D:/Projetos/NoiseBot-v3/firmware/build-bench/sdkconfig -p COM5 -b 115200 flash
+cd ..
+python tools/audio_capture.py capture CAMINHO/DA/SESSAO
+```
+
+Guardar também o log serial da sessão. Se nenhum datagrama chegar, conferir se
+o firewall do Windows permite UDP 8000 e 8001 para o Python e se o robô está na
+mesma rede. O envio extra por Wi-Fi pode alterar o tempo do sistema: um defeito
+visto só nesse firmware precisa ser repetido sem ele. Ao terminar, regravar o
+firmware normal.
+
+### Roteiro
+
+Silêncio na sala, boca a 40 cm do robô. Chamar "Nexo", esperar a resposta e dizer
+uma frase por turno, anotando qual saiu. `…` é uma pausa, contada mentalmente.
+
+| # | Frase | Pausa |
+|---|---|---|
+| 1 | Qual é a capital da França? | nenhuma |
+| 2 | Me conta uma curiosidade sobre o oceano. | nenhuma |
+| 3 | Quanto é vinte … mais trinta? | 0,5 s |
+| 4 | Eu queria saber … como faz um bolo de cenoura. | 0,5 s |
+| 5 | Qual é o maior planeta … do sistema solar? | 1 s |
+| 6 | Hoje eu acordei cedo … e fiquei pensando no almoço. | 1 s |
+| 7 | Me diz uma coisa … qual é a cor do céu? | 1,5 s |
+| 8 | Eu tenho uma pergunta … por que o mar é salgado? | 1,5 s |
+| 9 | (fraco, sem sussurrar) Quantos dias tem um ano? | nenhuma |
+| 10 | Nexo, que horas são? (colada, sem esperar resposta) | nenhuma |
+
+Depois repetir a 1 m e, por fim, com TV ligada, sempre anotando as condições.
+
+### Como decidir
+
+Para cada frase, comparar o que foi dito, o texto do log (`>> ...`), a linha
+`Uplink:`, `turn_NNN.wav` e o trecho de `pre_afe.wav` indicado em `events.csv`.
+
+| Observação | Onde está o corte |
+|---|---|
+| A voz já está ruim ou inaudível em `pre_afe.wav` | microfone ou ambiente |
+| `pre_afe.wav` bom, início ou trechos faltando em `turn_NNN.wav`, `dropped` > 0 | fila do dispositivo |
+| `pre_afe.wav` bom, `turn_NNN.wav` com a fala baixa virando silêncio, `small packets` alto | Opus/DTX |
+| `turn_NNN.wav` termina logo depois do texto, com a fala continuando em `pre_afe.wav` | fim de turno do servidor |
+| `turn_NNN.wav` inteiro e claro, texto errado | reconhecimento do servidor |
+
+`lost in capture` no resumo conta perdas entre o robô e o PC; não são perdas a
+caminho do servidor, e a frase afetada não entra na decisão. O envio ao servidor
+por UDP continua sem medição de perda: a cópia sai antes do envio.
+
 ## Aceite em bancada
 
 | Ensaio | Evidência esperada |

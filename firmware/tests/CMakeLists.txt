@@ -70,6 +70,7 @@ nb_host_test(test_wake_detect ${CORE_DIR}/nb_wake_detect.c)
 nb_host_test(test_spk_ref ${CORE_DIR}/nb_spk_ref.c)
 nb_host_test(test_barge_gate ${CORE_DIR}/nb_barge_gate.c)
 nb_host_test(test_gap_bridge ${CORE_DIR}/nb_gap_bridge.c)
+nb_host_test(test_uplink_stats ${CORE_DIR}/nb_uplink_stats.c)
 nb_host_test(test_output_activity ${CORE_DIR}/nb_output_activity.c)
 
 add_executable(test_voice_pipeline test_voice_pipeline.cc

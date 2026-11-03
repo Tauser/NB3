@@ -104,16 +104,31 @@ index 7c2e191..93d754f 100644
  
  #endif
 diff --git a/main/audio/audio_service.cc b/main/audio/audio_service.cc
-index 7f7582b..47806cc 100644
+index 7f7582b..9ba094c 100644
 --- a/main/audio/audio_service.cc
 +++ b/main/audio/audio_service.cc
-@@ -1,4 +1,5 @@
+@@ -1,6 +1,10 @@
  #include "audio_service.h"
 +#include <esp_heap_caps.h>
  #include <esp_log.h>
  #include <cstring>
++#if CONFIG_NB3_UPLINK_TAP
++#include "voice/uplink_tap.h"
++#endif
  
-@@ -94,6 +95,11 @@
+ #define RATE_CVT_CFG(_src_rate, _dest_rate, _channel)                                        \
+     (esp_ae_rate_cvt_cfg_t) {                                                                \
+@@ -89,11 +93,21 @@
+     });
+     audio_engine_->OnVadStateChange([this](bool speaking) {
+         voice_detected_ = speaking;
++        {
++            std::lock_guard<std::mutex> lock(audio_queue_mutex_);
++            nb_uplink_stats_on_voice(&uplink_stats_, speaking,
++                                     static_cast<uint32_t>(esp_timer_get_time() / 1000));
++        }
+         if (callbacks_.on_vad_change) {
+             callbacks_.on_vad_change(speaking);
          }
      });
      audio_engine_->OnWakeWordDetected([this](const std::string& wake_word) {
@@ -125,7 +140,7 @@ index 7f7582b..47806cc 100644
          xEventGroupClearBits(event_group_, AS_EVENT_WAKE_WORD_RUNNING);
          if (callbacks_.on_wake_word_detected) {
              callbacks_.on_wake_word_detected(wake_word);
-@@ -117,6 +123,7 @@
+@@ -117,6 +131,7 @@
  void AudioService::Start() {
      service_stopped_.store(false);
      xEventGroupClearBits(event_group_, AS_EVENT_AUDIO_TESTING_RUNNING | AS_EVENT_WAKE_WORD_RUNNING |
@@ -133,7 +148,7 @@ index 7f7582b..47806cc 100644
                                             AS_EVENT_AUDIO_PROCESSOR_RUNNING |
                                             AS_EVENT_AUDIO_INPUT_STOP_REQUEST);
  
-@@ -193,6 +200,32 @@
+@@ -193,6 +208,32 @@
  }
  
  bool AudioService::ReadAudioData(std::vector<int16_t>& data, int sample_rate, int samples) {
@@ -166,7 +181,7 @@ index 7f7582b..47806cc 100644
      if (!codec_->input_enabled()) {
          esp_timer_stop(audio_power_timer_);
          esp_timer_start_periodic(audio_power_timer_, AUDIO_POWER_CHECK_INTERVAL_MS * 1000);
-@@ -242,7 +275,8 @@
+@@ -242,7 +283,8 @@
  void AudioService::AudioInputTask() {
      constexpr EventBits_t kAudioInputActiveBits = AS_EVENT_AUDIO_TESTING_RUNNING |
                                                    AS_EVENT_WAKE_WORD_RUNNING |
@@ -176,7 +191,7 @@ index 7f7582b..47806cc 100644
  
      while (true) {
          EventBits_t bits = xEventGroupWaitBits(
-@@ -273,6 +307,28 @@
+@@ -273,6 +315,28 @@
              }
          }
  
@@ -205,7 +220,7 @@ index 7f7582b..47806cc 100644
          if (audio_input_need_warmup_.exchange(false)) {
              vTaskDelay(pdMS_TO_TICKS(120));
              continue;
-@@ -323,6 +379,58 @@
+@@ -323,6 +387,58 @@
      ESP_LOGW(TAG, "Audio input task stopped");
  }
  
@@ -264,7 +279,41 @@ index 7f7582b..47806cc 100644
  void AudioService::AudioOutputTask() {
      while (true) {
          std::unique_lock<std::mutex> lock(audio_queue_mutex_);
-@@ -683,6 +791,7 @@
+@@ -490,12 +606,19 @@
+                     packet->payload.resize(out.encoded_bytes);
+ 
+                     if (task.type == kAudioTaskTypeEncodeToSendQueue) {
++#if CONFIG_NB3_UPLINK_TAP
++                        if (uplink_tap_ != nullptr) {
++                            uplink_tap_->Packet(packet->payload.data(), packet->payload.size());
++                        }
++#endif
+                         {
+                             std::lock_guard<std::mutex> lock2(audio_queue_mutex_);
++                            nb_uplink_stats_on_encoded(&uplink_stats_, packet->payload.size());
+                             /* Never let a full send queue stall encoding: stale realtime
+                              * audio is useless to the server, so drop the oldest packet. */
+                             if (audio_send_queue_.size() >= MAX_SEND_PACKETS_IN_QUEUE) {
+                                 audio_send_queue_.pop_front();
++                                nb_uplink_stats_on_send_dropped(&uplink_stats_);
+                             }
+                             audio_send_queue_.push_back(std::move(packet));
+                         }
+@@ -586,9 +709,13 @@
+          * Blocking here would stall the audio engine task (AFE fetch) and deadlock the
+          * whole input pipeline when the send queue stops being drained (e.g. network
+          * congestion or a failed UDP send). */
++        if (type == kAudioTaskTypeEncodeToSendQueue) {
++            nb_uplink_stats_on_pushed(&uplink_stats_);
++        }
+         if (audio_encode_queue_.size() >= MAX_ENCODE_TASKS_IN_QUEUE) {
+             audio_encode_queue_.pop_front();
+             dropped_total = ++debug_statistics_.encode_drop_count;
++            nb_uplink_stats_on_dropped(&uplink_stats_);
+         }
+         audio_encode_queue_.push_back(std::move(task));
+         audio_queue_cv_.notify_all();
+@@ -683,6 +810,7 @@
              }
          }
          audio_engine_->EnableWakeWordDetection(true);
@@ -272,7 +321,7 @@ index 7f7582b..47806cc 100644
          xEventGroupSetBits(event_group_, AS_EVENT_WAKE_WORD_RUNNING);
      } else {
          if (audio_engine_initialized_) {
-@@ -714,7 +823,11 @@
+@@ -714,13 +842,29 @@
              return;
          }
          ResetDecoder();
@@ -285,7 +334,54 @@ index 7f7582b..47806cc 100644
          {
              std::lock_guard<std::mutex> lock(input_resampler_mutex_);
              if (input_resampler_ != nullptr) {
-@@ -748,6 +861,16 @@
+                 esp_ae_rate_cvt_reset(input_resampler_);
+             }
+         }
++        {
++            std::lock_guard<std::mutex> lock(audio_queue_mutex_);
++            nb_uplink_stats_start(&uplink_stats_,
++                                  static_cast<uint32_t>(esp_timer_get_time() / 1000));
++        }
++#if CONFIG_NB3_UPLINK_TAP
++        // Created here, not at start-up: the socket needs the network up.
++        if (uplink_tap_ == nullptr) {
++            uplink_tap_ = std::make_unique<UplinkTap>();
++        }
++        uplink_tap_->Mark(NB_UPLINK_TAP_TURN_START);
++#endif
+         audio_engine_->EnableVoiceProcessing(true);
+         xEventGroupSetBits(event_group_, AS_EVENT_AUDIO_PROCESSOR_RUNNING);
+     } else {
+@@ -728,6 +872,28 @@
+             audio_engine_->EnableVoiceProcessing(false);
+         }
+         xEventGroupClearBits(event_group_, AS_EVENT_AUDIO_PROCESSOR_RUNNING);
++        nb_uplink_report_t report;
++        bool finished;
++        {
++            std::lock_guard<std::mutex> lock(audio_queue_mutex_);
++            finished = nb_uplink_stats_finish(
++                &uplink_stats_, static_cast<uint32_t>(esp_timer_get_time() / 1000), &report);
++        }
++        if (finished) {
++            ESP_LOGI(TAG,
++                     "Uplink: %lu ms, frames pushed %lu dropped %lu encoded %lu pending %lu, "
++                     "send dropped %lu, small packets %lu, %lu bytes, voice %lu ms in %lu runs",
++                     (unsigned long)report.duration_ms, (unsigned long)report.pushed,
++                     (unsigned long)report.dropped, (unsigned long)report.encoded,
++                     (unsigned long)report.pending, (unsigned long)report.send_dropped,
++                     (unsigned long)report.small_packets, (unsigned long)report.opus_bytes,
++                     (unsigned long)report.voice_ms, (unsigned long)report.voice_runs);
++#if CONFIG_NB3_UPLINK_TAP
++            if (uplink_tap_ != nullptr) {
++                uplink_tap_->Mark(NB_UPLINK_TAP_TURN_END);
++            }
++#endif
++        }
+     }
+ }
+ 
+@@ -748,6 +914,16 @@
      }
  }
  
@@ -303,19 +399,22 @@ index 7f7582b..47806cc 100644
      ESP_LOGI(TAG, "%s device AEC", enable ? "Enabling" : "Disabling");
      device_aec_enabled_ = enable;
 diff --git a/main/audio/audio_service.h b/main/audio/audio_service.h
-index f8b510f..4d96f5d 100644
+index f8b510f..f5571fd 100644
 --- a/main/audio/audio_service.h
 +++ b/main/audio/audio_service.h
-@@ -24,6 +24,8 @@
+@@ -24,6 +24,11 @@
  #include "fixed_queue.h"
  #include "ogg_demuxer.h"
  #include "protocol.h"
 +#include "voice/audio_policy.h"
 +#include "core/nb_pcm_ring.h"
++#include "core/nb_uplink_stats.h"
++
++class UplinkTap;
  
  /*
   * There are two types of audio data flow:
-@@ -38,7 +40,11 @@
+@@ -38,7 +43,11 @@
   */
  
  #define OPUS_FRAME_DURATION_MS 60
@@ -327,7 +426,7 @@ index f8b510f..4d96f5d 100644
  #define MAX_PLAYBACK_TASKS_IN_QUEUE 2
  #define MAX_DECODE_PACKETS_IN_QUEUE (1200 / OPUS_FRAME_DURATION_MS)
  #define MAX_SEND_PACKETS_IN_QUEUE (2400 / OPUS_FRAME_DURATION_MS)
-@@ -52,6 +58,16 @@
+@@ -52,6 +61,16 @@
  #define AS_EVENT_WAKE_WORD_RUNNING (1 << 1)
  #define AS_EVENT_AUDIO_PROCESSOR_RUNNING (1 << 2)
  #define AS_EVENT_AUDIO_INPUT_STOP_REQUEST (1 << 4)
@@ -344,7 +443,7 @@ index f8b510f..4d96f5d 100644
  
  #define AS_OPUS_GET_FRAME_DRU_ENUM(duration_ms)                  \
      ((duration_ms) == 5     ? ESP_OPUS_ENC_FRAME_DURATION_5_MS   \
-@@ -138,6 +154,8 @@
+@@ -138,6 +157,8 @@
      void EnableVoiceProcessing(bool enable);
      void EnableAudioTesting(bool enable);
      void EnableDeviceAec(bool enable);
@@ -353,7 +452,7 @@ index f8b510f..4d96f5d 100644
  
      void SetCallbacks(AudioServiceCallbacks& callbacks);
  
-@@ -200,18 +218,29 @@
+@@ -200,18 +221,34 @@
      bool audio_engine_initialized_ = false;
      bool voice_detected_ = false;
  #if CONFIG_USE_DEVICE_AEC
@@ -374,6 +473,11 @@ index f8b510f..4d96f5d 100644
 +    nb_pcm_ring_t preroll_ring_{};
 +    int16_t* preroll_storage_ = nullptr;
 +    std::atomic<int64_t> preroll_started_us_{0};
++
++    nb_uplink_stats_t uplink_stats_{};  // guarded by audio_queue_mutex_
++#if CONFIG_NB3_UPLINK_TAP
++    std::unique_ptr<UplinkTap> uplink_tap_;
++#endif
  
      esp_timer_handle_t audio_power_timer_ = nullptr;
      std::chrono::steady_clock::time_point last_input_time_;
