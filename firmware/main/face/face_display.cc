@@ -60,7 +60,6 @@ constexpr float kTechLeft = 122.0f;   // channel T's mark, from the screen centr
 constexpr float kTechTop = -112.0f;   // (y 8..40)
 constexpr float kAudibleLevel = 0.03f;  // the speaker is playing, for the bubble without a sentence
 constexpr float kArcFrom = 0.3f;   // crescent depth from which an eye is drawn as an arc
-constexpr int kArcSteps = 10;
 constexpr int kHeartSteps = 28;
 constexpr float kHeartsY = -60.0f;    // where a heart starts rising
 constexpr float kHeartsRise = 36.0f;
@@ -111,11 +110,18 @@ lv_color_t Dim(lv_color_t color, float alpha) {
 // the screen instead of all of it. Running the same painting code in
 // recording mode keeps the box in step with what is really drawn.
 struct Recorder {
-    bool any = false;
-    lv_area_t box = {0, 0, -1, -1};
-    uint32_t hash = 2166136261u;
+    struct Group {
+        bool any = false;
+        lv_area_t box = {0, 0, -1, -1};
+        uint32_t hash = 2166136261u;
+    };
+    Group groups[kDrawGroups];
+    int group = kGroupEyes;  // the part being painted
 
-    void Mix(int32_t v) { hash = (hash ^ static_cast<uint32_t>(v)) * 16777619u; }
+    void Mix(int32_t v) {
+        uint32_t& hash = groups[group].hash;
+        hash = (hash ^ static_cast<uint32_t>(v)) * 16777619u;
+    }
     void MixColor(lv_color_t c) {
         Mix(c.red);
         Mix(c.green);
@@ -123,9 +129,11 @@ struct Recorder {
     }
     static int32_t Q(float v) { return static_cast<int32_t>(lroundf(v * 16.0f)); }
     void Box(int x0, int y0, int x1, int y1) {
-        if (!any) {
+        Group& g = groups[group];
+        lv_area_t& box = g.box;
+        if (!g.any) {
             box = {x0, y0, x1, y1};
-            any = true;
+            g.any = true;
             return;
         }
         box.x1 = std::min<int32_t>(box.x1, x0);
@@ -144,6 +152,13 @@ struct Painter {
     Recorder* rec = nullptr;
     lv_color_t eye_color = kEyeColor;    // angry turns the eyes red
     lv_color_t edge_color = kEdgeColor;  // and their rim dark red
+
+    // Starts a part of the frame, for the recorder to track apart.
+    void In(DrawGroup group) const {
+        if (rec != nullptr) {
+            rec->group = group;
+        }
+    }
 
     void RoundRect(int x, int y, int w, int h, int radius, lv_color_t color) const {
         if (rec != nullptr) {
@@ -355,23 +370,53 @@ struct Painter {
         const bool arch = crescent > 0.0f;
         const float apex = arch ? top + thickness * 0.5f : top + height - thickness * 0.5f;
         const float centre_y = arch ? apex + radius : apex - radius;
-        float prev_x = 0.0f;
-        float prev_y = 0.0f;
         for (int pass = 0; pass < 2; ++pass) {
             const float w = pass == 0 ? thickness + 2.4f : thickness;
-            const lv_color_t color = pass == 0 ? edge_color : eye_color;
-            for (int i = 0; i <= kArcSteps; ++i) {
-                const float angle = -half_angle + 2.0f * half_angle * i / kArcSteps;
-                const float x = eye_x + radius * sinf(angle);
-                const float y = arch ? centre_y - radius * cosf(angle)
-                                     : centre_y + radius * cosf(angle);
-                if (i > 0) {
-                    Line(prev_x, prev_y, x, y, w, color);
-                }
-                prev_x = x;
-                prev_y = y;
-            }
+            Arc(eye_x, centre_y, radius, half_angle, arch, w, pass == 0 ? edge_color : eye_color);
         }
+    }
+
+    // One arc of `half_angle` radians to each side of the top (`up`) or the
+    // bottom of a circle, `width` thick along its centre line, with round ends.
+    // A single primitive: a chain of thick round-capped lines overdrew the same
+    // pixels dozens of times.
+    void Arc(float x, float y, float radius, float half_angle, bool up, float width,
+             lv_color_t color) const {
+        const int outer = static_cast<int>(lroundf(radius + width * 0.5f));
+        const int iw = std::min(static_cast<int>(lroundf(width)), outer);
+        if (rec != nullptr) {
+            const float reach = width * 0.5f + 2.0f;
+            const float half_chord = radius * sinf(half_angle);
+            const float sag = radius * (1.0f - cosf(half_angle));
+            const float apex_y = up ? y - radius : y + radius;
+            const float end_y = up ? apex_y + sag : apex_y - sag;
+            rec->Box(static_cast<int>(floorf(x - half_chord - reach)),
+                     static_cast<int>(floorf(fminf(apex_y, end_y) - reach)),
+                     static_cast<int>(ceilf(x + half_chord + reach)),
+                     static_cast<int>(ceilf(fmaxf(apex_y, end_y) + reach)));
+            rec->Mix(Recorder::Q(x));
+            rec->Mix(Recorder::Q(y));
+            rec->Mix(Recorder::Q(radius));
+            rec->Mix(Recorder::Q(half_angle));
+            rec->Mix(up ? 1 : 0);
+            rec->Mix(iw);
+            rec->MixColor(color);
+            return;
+        }
+        const int32_t centre_deg = up ? 270 : 90;  // LVGL: 0 at 3 o'clock, clockwise
+        const int32_t half_deg = static_cast<int32_t>(lroundf(half_angle * 180.0f / kPi));
+        lv_draw_arc_dsc_t dsc;
+        lv_draw_arc_dsc_init(&dsc);
+        dsc.color = color;
+        dsc.width = iw;
+        dsc.rounded = 1;
+        dsc.opa = LV_OPA_COVER;
+        dsc.center.x = static_cast<int32_t>(lroundf(x));
+        dsc.center.y = static_cast<int32_t>(lroundf(y));
+        dsc.radius = static_cast<uint16_t>(outer);
+        dsc.start_angle = centre_deg - half_deg;
+        dsc.end_angle = centre_deg + half_deg;
+        lv_draw_arc(layer, &dsc);
     }
 
     // A heart centred on (x, y), `size` wide: the classic parametric curve
@@ -502,11 +547,14 @@ struct Painter {
                  const nb_avatar_pose_t& pose) const {
         nb_overlay_anchor_t pose_anchor;
         nb_overlay_anchor_from_pose(&pose, kDesignScale, &pose_anchor);
+        In(kGroupTech);
         TechMark(o.tech);
+        In(kGroupEyes);  // the cheeks follow the eyes
         if (o.cheeks) {
             Cheek(pose.left_eye, pose, -1.0f, pose_anchor.scale);
             Cheek(pose.right_eye, pose, 1.0f, pose_anchor.scale);
         }
+        In(kGroupActivity);
         if (layout.activity_visible) {
             const float s0 = layout.activity.scale;
             const float ox = cx + layout.activity.dx;  // origin of the overlay layout
@@ -543,6 +591,7 @@ struct Painter {
                 }
             }
         }
+        In(kGroupGesture);
         if (layout.gesture_visible) {
             const float s0 = layout.gesture.scale;
             const float ox = cx + layout.gesture.dx;
@@ -637,10 +686,12 @@ void PaintFace(const Painter& painter, const nb_avatar_render_frame_t& frame,
         eyes.eye_color = kAngryColor;
         eyes.edge_color = kAngryEdgeColor;
     }
+    eyes.In(kGroupEyes);
     eyes.Eye(frame.pose.left_eye, frame.pose, frame.blink_scale);
     eyes.Eye(frame.pose.right_eye, frame.pose, frame.blink_scale);
     painter.Overlay(overlay, channels, frame.pose);
     if (frame.dizzy_overlay) {
+        painter.In(kGroupDizzy);
         painter.Dizzy(frame.pose.left_eye, frame.pose, -1, frame.animation_ms);
         painter.Dizzy(frame.pose.right_eye, frame.pose, 1, frame.animation_ms);
     }
@@ -1039,38 +1090,48 @@ void FaceDisplay::InvalidateChanged(uint32_t now) {
                              &rec};
     PaintFace(painter, frame_, overlay_frame_, channels_);
 
-    const bool same = have_drawn_ && rec.any == drawn_any_ && rec.hash == drawn_hash_ &&
-                      (!rec.any || (rec.box.x1 == drawn_box_.x1 && rec.box.y1 == drawn_box_.y1 &&
-                                    rec.box.x2 == drawn_box_.x2 && rec.box.y2 == drawn_box_.y2));
     const bool refresh = !have_drawn_ || now - last_full_ms_ >= kFullRefreshMs;
-    if (same && !refresh) {
-        return;
-    }
     if (refresh) {
         lv_obj_invalidate(face_);
         last_full_ms_ = now;
     } else {
-        lv_area_t dirty = rec.box;
-        bool any = rec.any;
-        if (drawn_any_) {
-            if (any) {
-                dirty.x1 = std::min<int32_t>(dirty.x1, drawn_box_.x1);
-                dirty.y1 = std::min<int32_t>(dirty.y1, drawn_box_.y1);
-                dirty.x2 = std::max<int32_t>(dirty.x2, drawn_box_.x2);
-                dirty.y2 = std::max<int32_t>(dirty.y2, drawn_box_.y2);
-            } else {
-                dirty = drawn_box_;
-                any = true;
+        // Each part is invalidated on its own: the pixels outside the parts that
+        // changed are the same as on the screen, and LVGL repaints the changed
+        // areas from the whole frame in z-order, so overlaps stay right.
+        for (int g = 0; g < kDrawGroups; ++g) {
+            const Recorder::Group& now_g = rec.groups[g];
+            const bool same = now_g.any == drawn_any_[g] && now_g.hash == drawn_hash_[g] &&
+                              (!now_g.any || (now_g.box.x1 == drawn_box_[g].x1 &&
+                                              now_g.box.y1 == drawn_box_[g].y1 &&
+                                              now_g.box.x2 == drawn_box_[g].x2 &&
+                                              now_g.box.y2 == drawn_box_[g].y2));
+            if (same) {
+                continue;
             }
-        }
-        if (any) {
-            lv_obj_invalidate_area(face_, &dirty);
+            lv_area_t dirty = now_g.box;
+            bool any = now_g.any;
+            if (drawn_any_[g]) {
+                if (any) {
+                    dirty.x1 = std::min<int32_t>(dirty.x1, drawn_box_[g].x1);
+                    dirty.y1 = std::min<int32_t>(dirty.y1, drawn_box_[g].y1);
+                    dirty.x2 = std::max<int32_t>(dirty.x2, drawn_box_[g].x2);
+                    dirty.y2 = std::max<int32_t>(dirty.y2, drawn_box_[g].y2);
+                } else {
+                    dirty = drawn_box_[g];
+                    any = true;
+                }
+            }
+            if (any) {
+                lv_obj_invalidate_area(face_, &dirty);
+            }
         }
     }
     have_drawn_ = true;
-    drawn_any_ = rec.any;
-    drawn_box_ = rec.box;
-    drawn_hash_ = rec.hash;
+    for (int g = 0; g < kDrawGroups; ++g) {
+        drawn_any_[g] = rec.groups[g].any;
+        drawn_box_[g] = rec.groups[g].box;
+        drawn_hash_[g] = rec.groups[g].hash;
+    }
 }
 
 FaceDisplay::DrawStats FaceDisplay::TakeDrawStats() {

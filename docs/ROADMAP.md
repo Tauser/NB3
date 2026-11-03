@@ -30,6 +30,20 @@ desenhados, 0,9 a 2,7 ms médios por desenho, picos de até 57 ms na fala. Corte
 de fala adiado (mic ruidoso e fim de fala curto, fora desta entrega). Falta:
 ferramentas lentas e rede ruim ainda não medidas.
 
+**Etapa 6, desempenho (03/11, commit 3caff94):** parado, 24,4 a 24,6 fps, 0,9 a
+1,5 ms por desenho, CPU 80 a 82% ociosa (melhor que a linha de base). Em
+conversa (3 janelas de 30 s com fala e balão): 19,8 a 22,8 fps, 4,4 a 6,7 ms
+médios por desenho (linha de base: até 2,7 ms), picos de 40 a 74 ms (linha de
+base: 57 ms), taskLVGL 23 a 27% e CPU ociosa 51 a 60%. O fps fica dentro da
+faixa, mas o custo do desenho na fala subiu. Causas achadas: (1) o redesenho
+juntava olhos, balão, mão e ícone numa caixa só, então o balão animado
+repintava tudo entre ele e os olhos; agora cada parte é invalidada à parte;
+(2) o olho em arco (feliz, dormindo) era 20 linhas grossas de ponta redonda
+sobrepostas, 8 ms por desenho com o rosto feliz parado; agora é um `lv_draw_arc`.
+Depois das duas: 21,7 a 23,1 fps, 1,9 a 2,3 ms médios, picos de 18 a 26 ms,
+taskLVGL 15 a 17%, CPU ociosa 66 a 68%, numa conversa com ferramenta (clima).
+Falta olhar na tela se o arco ficou igual ao de antes.
+
 **Etapa 2 da revisão da face (02/11):** galeria reproduzível em
 `tools/design/face_gallery/` (núcleo real, semente e relógio fixos; HTML com
 referência gravada ao lado do atual, 5 olhares, canais A/G/T e banner) e poses

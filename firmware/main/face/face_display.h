@@ -20,6 +20,18 @@
 #include "display/lcd_display.h"
 #include "display/lvgl_display/lvgl_font.h"
 
+// The parts of a frame that are tracked apart for redrawing: only the parts
+// that changed are invalidated, so a speech bubble that animates does not
+// repaint the eyes under its box.
+enum DrawGroup : int {
+    kGroupEyes = 0,
+    kGroupTech,
+    kGroupActivity,
+    kGroupGesture,
+    kGroupDizzy,
+    kDrawGroups,
+};
+
 // Where each overlay channel is drawn this frame: the anchor follows the eyes
 // and is kept on the screen, and a channel the banner covers is not drawn.
 struct ChannelLayout {
@@ -137,9 +149,9 @@ private:
     ChannelLayout channels_ = {};
     // What the last invalidated frame draws (LVGL task only).
     bool have_drawn_ = false;
-    bool drawn_any_ = false;
-    lv_area_t drawn_box_ = {0, 0, -1, -1};
-    uint32_t drawn_hash_ = 0;
+    bool drawn_any_[kDrawGroups] = {};
+    lv_area_t drawn_box_[kDrawGroups] = {};
+    uint32_t drawn_hash_[kDrawGroups] = {};
     uint32_t last_full_ms_ = 0;
 
     // System banner. xiaozhi calls arrive from other tasks and only touch
