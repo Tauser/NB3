@@ -193,6 +193,12 @@ if(NOT CMAKE_BUILD_EARLY_EXPANSION)
         target_compile_definitions(${COMPONENT_LIB} PRIVATE NB3_MOTION_BENCH=1)
     endif()
 
+    # Bench build only (idf.py -DNB3_FACE_QUIZ=1 build): the faces appear with
+    # no caption, in random order, for the reading test (face/face_quiz).
+    if(NB3_FACE_QUIZ)
+        target_compile_definitions(${COMPONENT_LIB} PRIVATE NB3_FACE_QUIZ=1)
+    endif()
+
     # NB3's own code builds warning-free; xiaozhi sources keep their flags.
     set_source_files_properties(${NB3_SOURCES} PROPERTIES COMPILE_OPTIONS "-Wall;-Wextra;-Werror")
     # NB3's C is the cores: plain C17, as in the host tests. Source options

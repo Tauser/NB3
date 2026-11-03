@@ -8,6 +8,7 @@
 #include "behavior/arc_modifier.h"
 #include "behavior/head_behavior.h"
 #include "behavior/cpu_report.h"
+#include "face/face_quiz.h"
 #include "behavior/link_monitor.h"
 #include "behavior/personality_drift.h"
 #include "behavior/reminder_service.h"
@@ -467,6 +468,8 @@ public:
         static TouchModifier touch(BODY_TOUCH_CHANNEL, arbiter_, mood_, behavior_, memory_, arcs,
                                    head);
         static CpuReport cpu_report(display_);
+        static FaceQuiz face_quiz(arbiter_, display_);  // bench builds only
+        face_quiz.Start();
         static LinkMonitor link(display_, &sounds);
         static ReminderService reminders(clock_, arbiter_, display_, head, link, sounds);
         RegisterReminderTools(reminders);

@@ -44,6 +44,13 @@ Depois das duas: 21,7 a 23,1 fps, 1,9 a 2,3 ms médios, picos de 18 a 26 ms,
 taskLVGL 15 a 17%, CPU ociosa 66 a 68%, numa conversa com ferramenta (clima).
 O arco foi conferido na tela: igual ao de antes.
 
+Teste de leitura (etapa 6): ferramenta pronta, não aplicada. Build de bancada
+`-DNB3_FACE_QUIZ=1` (`face/face_quiz`) mostra as 13 faces sem legenda, 3
+passagens em ordem aleatória, com o gabarito só no log;
+`tools/face_reading_score.py` conta acertos, pares e confusões. Roteiro em
+`docs/TESTE-LEITURA-FACES.md`. Falta juntar ao menos 3 avaliadores e gravar a
+versão de bancada. A espera com rede ruim ficou de fora desta entrega.
+
 **Etapa 2 da revisão da face (02/11):** galeria reproduzível em
 `tools/design/face_gallery/` (núcleo real, semente e relógio fixos; HTML com
 referência gravada ao lado do atual, 5 olhares, canais A/G/T e banner) e poses
