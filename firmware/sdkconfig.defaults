@@ -22,6 +22,10 @@ CONFIG_USE_DEVICE_AEC=n
 # returned "Ei, Nex." for 26 s of talking). The code stays behind the Kconfig.
 CONFIG_NB3_GAP_BRIDGE_MS=0
 
+# "Nexo" only opens the mic: told about the wake word, the server answers the
+# name itself and the turn closes, losing a sentence said right after it.
+CONFIG_SEND_WAKE_WORD_DATA=n
+
 # Neural voice detector (VADNet) instead of WebRTC's: it tells speech from
 # knocks, fans and music far better, and while the robot speaks only what it
 # calls speech may reach the server and interrupt (NB3_BARGE_IN_GATE).
