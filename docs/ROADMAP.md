@@ -48,8 +48,11 @@ Teste de leitura (etapa 6): ferramenta pronta, não aplicada. Build de bancada
 `-DNB3_FACE_QUIZ=1` (`face/face_quiz`) mostra as 13 faces sem legenda, 3
 passagens em ordem aleatória, com o gabarito só no log;
 `tools/face_reading_score.py` conta acertos, pares e confusões. Roteiro em
-`docs/TESTE-LEITURA-FACES.md`. Falta juntar ao menos 3 avaliadores e gravar a
-versão de bancada. A espera com rede ruim ficou de fora desta entrega.
+`docs/TESTE-LEITURA-FACES.md`. O projeto tem um avaliador só, então o critério
+de 3 avaliadores não se aplica: o teste roda como autoverificação (um
+avaliador que já conhece as faces, resultado mais otimista que o de um
+estranho) e o limite fica registrado junto com o número. Falta gravar a versão
+de bancada e rodar. A espera com rede ruim ficou de fora desta entrega.
 
 **Etapa 2 da revisão da face (02/11):** galeria reproduzível em
 `tools/design/face_gallery/` (núcleo real, semente e relógio fixos; HTML com

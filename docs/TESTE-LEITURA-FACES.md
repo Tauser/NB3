@@ -20,6 +20,11 @@ de acerto agregado (neutro/contente, curioso/confuso, triste/sonolento/
 envergonhado, feliz/apaixonado). Com menos de 3 avaliadores, o resultado vale
 como indício e a limitação fica registrada. Amostra pequena, não é estudo.
 
+Neste projeto há um avaliador só (o dono). O teste roda assim mesmo, como
+autoverificação: serve para achar faces que ele próprio confunde, e o
+resultado não declara o critério atendido. Quem conhece as faces acerta mais
+que um estranho, e isso entra no registro.
+
 ## Como rodar
 
 1. Gravar a versão de bancada na COM5 (confere o MAC antes):
