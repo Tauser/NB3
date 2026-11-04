@@ -63,7 +63,7 @@ bool nb_panel_allowed(const char *path, nb_panel_op_t op)
     case NB_PANEL_READ:
         return true;
     case NB_PANEL_WRITE:
-        return is_sound(path) || strcmp(path, "personalidade.ini") == 0;
+        return is_sound(path);
     case NB_PANEL_DELETE:
         return is_sound(path);
     }
@@ -75,5 +75,5 @@ uint32_t nb_panel_max_write_bytes(const char *path)
     if (!nb_panel_allowed(path, NB_PANEL_WRITE)) {
         return 0;
     }
-    return is_sound(path) ? NB_PANEL_SOUND_MAX_BYTES : NB_PANEL_INI_MAX_BYTES;
+    return NB_PANEL_SOUND_MAX_BYTES;
 }

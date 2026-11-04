@@ -16,6 +16,8 @@
 #include "mcp/device_tools.h"
 #include "mcp/reminder_tools.h"
 #include "mcp/sound_tools.h"
+#include "mcp/panel_tools.h"
+#include "web/panel_server.h"
 #include "mcp/head_tools.h"
 #include "motion/motion_bench.h"
 #include "motion/motion_service.h"
@@ -479,6 +481,9 @@ public:
         RegisterReminderTools(reminders);
         static MoodLights mood_lights(MOOD_LED_GPIO, MOOD_LED_COUNT, MOOD_LED_MAX_BRIGHTNESS,
                                       arbiter_);
+        static PanelServer panel({link, energy, behavior_, store_, mood_lights, sounds, display_,
+                                  ResetReasonName(esp_reset_reason())});
+        RegisterPanelTools(panel);
     }
 
     Led* GetLed() override {

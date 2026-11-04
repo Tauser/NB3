@@ -26,6 +26,30 @@ const char* ConnectionText(nb_link_state_t state) {
 
 }  // namespace
 
+cJSON* DeviceStatusJson(LinkMonitor& link, EnergyModifier& energy, BehaviorModifier& behavior,
+                        StoreService& store, const char* last_reset) {
+    const EnergyModifier::Snapshot e = energy.Read();
+    cJSON* o = cJSON_CreateObject();
+    cJSON_AddStringToObject(o, "connection", ConnectionText(link.State()));
+    cJSON_AddStringToObject(o, "behavior_state",
+                            nb_behavior_state_name(behavior.State()));
+    cJSON_AddNumberToObject(o, "energy", Round2(e.energy));
+    cJSON_AddNumberToObject(o, "boredom", Round2(e.boredom));
+    cJSON_AddBoolToObject(o, "drowsy", e.drowsy);
+    cJSON_AddBoolToObject(o, "sleeping", e.sleeping);
+    cJSON_AddStringToObject(o, "memory_card", store.Available() ? "present" : "missing");
+    cJSON_AddNumberToObject(o, "uptime_seconds",
+                            static_cast<double>(esp_timer_get_time() / 1000000));
+    cJSON_AddStringToObject(o, "last_restart_reason", last_reset);
+    cJSON_AddNumberToObject(
+        o, "free_memory_kb",
+        static_cast<double>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024));
+    cJSON_AddNumberToObject(
+        o, "free_extra_memory_kb",
+        static_cast<double>(heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024));
+    return o;
+}
+
 void RegisterDeviceTools(LinkMonitor& link, EnergyModifier& energy, BehaviorModifier& behavior,
                          StoreService& store, const char* last_reset) {
     McpServer::GetInstance().AddTool(
@@ -41,25 +65,6 @@ void RegisterDeviceTools(LinkMonitor& link, EnergyModifier& energy, BehaviorModi
         // The tool outlives this call, so the reason text is copied in; the rest are
         // long-lived objects held by reference.
         PropertyList(), [&link, &energy, &behavior, &store, last_reset](const PropertyList&) -> ReturnValue {
-            const EnergyModifier::Snapshot e = energy.Read();
-            cJSON* o = cJSON_CreateObject();
-            cJSON_AddStringToObject(o, "connection", ConnectionText(link.State()));
-            cJSON_AddStringToObject(o, "behavior_state",
-                                    nb_behavior_state_name(behavior.State()));
-            cJSON_AddNumberToObject(o, "energy", Round2(e.energy));
-            cJSON_AddNumberToObject(o, "boredom", Round2(e.boredom));
-            cJSON_AddBoolToObject(o, "drowsy", e.drowsy);
-            cJSON_AddBoolToObject(o, "sleeping", e.sleeping);
-            cJSON_AddStringToObject(o, "memory_card", store.Available() ? "present" : "missing");
-            cJSON_AddNumberToObject(o, "uptime_seconds",
-                                    static_cast<double>(esp_timer_get_time() / 1000000));
-            cJSON_AddStringToObject(o, "last_restart_reason", last_reset);
-            cJSON_AddNumberToObject(
-                o, "free_memory_kb",
-                static_cast<double>(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024));
-            cJSON_AddNumberToObject(
-                o, "free_extra_memory_kb",
-                static_cast<double>(heap_caps_get_free_size(MALLOC_CAP_SPIRAM) / 1024));
-            return o;
+            return DeviceStatusJson(link, energy, behavior, store, last_reset);
         });
 }

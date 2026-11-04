@@ -41,6 +41,20 @@ public:
     // max_bytes. Not from the store task itself (the listener).
     bool ReadBytes(const char* name, std::vector<uint8_t>* out, long max_bytes);
 
+    struct Entry {
+        std::string name;
+        long size;
+        bool is_dir;
+    };
+    // The entries of a folder of the memory folder ("" is the folder itself).
+    bool ListDir(const char* dir, std::vector<Entry>* out);
+    // Writes a file in the memory folder through a temporary one and a rename,
+    // so a failure leaves the old file or none, never half of a new one.
+    bool WriteFile(const char* name, const void* data, size_t length);
+    bool DeleteFile(const char* name);
+    // Bytes used and total on the card, for the stats.
+    bool Capacity(uint64_t* total_bytes, uint64_t* free_bytes);
+
     // Loads the newest valid of the two slots of a record.
     bool ReadSlot(const char* record, std::vector<uint8_t>* payload, nb_slot_info_t* info);
     // Writes over the older or invalid slot; never the only valid one.

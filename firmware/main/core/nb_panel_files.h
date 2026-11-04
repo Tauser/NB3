@@ -11,8 +11,9 @@ extern "C" {
 // What the web panel may do with the files of the memory folder on the card.
 // The robot keeps its memory there in CRC-checked slots and logs; a stray
 // delete or overwrite from a browser could corrupt them, so the panel can
-// read and list everything but may only write or delete the sounds in sons/
-// and write the personality file. Pure core: paths come in as text.
+// read and list everything but may only write or delete the sounds in sons/.
+// personalidade.ini stays read only on purpose: the card layout keeps it clear
+// of every write (memory/store_service). Pure core: paths come in as text.
 
 typedef enum {
     NB_PANEL_READ = 0,
@@ -22,7 +23,6 @@ typedef enum {
 
 #define NB_PANEL_PATH_MAX 64u
 #define NB_PANEL_SOUND_MAX_BYTES (64u * 1024u)   // same limit as behavior/sound_bank
-#define NB_PANEL_INI_MAX_BYTES (8u * 1024u)
 
 // A relative path of one or two segments of lowercase letters, digits, '_', '-'
 // and '.', with no '..', no leading '/' and no empty or dot-only segment.

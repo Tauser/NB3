@@ -26,7 +26,7 @@ constexpr const char* kDir = "/sdcard/noise";  // personalidade.ini, read only
 constexpr const char* kSlotDirs[2] = {"/sdcard/noise/slot_a", "/sdcard/noise/slot_b"};
 constexpr const char* kLogDir = "/sdcard/noise/log";
 constexpr const char* kProbeDir = "/sdcard/noise/teste";
-constexpr const char* kSoundDir = "/sdcard/noise/sons";  // the user's own sounds, read only
+constexpr const char* kSoundDir = "/sdcard/noise/sons";  // the user's own sounds
 // While the card is missing, mounting is retried this often.
 constexpr TickType_t kRetryTicks = pdMS_TO_TICKS(30000);
 // Fixed file sizes (core/nb_store): a slot fits the memory snapshot (96 KB of
@@ -403,6 +403,65 @@ bool StoreService::ReadText(const char* name, std::string* out) {
         }
         out->assign(bytes.begin(), bytes.end());
         return true;
+    });
+}
+
+bool StoreService::ListDir(const char* dir, std::vector<Entry>* out) {
+    return Do([dir, out]() {
+        const std::string path = dir[0] == '\0' ? std::string(kDir) : PathOf(dir);
+        DIR* d = opendir(path.c_str());
+        if (d == nullptr) {
+            return false;
+        }
+        while (dirent* e = readdir(d)) {
+            if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0) {
+                continue;
+            }
+            struct stat st;
+            const std::string full = path + "/" + e->d_name;
+            if (stat(full.c_str(), &st) != 0) {
+                continue;
+            }
+            out->push_back({e->d_name, static_cast<long>(st.st_size), S_ISDIR(st.st_mode)});
+        }
+        closedir(d);
+        return true;
+    });
+}
+
+bool StoreService::WriteFile(const char* name, const void* data, size_t length) {
+    return Do([name, data, length]() {
+        const std::string path = PathOf(name);
+        const std::string temp = path + ".tmp";
+        FILE* f = fopen(temp.c_str(), "wb");
+        if (f == nullptr) {
+            return false;
+        }
+        bool ok = length == 0 || fwrite(data, 1, length, f) == length;
+        ok = fflush(f) == 0 && ok;
+        ok = fsync(fileno(f)) == 0 && ok;
+        ok = fclose(f) == 0 && ok;
+        if (!ok) {
+            unlink(temp.c_str());
+            return false;
+        }
+        // FAT cannot rename over an existing file.
+        unlink(path.c_str());
+        if (rename(temp.c_str(), path.c_str()) != 0) {
+            unlink(temp.c_str());
+            return false;
+        }
+        return true;
+    });
+}
+
+bool StoreService::DeleteFile(const char* name) {
+    return Do([name]() { return unlink(PathOf(name).c_str()) == 0; });
+}
+
+bool StoreService::Capacity(uint64_t* total_bytes, uint64_t* free_bytes) {
+    return Do([total_bytes, free_bytes]() {
+        return esp_vfs_fat_info(kMountPoint, total_bytes, free_bytes) == ESP_OK;
     });
 }
 

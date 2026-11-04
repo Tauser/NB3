@@ -144,6 +144,7 @@ idf_component_register(SRCS ${NB3_SOURCES} ${XIAOZHI_SOURCES}
                         esp_pm
                         esp_psram
                         esp_netif
+                        esp_http_server
                         esp_eth
                         esp_driver_gpio
                         esp_driver_uart

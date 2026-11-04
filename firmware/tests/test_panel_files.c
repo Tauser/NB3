@@ -44,9 +44,9 @@ static void test_everything_valid_can_be_read(void) {
     NB_CHECK(!nb_panel_allowed("../x", NB_PANEL_READ));
 }
 
-static void test_only_sounds_and_the_personality_can_be_written(void) {
+static void test_only_sounds_can_be_written(void) {
     NB_CHECK(nb_panel_allowed("sons/novo.ogg", NB_PANEL_WRITE));
-    NB_CHECK(nb_panel_allowed("personalidade.ini", NB_PANEL_WRITE));
+    NB_CHECK(!nb_panel_allowed("personalidade.ini", NB_PANEL_WRITE));  // read only on purpose
     NB_CHECK(!nb_panel_allowed("sons/novo.mp3", NB_PANEL_WRITE));
     NB_CHECK(!nb_panel_allowed("sons/.ogg", NB_PANEL_WRITE));
     NB_CHECK(!nb_panel_allowed("memoria/slot_a.bin", NB_PANEL_WRITE));
@@ -61,7 +61,7 @@ static void test_only_sounds_can_be_deleted(void) {
 
 static void test_write_limits_follow_the_kind_of_file(void) {
     NB_CHECK_EQ_INT(NB_PANEL_SOUND_MAX_BYTES, nb_panel_max_write_bytes("sons/a.ogg"));
-    NB_CHECK_EQ_INT(NB_PANEL_INI_MAX_BYTES, nb_panel_max_write_bytes("personalidade.ini"));
+    NB_CHECK_EQ_INT(0, nb_panel_max_write_bytes("personalidade.ini"));
     NB_CHECK_EQ_INT(0, nb_panel_max_write_bytes("memoria/slot_a.bin"));
     NB_CHECK_EQ_INT(0, nb_panel_max_write_bytes(NULL));
 }
@@ -71,7 +71,7 @@ int main(void) {
     NB_RUN(test_escapes_and_odd_paths_are_refused);
     NB_RUN(test_a_path_over_the_limit_is_refused);
     NB_RUN(test_everything_valid_can_be_read);
-    NB_RUN(test_only_sounds_and_the_personality_can_be_written);
+    NB_RUN(test_only_sounds_can_be_written);
     NB_RUN(test_only_sounds_can_be_deleted);
     NB_RUN(test_write_limits_follow_the_kind_of_file);
     NB_TEST_MAIN_END();
