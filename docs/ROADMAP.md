@@ -14,9 +14,11 @@ isolado, galeria e poses de referência, compositor em três canais (atividade,
 gesto, técnico), seis geradores e 15 receitas no lugar dos 15 arrays de
 keyframes, bravo vermelho, ícones âmbar de rede e parada, e espera confirmada
 pelo servidor. Situação por etapa nas entradas abaixo. **Etapa 6:** desempenho
-medido e dentro da faixa; faces conferidas na tela física pelo dono; teste de
-leitura com ferramenta pronta mas sem os 3 avaliadores do critério (o projeto
-tem um só); espera com rede ruim e ferramenta lenta não medida. Não entram:
+medido e dentro da faixa; faces conferidas na tela física pelo dono; a leitura
+e a espera com ferramenta lenta e rede ruim foram verificadas pelo dono na
+placa (04/11), sem folha, contagem nem medição de tempo: o critério de 3
+avaliadores não se cumpre (o projeto tem um só) e a ferramenta de leitura
+fica pronta para uso futuro. Não entram:
 novos movimentos de cabeça, rituais ou iniciativa.
 
 **Etapa 0 da revisão da face:** o aviso facial de safety tem fonte própria no
@@ -63,7 +65,8 @@ avaliador que já conhece as faces, resultado mais otimista que o de um
 estranho) e o limite fica registrado junto com o número. Em 03/11 o dono
 conferiu todas as faces na tela física e não achou problema (verificação
 visual, sem folha nem contagem; a versão de bancada segue sem ser gravada). A
-espera com rede ruim ficou de fora desta entrega.
+espera com ferramenta lenta e rede ruim foi verificada pelo dono em 04/11, sem
+medição registrada.
 
 **Etapa 2 da revisão da face (02/11):** galeria reproduzível em
 `tools/design/face_gallery/` (núcleo real, semente e relógio fixos; HTML com
