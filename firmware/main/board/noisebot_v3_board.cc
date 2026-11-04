@@ -13,6 +13,7 @@
 #include "behavior/personality_drift.h"
 #include "behavior/reminder_service.h"
 #include "behavior/sound_bank.h"
+#include "mcp/device_tools.h"
 #include "mcp/reminder_tools.h"
 #include "mcp/head_tools.h"
 #include "motion/motion_bench.h"
@@ -471,6 +472,7 @@ public:
         static FaceQuiz face_quiz(arbiter_, display_);  // bench builds only
         face_quiz.Start();
         static LinkMonitor link(display_, &sounds);
+        RegisterDeviceTools(link, energy, behavior_, store_, ResetReasonName(esp_reset_reason()));
         static ReminderService reminders(clock_, arbiter_, display_, head, link, sounds);
         RegisterReminderTools(reminders);
         static MoodLights mood_lights(MOOD_LED_GPIO, MOOD_LED_COUNT, MOOD_LED_MAX_BRIGHTNESS,
