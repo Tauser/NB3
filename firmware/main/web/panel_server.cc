@@ -22,6 +22,7 @@
 namespace {
 
 constexpr uint32_t kIdleMs = 5 * 60 * 1000;  // unused for this long: the panel closes
+constexpr uint32_t kReshowMs = 5000;         // the banner is put up again this often until login
 constexpr size_t kQueryMax = 160;
 constexpr long kDownloadMax = 130 * 1024;     // a slot file is 128 KB
 
@@ -191,10 +192,10 @@ PanelServer::OpenResult PanelServer::Open() {
     }
     snprintf(banner_, sizeof(banner_), "Painel: http://%s  Código: %06lu", address,
              static_cast<unsigned long>(code));
-    opened_ms_ = NowMs();
+    shown_ms_ = NowMs();
     idle_seen_ = false;
     if (p_.display != nullptr) {
-        p_.display->ShowNotification(banner_, kIdleMs);
+        p_.display->ShowNotification(banner_, kIdleMs);  // the banner caps this at a minute
     }
     esp_timer_start_periodic(timer_, 1000 * 1000);
     ESP_LOGI(TAG, "open at http://%s (code on the screen)", address);
@@ -229,18 +230,22 @@ void PanelServer::OnTimer(void* arg) {
 
 void PanelServer::Tick() {
     bool close = !IsOpen();
+    bool logged_in;
+    {
+        std::lock_guard<std::mutex> lock(auth_mutex_);
+        logged_in = auth_.has_token;
+    }
     {
         std::lock_guard<std::mutex> life(life_mutex_);
         // The panel was asked for during a conversation, so it opens while the
         // robot is busy; it closes when a later conversation starts.
         const bool idle = Application::GetInstance().GetDeviceState() == kDeviceStateIdle;
         if (idle) {
-            if (!idle_seen_ && p_.display != nullptr) {
-                // The conversation cleared the banner: show the code again.
-                const uint32_t used = NowMs() - opened_ms_;
-                if (used < kIdleMs) {
-                    p_.display->ShowNotification(banner_, kIdleMs - used);
-                }
+            // Other messages and the end of a conversation take the banner away, and it
+            // lasts a minute at most: until someone logs in, keep putting it back.
+            if (!logged_in && p_.display != nullptr && NowMs() - shown_ms_ >= kReshowMs) {
+                p_.display->ShowNotification(banner_, kIdleMs);
+                shown_ms_ = NowMs();
             }
             idle_seen_ = true;
         } else if (idle_seen_) {
