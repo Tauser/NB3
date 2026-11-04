@@ -38,7 +38,9 @@ void RegisterDeviceTools(LinkMonitor& link, EnergyModifier& energy, BehaviorModi
         "sleepy), whether it is drowsy or asleep, memory_card, uptime in seconds, why it "
         "last restarted, and free memory in KB. It changes nothing. Report only what is "
         "asked; do not read out the whole list.",
-        PropertyList(), [&](const PropertyList&) -> ReturnValue {
+        // The tool outlives this call, so the reason text is copied in; the rest are
+        // long-lived objects held by reference.
+        PropertyList(), [&link, &energy, &behavior, &store, last_reset](const PropertyList&) -> ReturnValue {
             const EnergyModifier::Snapshot e = energy.Read();
             cJSON* o = cJSON_CreateObject();
             cJSON_AddStringToObject(o, "connection", ConnectionText(link.State()));

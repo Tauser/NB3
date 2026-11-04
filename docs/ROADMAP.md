@@ -924,9 +924,13 @@ trilho lógico) e ids conhecidos.
   fora, por causa da vibração dos servos.
 - [ ] **Ferramentas MCP novas** (nenhuma escrita; toda escrita passa pelo
   árbitro e, no movimento, pelo `motion_safety`):
-  - leitura: `self.device.status` (conexão, energia, tédio, estado, cartão,
-    uptime, motivo do último reset, memória livre), `self.device.diagnostics`
-    (CPU, fps, servos, toque), `self.clock.get`, `self.memory.stats`;
+  - leitura: `self.device.status` **[feito, `mcp/device_tools`]** (conexão,
+    estado, energia, tédio, cartão, uptime, motivo do último reset, memória
+    livre; validado por voz em 04/11: respondeu se estava conectado e há quanto
+    tempo estava ligado; a primeira versão reiniciava a placa por um lambda que
+    guardava por referência o texto do motivo do reset, corrigido capturando por
+    valor), `self.device.diagnostics` (CPU, fps, servos, toque),
+    `self.clock.get`, `self.memory.stats`;
   - luz: `self.leds.set` (cor e efeito por tempo limitado) e
     **`self.leds.set_brightness`** (potência dos LEDs de humor, hoje fixa em
     6/255 em `MOOD_LED_MAX_BRIGHTNESS`; a ferramenta mexe dentro de um teto
