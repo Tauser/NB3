@@ -948,10 +948,10 @@ trilho lógico) e ids conhecidos.
 - [x] **Painel web sob demanda** (D-027; commits 2b0c36c, a53e742, 8c9cd38): núcleos
   C17 `nb_panel_files`, `nb_panel_auth`, `nb_led_settings` com host-test; casca
   `web/panel_server`, ferramentas `self.panel.open/close`, `self.sound.play`.
-  Validado na placa em 04/11: abre por voz, endereço e código ficam na tela até
-  o login, volume, LEDs, arquivos e estado funcionam. Falta validar: envio de
-  `.ogg` grande perto do limite, fechamento ao começar conversa e o teto de
-  brilho 96.
+  Validado na placa em 04/11: abre por voz, diz o código em voz alta (também
+  fica na tela por 60 s), o servidor só sobe com o robô parado (a voz picotava),
+  volume, LEDs, arquivos, envio de `.ogg` e estado funcionam. Teto de brilho 96
+  confirmado pelo dono.
 - [ ] Mensagens de status que hoje só vão para o log (conexão, verificação de
   versão): decidir se alguma merece aparecer no NB3.
 - [ ] Workspace do VS Code compila só quando a instalação do IDF 6.1 no EIM
