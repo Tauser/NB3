@@ -22,6 +22,7 @@
 namespace {
 
 constexpr uint32_t kIdleMs = 5 * 60 * 1000;  // unused for this long: the panel closes
+constexpr uint32_t kBannerMinMs = 60 * 1000;  // the code stays up this long after opening, logged in or not
 constexpr uint32_t kReshowMs = 5000;         // the banner is put up again this often until login
 constexpr size_t kQueryMax = 160;
 constexpr long kDownloadMax = 130 * 1024;     // a slot file is 128 KB
@@ -193,6 +194,7 @@ PanelServer::OpenResult PanelServer::Open() {
     snprintf(banner_, sizeof(banner_), "Painel: http://%s  Código: %06lu", address,
              static_cast<unsigned long>(code));
     shown_ms_ = NowMs();
+    opened_ms_ = shown_ms_;
     idle_seen_ = false;
     if (p_.display != nullptr) {
         p_.display->ShowNotification(banner_, kIdleMs);  // the banner caps this at a minute
@@ -242,8 +244,10 @@ void PanelServer::Tick() {
         const bool idle = Application::GetInstance().GetDeviceState() == kDeviceStateIdle;
         if (idle) {
             // Other messages and the end of a conversation take the banner away, and it
-            // lasts a minute at most: until someone logs in, keep putting it back.
-            if (!logged_in && p_.display != nullptr && NowMs() - shown_ms_ >= kReshowMs) {
+            // lasts a minute at most: until someone logs in, and for the first minute
+            // regardless, keep putting it back.
+            const bool wanted = !logged_in || NowMs() - opened_ms_ < kBannerMinMs;
+            if (wanted && p_.display != nullptr && NowMs() - shown_ms_ >= kReshowMs) {
                 p_.display->ShowNotification(banner_, kIdleMs);
                 shown_ms_ = NowMs();
             }

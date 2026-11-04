@@ -72,6 +72,7 @@ private:
     httpd_handle_t server_ = nullptr;  // under life_mutex_
     nb_panel_auth_t auth_;             // under auth_mutex_
     char banner_[80] = "";             // under life_mutex_: what the screen says while open
+    uint32_t opened_ms_ = 0;           // under life_mutex_: when Open() ran
     uint32_t shown_ms_ = 0;            // under life_mutex_: when the banner was last put up
     bool idle_seen_ = false;           // under life_mutex_: the robot has been idle since opening
     esp_timer_handle_t timer_ = nullptr;
