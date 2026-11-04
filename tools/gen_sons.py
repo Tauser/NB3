@@ -5,7 +5,12 @@
 
 Writes lembrete.ogg, sem_internet.ogg, conectado.ogg and parada.ogg, the names
 behavior/sound_bank looks for in noise/sons/ on the card. 16 kHz mono, 60 ms
-Opus frames, well under the 64 KB limit. Needs ffmpeg with libopus.
+Opus frames, well under the 64 KB limit. Needs ffmpeg with libopus and numpy.
+
+The voices are FM bells and mallets (a decaying modulator gives the strike a
+bright start that settles into a clean tone), doubled with a slightly
+detuned copy for width, then a short synthetic room. The pitches stay between
+300 Hz and 2.5 kHz, where a small speaker is at its best.
 """
 import subprocess
 import sys
@@ -16,60 +21,85 @@ from pathlib import Path
 import numpy as np
 
 RATE = 16000
-PEAK = 0.55  # the little speaker distorts well before full scale
+PEAK = 0.6  # the little speaker distorts well before full scale
+SEED = 7    # the room is noise; a fixed seed keeps the files the same every run
 
 
-def note(freq, length, partials, decay, attack=0.008):
-    """One note: a sum of decaying partials with a short attack."""
+def fm(freq, length, ratio, index, decay, mod_decay, attack=0.004, detune=1.003):
+    """An FM voice: carrier at `freq`, modulator at freq*ratio whose depth falls
+    from `index` as the note rings. A second copy, detuned a little, widens it."""
     t = np.arange(int(RATE * length)) / RATE
-    wave_ = np.zeros_like(t)
-    for ratio, level, fall in partials:
-        wave_ += level * np.sin(2 * np.pi * freq * ratio * t) * np.exp(-t * decay * fall)
-    envelope = np.minimum(1.0, t / attack) * np.minimum(1.0, (length - t) / 0.02)
-    return wave_ * envelope
-
-
-def place(parts, total):
-    """Mixes (start_seconds, samples) parts into one buffer."""
-    out = np.zeros(int(RATE * total))
-    for start, samples in parts:
-        i = int(RATE * start)
-        out[i:i + len(samples)] += samples[: len(out) - i]
+    out = np.zeros_like(t)
+    for f in (freq, freq * detune):
+        mod = index * np.exp(-t * mod_decay) * np.sin(2 * np.pi * f * ratio * t)
+        out += np.sin(2 * np.pi * f * t + mod)
+    out *= 0.5 * np.exp(-t * decay)
+    out *= np.minimum(1.0, t / attack) * np.minimum(1.0, (length - t) / 0.015)
     return out
 
 
-BELL = [(1.0, 1.0, 1.0), (2.0, 0.35, 1.6), (3.0, 0.15, 2.4)]
-SOFT = [(1.0, 1.0, 1.0), (2.0, 0.12, 1.5)]
-BUZZ = [(1.0, 1.0, 0.0), (3.0, 0.22, 0.0), (5.0, 0.08, 0.0)]  # odd partials: firm, not shrill
+def room(samples, seconds, wet):
+    """A short synthetic room: an exponentially fading, darkened noise as the
+    impulse response, convolved by FFT and mixed under the dry sound."""
+    rng = np.random.default_rng(SEED)
+    n = int(RATE * seconds)
+    t = np.arange(n) / RATE
+    impulse = rng.standard_normal(n) * np.exp(-t * (6.9 / seconds))
+    impulse = np.convolve(impulse, np.ones(6) / 6, mode="same")  # darker tail
+    impulse[0] = 0.0
+    impulse /= np.sqrt(np.sum(impulse ** 2))
+    size = len(samples) + n
+    spectrum = np.fft.rfft(samples, size) * np.fft.rfft(impulse, size)
+    tail = np.fft.irfft(spectrum, size)
+    dry = np.zeros(size)
+    dry[: len(samples)] = samples
+    return dry + wet * tail
+
+
+def place(parts):
+    """Mixes (start_seconds, samples) parts into one buffer."""
+    end = max(int(RATE * s) + len(x) for s, x in parts)
+    out = np.zeros(end)
+    for start, samples in parts:
+        i = int(RATE * start)
+        out[i:i + len(samples)] += samples
+    return out
 
 
 def lembrete():
-    # Three rising bell notes (E5 G5 C6), the last one left to ring: friendly, hard to miss.
-    return place([(0.00, note(659.3, 0.55, BELL, 5.0)),
-                  (0.20, note(784.0, 0.55, BELL, 5.0)),
-                  (0.40, note(1046.5, 1.0, BELL, 3.5))], 1.45)
+    # A glassy rising arpeggio (C6 E6 G6 C7 is too thin on this speaker, so it stops
+    # at G6) with the last note left ringing in the room: bright, friendly, clear.
+    notes = [(0.00, 1046.5, 0.9), (0.16, 1318.5, 0.9), (0.32, 1568.0, 1.5)]
+    dry = place([(s, fm(f, d, ratio=3.5, index=2.2, decay=3.2, mod_decay=9.0)) for s, f, d in notes])
+    return room(dry, 0.55, 0.55)
 
 
 def sem_internet():
-    # Two soft falling notes (G5 then D5): something went away, no alarm.
-    return place([(0.00, note(784.0, 0.45, SOFT, 4.0)),
-                  (0.28, note(587.3, 0.70, SOFT, 3.5))], 1.0)
+    # A muted mallet falling a minor third (G5 to E5): something went away, softly.
+    dry = place([(0.00, fm(784.0, 0.6, ratio=1.0, index=1.2, decay=5.0, mod_decay=14.0)),
+                 (0.24, fm(659.3, 0.9, ratio=1.0, index=1.2, decay=4.0, mod_decay=14.0))])
+    return room(dry, 0.45, 0.45)
 
 
 def conectado():
-    # Two quick rising notes (D5 then A5): it is back.
-    return place([(0.00, note(587.3, 0.30, SOFT, 6.0)),
-                  (0.14, note(880.0, 0.50, SOFT, 5.0))], 0.7)
+    # Two bright strikes rising a fifth (A5 to E6), the second a little longer: it is back.
+    dry = place([(0.00, fm(880.0, 0.4, ratio=3.5, index=1.8, decay=6.0, mod_decay=12.0)),
+                 (0.11, fm(1318.5, 0.7, ratio=3.5, index=1.8, decay=4.5, mod_decay=12.0))])
+    return room(dry, 0.4, 0.5)
 
 
 def parada():
-    # Two short firm low beeps (A4 then E4), flat and steady: stop, attention.
-    return place([(0.00, note(440.0, 0.20, BUZZ, 0.0, attack=0.01)),
-                  (0.30, note(329.6, 0.28, BUZZ, 0.0, attack=0.01))], 0.7)
+    # Two low round pulses falling a fourth (E4 to B3), with a bright click at the start
+    # so they carry on a small speaker: firm and calm, not a buzzer.
+    dry = place([(0.00, fm(329.6, 0.28, ratio=2.0, index=3.0, decay=7.0, mod_decay=30.0)),
+                 (0.30, fm(246.9, 0.40, ratio=2.0, index=3.0, decay=6.0, mod_decay=30.0))])
+    return room(dry, 0.3, 0.3)
 
 
 def write(name, samples, out_dir):
     samples = samples / (np.max(np.abs(samples)) or 1.0) * PEAK
+    fade = int(RATE * 0.04)  # the tail ends in silence, not on a cut
+    samples[-fade:] *= np.linspace(1.0, 0.0, fade)
     with tempfile.TemporaryDirectory() as tmp:
         wav = Path(tmp) / (name + ".wav")
         with wave.open(str(wav), "wb") as w:
@@ -79,11 +109,11 @@ def write(name, samples, out_dir):
             w.writeframes((samples * 32767).astype("<i2").tobytes())
         target = out_dir / (name + ".ogg")
         subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", str(wav), "-c:a", "libopus",
-                        "-ar", str(RATE), "-ac", "1", "-b:a", "24k", "-frame_duration", "60",
+                        "-ar", str(RATE), "-ac", "1", "-b:a", "28k", "-frame_duration", "60",
                         str(target)], check=True)
     size = target.stat().st_size
     assert size < 64 * 1024 and target.read_bytes()[:4] == b"OggS", name
-    print(f"{target}: {size} bytes")
+    print(f"{target}: {size} bytes, {len(samples) / RATE:.2f} s")
 
 
 def main():
