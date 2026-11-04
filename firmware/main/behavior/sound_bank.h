@@ -28,6 +28,12 @@ public:
     // Any task.
     void Play(Event event);
 
+    enum class NamedResult { kPlayed, kBadName, kTooSoon, kNoCard, kNotFound, kNotOgg };
+    // The sound sons/<name>.ogg: the four alert names play what the bank holds for
+    // them (the card file or the built-in), any other name is read from the card
+    // now. Any task but the store's.
+    NamedResult PlayNamed(const char* name);
+
 private:
     static void LoadTask(void* arg);
     void Load();
@@ -36,6 +42,7 @@ private:
     std::mutex mutex_;  // sounds_
     std::vector<uint8_t> sounds_[kEventCount];
     bool loading_ = false;  // under mutex_
+    int64_t last_named_us_ = 0;  // under mutex_
 };
 
 #endif  // NB3_SOUND_BANK_H

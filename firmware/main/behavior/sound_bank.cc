@@ -1,9 +1,11 @@
 #include "sound_bank.h"
 
 #include <cstring>
+#include <string>
 #include <string_view>
 
 #include <esp_log.h>
+#include <esp_timer.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
@@ -15,6 +17,8 @@
 namespace {
 
 constexpr long kMaxBytes = 64 * 1024;
+constexpr int64_t kNamedGapUs = 1500 * 1000;  // a model that loops must not machine-gun the speaker
+constexpr size_t kNameMax = 32;
 
 struct Entry {
     const char* file;
@@ -84,4 +88,45 @@ void SoundBank::Play(Event event) {
     Application::GetInstance().PlaySound(
         own.empty() ? kEntries[event].builtin
                     : std::string_view(reinterpret_cast<const char*>(own.data()), own.size()));
+}
+
+SoundBank::NamedResult SoundBank::PlayNamed(const char* name) {
+    // Letters, digits, '_' and '-': no path, so the name cannot leave sons/.
+    const size_t length = name == nullptr ? 0 : std::strlen(name);
+    bool valid = length > 0 && length <= kNameMax;
+    for (size_t i = 0; valid && i < length; i++) {
+        const char c = name[i];
+        valid = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '-';
+    }
+    if (!valid) {
+        return NamedResult::kBadName;
+    }
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        const int64_t now = esp_timer_get_time();
+        if (last_named_us_ != 0 && now - last_named_us_ < kNamedGapUs) {
+            return NamedResult::kTooSoon;
+        }
+        last_named_us_ = now;
+    }
+    for (int e = 0; e < kEventCount; e++) {
+        const std::string file = std::string("sons/") + name + ".ogg";
+        if (file == kEntries[e].file) {
+            Play(static_cast<Event>(e));
+            return NamedResult::kPlayed;
+        }
+    }
+    if (!store_.Available()) {
+        return NamedResult::kNoCard;
+    }
+    std::vector<uint8_t> bytes;
+    if (!store_.ReadBytes((std::string("sons/") + name + ".ogg").c_str(), &bytes, kMaxBytes)) {
+        return NamedResult::kNotFound;
+    }
+    if (bytes.size() <= 4 || std::memcmp(bytes.data(), "OggS", 4) != 0) {
+        return NamedResult::kNotOgg;
+    }
+    Application::GetInstance().PlaySound(
+        std::string_view(reinterpret_cast<const char*>(bytes.data()), bytes.size()));
+    return NamedResult::kPlayed;
 }

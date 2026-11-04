@@ -15,6 +15,7 @@
 #include "behavior/sound_bank.h"
 #include "mcp/device_tools.h"
 #include "mcp/reminder_tools.h"
+#include "mcp/sound_tools.h"
 #include "mcp/head_tools.h"
 #include "motion/motion_bench.h"
 #include "motion/motion_service.h"
@@ -473,6 +474,7 @@ public:
         face_quiz.Start();
         static LinkMonitor link(display_, &sounds);
         RegisterDeviceTools(link, energy, behavior_, store_, ResetReasonName(esp_reset_reason()));
+        RegisterSoundTools(sounds);
         static ReminderService reminders(clock_, arbiter_, display_, head, link, sounds);
         RegisterReminderTools(reminders);
         static MoodLights mood_lights(MOOD_LED_GPIO, MOOD_LED_COUNT, MOOD_LED_MAX_BRIGHTNESS,
