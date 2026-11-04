@@ -1,7 +1,7 @@
 # Plano revisado: simplificação da face — NoiseBot v3
 
 **Revisão:** 3 — 02/11/2026.
-**Situação:** etapas 0 (safety isolado), 1 (linha de base e prova de STT/TTS na placa), 2 (galeria e poses de referência), 3 (compositor em três canais) e 4 (seis geradores e quinze receitas, 20ba55a) entregues em 02/11; etapas 5 e 6 continuam propostas.
+**Situação:** etapas 0 (safety isolado), 1 (linha de base e prova de STT/TTS na placa), 2 (galeria e poses de referência), 3 (compositor em três canais) e 4 (seis geradores e quinze receitas, 20ba55a) entregues em 02/11; etapa 5 (bravo vermelho, ícones técnicos, espera confirmada e balão na primeira frase) entregue entre 02 e 03/11; etapa 6 (calibração e aceitação) fechada em 04/11 com ressalvas, ver §13.
 **Escopo:** face, composição visual e correções diretamente necessárias.
 **Substitui:** o plano amplo anterior deste mesmo arquivo.
 
@@ -341,7 +341,7 @@ Executar host-tests e build ESP-IDF nas etapas de código, sob os warnings exist
 
 ## 13. Checklist e encerramento
 
-- [x] Patch isolado de slot safety/lembrete e regressão (host-tests e build; roteiro na placa pendente).
+- [x] Patch isolado de slot safety/lembrete e regressão (host-tests e build). Na placa (04/11): FAULT por corte da energia dos servos com um lembrete marcado; o ícone de parada apareceu e o lembrete foi exibido por cima. A cara de tonto deixou de existir na etapa 5; o slot `NB_SOURCE_SAFETY` ficou sem produtor.
 - [x] Evidência em placa de STT, TTS e Speaking: ordem e intervalos no §7 (AEC desligado). Falta repetir com ferramentas lentas e rede ruim.
 - [x] Linha de base de desempenho (§4) e prova de STT/TTS (§7), medidas na placa em 02/11.
 - [x] Galeria determinística das 15 intenções (`tools/design/face_gallery/`; gerar com `build_gallery.py`). Limites: mão e ícones são marcadores, o banner usa altura estimada, antialiasing difere do LVGL; falta comparar com a tela física e o teste de leitura com avaliadores (etapa 6).
@@ -353,9 +353,9 @@ Executar host-tests e build ESP-IDF nas etapas de código, sob os warnings exist
 - [x] Quinze arrays antigos e catálogo duplicado removidos. Saldo registrado: tabelas de 183 para 87 linhas de código e cerca de 1.350 números para cerca de 450, mas o arquivo passou de 800 para 912 linhas (geradores, tipos e montador de entrada são código novo). O critério "se o saldo não cair, reavaliar" foi lido como saldo de dados, que caiu; decisão de aceitar fica registrada aqui.
 - [x] Antecipação, balanço, oscilação e piscar preservados (testes: durações idênticas, achatamento antes de abrir, balanço de confused e dizzy, quem não pisca). Diferenças conhecidas: dizzy perde a alternância vertical dos olhos; excited e surprised assentam um pouco maiores; confused fica menos largo. Falta a comparação em movimento na galeria e na tela física.
 - [x] Compatibilidade MCP: enum e nomes públicos não mudaram (host-tests de face_link e face_tools passam). TTL não foi tocado.
-- [~] Cores e avisos técnicos coerentes: bravo vermelho e ícones de rede e parada (âmbar) em T implementados e vistos na placa em 02/11. A espera confirmada e o balão na primeira frase estão em `core/nb_turn` e falta vê-los na placa.
-- [ ] Seis efeitos reutilizados; nenhuma expansão social oculta.
-- [ ] Critérios visuais e de desempenho atendidos.
-- [ ] FACE e ROADMAP atualizados com implementação e evidências reais.
+- [x] Cores e avisos técnicos coerentes: bravo vermelho e ícones de rede (símbolo de Wi-Fi riscado) e parada (âmbar) em T, vistos na placa. A espera confirmada e o balão na primeira frase estão em `core/nb_turn` (8 host-tests) e rodam na placa em conversa; o dono não relatou problema, mas não houve um roteiro registrado só para a mão de espera.
+- [x] Seis efeitos reutilizados; nenhuma expansão social oculta (seis geradores; os 15 nomes públicos e o MCP não mudaram).
+- [~] Critérios visuais e de desempenho. Desempenho atendido (04/11): 21,7 a 23,1 fps, 1,9 a 2,3 ms médios por desenho, picos de 18 a 26 ms, contra a linha de base de 18,6 a 22,6 fps, 0,9 a 2,7 ms e 57 ms; para chegar aí foi preciso invalidar o redesenho por partes e trocar o olho em arco por um só `lv_draw_arc`. Visual: faces conferidas na tela física pelo dono, sem problema. Leitura sem legenda: ferramenta pronta (`-DNB3_FACE_QUIZ=1`, `tools/face_reading_score.py`, [TESTE-LEITURA-FACES.md](TESTE-LEITURA-FACES.md)), não aplicada; o projeto tem um avaliador só, então o critério de 3 avaliadores não se cumpre e só vale como autoverificação. Espera com ferramenta lenta e rede ruim não medida.
+- [x] FACE e ROADMAP atualizados com implementação e evidências reais (04/11).
 
 A entrega está concluída quando a redução existe no código e a apresentação é verificável na placa. Mais mãozinhas, modos, rituais e personalidade ficam em planos separados, sem bloquear esta simplificação.

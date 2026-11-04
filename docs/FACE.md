@@ -4,13 +4,29 @@ Vocabulário visual da tela 320×240. Decisão: D-011. Os mocks animados estão
 no canvas "Expressões NB3" (privado, no claude.ai); este arquivo é o que o
 firmware segue.
 
-**Revisão planejada (02/11/2026):** o [plano revisado de simplificação](PLANO-FACE-E-COMPORTAMENTO-2026-11-02.md)
-propõe seis famílias visuais, preservando os 15 nomes públicos, e três canais
-para atividade, gesto e condição técnica. Propõe também olhos vermelhos
-durante toda a expressão de bravo, ciano para atividade e âmbar para aviso
-técnico. Essa direção (D-023) ainda não foi implementada: as regras abaixo
-de olhos brancos e adorno único descrevem a especificação anterior e serão
-substituídas conforme a entrega for validada.
+**Revisão implementada (D-023, 02 a 04/11/2026):** o [plano revisado](PLANO-FACE-E-COMPORTAMENTO-2026-11-02.md)
+está no código. Seis famílias visuais (presença, alegria, curiosidade,
+contrariedade, tristeza, sonolência) geram os 15 nomes públicos; atividade,
+gesto e condição técnica são três canais compostos depois do árbitro
+(`core/nb_overlay`); canais diferentes podem aparecer juntos, então "um adorno
+por vez" vale por canal. Mudanças em relação ao
+texto abaixo:
+
+- **Bravo é vermelho** (olhos e borda) durante toda a expressão.
+- **Carinhoso são dois corações no lugar dos olhos**; os corações que subiam
+  deixaram de existir.
+- **Canal técnico (âmbar, canto superior direito):** símbolo de Wi-Fi riscado
+  sem rede e escudo com pausa na parada segura. A parada não chama mais a cara
+  de tonto: o aviso é o ícone fixo.
+- **Espera confirmada:** a mão de pensar só aparece 2,5 s depois de o servidor
+  ter a pergunta sem ter começado a responder; aos 20 s o banner diz
+  "Demorando para responder". O balão nasce na primeira frase da resposta ou
+  com áudio audível, não ao entrar em Speaking (`core/nb_turn`).
+- Os olhos em arco (feliz, dormindo) são um só `lv_draw_arc`.
+
+O resto do arquivo descreve o vocabulário original e continua valendo onde
+não contradiz a lista acima. A galeria `tools/design/face_gallery/` gera as
+15 intenções e a matriz 6×3 de níveis a partir do núcleo real.
 
 ## Princípios
 
@@ -21,7 +37,8 @@ substituídas conforme a entrega for validada.
 - **Um adorno por vez** (mão, balão, corações, pontos, ?, z, !), só em picos,
   e some sozinho.
 - **Silhueta primeiro, cor depois:** cor na tela só nas bochechas (salmão),
-  na falha (âmbar) e no aviso de rede; o resto da cor fica nos LEDs.
+  nos olhos de bravo (vermelho) e nos ícones técnicos (âmbar); o resto da cor
+  fica nos LEDs.
 
 ## Formas dos olhos
 
@@ -31,7 +48,8 @@ substituídas conforme a entrega for validada.
 | Cápsulas desviadas | as duas sobem e vão para o canto juntas, sem inclinar | pensando |
 | Tamanhos diferentes | um olho maior, rosto inclinado | curioso |
 | Círculo | largura = altura | surpreso |
-| Crescente ∩ | cápsula com um corte curvo por baixo | feliz (grosso), carinhoso (fino) |
+| Crescente ∩ | cápsula com um corte curvo por baixo; fundo, vira um arco grosso de pontas redondas | feliz (grosso) |
+| Coração | curva paramétrica preenchida, no lugar do olho | carinhoso |
 | Meia-lua inclinada | cápsula com pálpebra de cima inclinada | triste (cai para fora), irritado (cai para dentro), envergonhado |
 | Meia-lua + cápsula | pálpebra só em um olho | confuso |
 | Crescente ∪ | crescente de cabeça para baixo | sonolento (etapa 3) |
@@ -42,15 +60,16 @@ substituídas conforme a entrega for validada.
 | Overlay | Quando | Movimento |
 |---|---|---|
 | Barras de áudio | escutando | 7 barras finas crescendo do centro, irregulares, seguindo o microfone |
-| Mão no queixo | pensando há mais de ~1 s (único adorno do pensando) | a mão do desenho do usuário balança apoiando o queixo |
-| Balãozinho | falando | surge no canto, três pontos pulam no ritmo da voz, some ~0,5 s após a fala |
-| Corações | carinho | um coração sobe por pulso de carinho (4 s) |
+| Mão no queixo | pensando, 2,5 s depois de o servidor ter a pergunta e antes da primeira frase (único adorno do pensando) | a mão do desenho do usuário balança apoiando o queixo |
+| Balãozinho | falando, a partir da primeira frase ou do áudio audível | surge no canto, três pontos pulam no ritmo da voz, some ~0,5 s após a fala |
+| Corações | carinho | são os próprios olhos (dois corações); não sobem mais |
 | Bochechas | carinho, envergonhado | duas pílulas salmão pequenas e inclinadas no canto de baixo dos olhos |
 | Brilhos | animado | estrelas de quatro pontas piscando |
 | ? | confuso | pendula ±12° |
 | Gota de suor | envergonhado | escorre uma vez |
 | Lágrima | triste, na entrada | cai uma vez |
-| Sem conexão | rede caiu | Wi-Fi riscado piscando e pontos |
+| Sem conexão | rede caiu | símbolo de Wi-Fi riscado, âmbar, fixo no canto superior direito |
+| Parada segura | FAULT do `motion_safety` | escudo com pausa, âmbar, fixo no mesmo canto, até o reset |
 
 As mãos são os desenhos do usuário (seis poses: pensando, confuso,
 risadinha, sonolento, combinado, oi), recortados e usados como sprites

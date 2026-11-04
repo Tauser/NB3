@@ -5,8 +5,10 @@ movimento, toque, LEDs, reflexos) sobre uma mente de IA em nuvem. Liga na
 tomada, conecta no WiFi e conversa — **nenhum serviço, server ou LLM rodando
 fora do robô e da nuvem**.
 
-> **Status:** etapas 0 e 1 concluídas; próxima é a vida própria (humor,
-> estados e memória local). Núcleos de servos e safety prontos. Ver
+> **Status:** etapas 0 a 3 concluídas ou implementadas (conversa, face,
+> humor, memória local, arcos, energia); movimento com safety feito com os
+> servos soltos; etapa 5 (vida offline) em andamento, com timers e lembretes.
+> A face foi revista e simplificada em novembro (D-023). Ver
 > [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Princípios

@@ -53,8 +53,10 @@ o estado por `Led::OnStateChanged()`; a board NB3 fornece um display (`face/`)
 e um Led (`behavior/state_led`) que transformam isso em propostas ao árbitro.
 A ferramenta MCP `self.face.set_expression` propõe como fonte própria. A face
 consulta o árbitro a cada quadro (30 fps) e desenha o avatar de
-`core/nb_avatar` (portado do NB2: olhos em cápsula, 12 animações, piscar e
-coreografia do IDLE). `core/nb_face_link` traduz a expressão vencedora em
+`core/nb_avatar` (portado do NB2 e reescrito: seis geradores de pose e 15
+receitas escalares, piscar e coreografia do IDLE), com os canais de atividade,
+gesto e aviso técnico de `core/nb_overlay` por cima e o turno da conversa em
+`core/nb_turn`. `core/nb_face_link` traduz a expressão vencedora em
 animação: ela fica na tela enquanto vencer, e a volta ao IDLE deixa um
 gesto curto terminar. O humor (`behavior/mood_modifier` sobre
 `core/nb_affect`) recebe emoção, toque e estado como estímulos e propõe a

@@ -4,15 +4,20 @@ Etapas, prova de sucesso de cada uma e onde o projeto está. Atualizado a cada
 entrega; a fonte da verdade do código é o git (`git log`), aqui fica o
 andamento em linguagem de produto.
 
-**Atualizado em:** 2026-10-28 — etapa 3 implementada (arcos, energia,
-iniciativa, hábitos e personalidade pela rotina); etapa 4 retomada pelo
-safety.
+**Atualizado em:** 2026-11-04 — revisão da face e do comportamento (D-023)
+entregue: etapas 0 a 5 no código e na placa, etapa 6 fechada com ressalvas
+(abaixo). O áudio e o corte de fala seguem parados até a troca do mic.
 
-**Planejamento de 02/11/2026:** a [revisão da face](PLANO-FACE-E-COMPORTAMENTO-2026-11-02.md)
-define uma entrega restrita à simplificação visual e correções de integração,
-começando pelo isolamento do slot de safety. Galeria, composição em três
-canais e seis famílias ainda são propostas; esta revisão documental não
-altera o status das entregas abaixo.
+**Revisão da face e do comportamento (02 a 04/11/2026):** o
+[plano](PLANO-FACE-E-COMPORTAMENTO-2026-11-02.md) foi executado: slot de safety
+isolado, galeria e poses de referência, compositor em três canais (atividade,
+gesto, técnico), seis geradores e 15 receitas no lugar dos 15 arrays de
+keyframes, bravo vermelho, ícones âmbar de rede e parada, e espera confirmada
+pelo servidor. Situação por etapa nas entradas abaixo. **Etapa 6:** desempenho
+medido e dentro da faixa; faces conferidas na tela física pelo dono; teste de
+leitura com ferramenta pronta mas sem os 3 avaliadores do critério (o projeto
+tem um só); espera com rede ruim e ferramenta lenta não medida. Não entram:
+novos movimentos de cabeça, rituais ou iniciativa.
 
 **Etapa 0 da revisão da face:** o aviso facial de safety tem fonte própria no
 árbitro (`NB_SOURCE_SAFETY`), então um lembrete não apaga mais a cara de tonto
