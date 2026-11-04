@@ -140,20 +140,17 @@ PanelServer::~PanelServer() {
     }
 }
 
+std::string PanelServer::Code() {
+    std::lock_guard<std::mutex> lock(auth_mutex_);
+    return auth_.open ? std::string(auth_.code, NB_PANEL_CODE_LEN) : std::string();
+}
+
 bool PanelServer::IsOpen() {
     std::lock_guard<std::mutex> lock(auth_mutex_);
     return nb_panel_auth_is_open(&auth_, NowMs());
 }
 
-PanelServer::OpenResult PanelServer::Open() {
-    char address[16];
-    if (timer_ == nullptr) {
-        return OpenResult::kFailed;
-    }
-    if (!StationAddress(address, sizeof(address))) {
-        return OpenResult::kNoNetwork;
-    }
-    std::lock_guard<std::mutex> life(life_mutex_);
+bool PanelServer::StartServer() {
     if (server_ == nullptr) {
         httpd_config_t config = HTTPD_DEFAULT_CONFIG();
         config.stack_size = 8192;
@@ -165,7 +162,7 @@ PanelServer::OpenResult PanelServer::Open() {
         if (httpd_start(&server_, &config) != ESP_OK) {
             server_ = nullptr;
             ESP_LOGE(TAG, "server not started");
-            return OpenResult::kFailed;
+            return false;
         }
         const httpd_uri_t routes[] = {
             {"/", HTTP_GET, &PanelServer::Page, this},
@@ -182,6 +179,25 @@ PanelServer::OpenResult PanelServer::Open() {
             httpd_register_uri_handler(server_, &route);
         }
     }
+    return true;
+}
+
+PanelServer::OpenResult PanelServer::Open() {
+    char address[16];
+    if (timer_ == nullptr) {
+        return OpenResult::kFailed;
+    }
+    if (!StationAddress(address, sizeof(address))) {
+        return OpenResult::kNoNetwork;
+    }
+    std::lock_guard<std::mutex> life(life_mutex_);
+    // Starting the server takes CPU and Wi-Fi time the audio needs, so while the robot
+    // is talking it waits for the next idle moment (Tick).
+    const bool idle = Application::GetInstance().GetDeviceState() == kDeviceStateIdle;
+    if (idle && !StartServer()) {
+        return OpenResult::kFailed;
+    }
+    pending_start_ = !idle;
     uint32_t code;
     {
         std::lock_guard<std::mutex> lock(auth_mutex_);
@@ -206,9 +222,10 @@ PanelServer::OpenResult PanelServer::Open() {
 
 void PanelServer::Close() {
     std::lock_guard<std::mutex> life(life_mutex_);
-    if (server_ == nullptr) {
+    if (server_ == nullptr && !pending_start_) {
         return;
     }
+    pending_start_ = false;
     {
         std::lock_guard<std::mutex> lock(auth_mutex_);
         nb_panel_auth_close(&auth_);
@@ -218,8 +235,10 @@ void PanelServer::Close() {
     }
     // Handlers never take life_mutex_, so stopping the server while holding it
     // cannot wait on one of them.
-    httpd_stop(server_);
-    server_ = nullptr;
+    if (server_ != nullptr) {
+        httpd_stop(server_);
+        server_ = nullptr;
+    }
     if (p_.display != nullptr) {
         p_.display->ShowNotification("Painel fechado", 3000);
     }
@@ -242,14 +261,20 @@ void PanelServer::Tick() {
         // The panel was asked for during a conversation, so it opens while the
         // robot is busy; it closes when a later conversation starts.
         const bool idle = Application::GetInstance().GetDeviceState() == kDeviceStateIdle;
+        // Other messages and the conversation's own status take the banner away, and it
+        // lasts a minute at most: until someone logs in, and for the first minute
+        // regardless, keep putting it back, whatever the robot is doing.
+        const bool wanted = !logged_in || NowMs() - opened_ms_ < kBannerMinMs;
+        if (wanted && p_.display != nullptr && NowMs() - shown_ms_ >= kReshowMs) {
+            p_.display->ShowNotification(banner_, kIdleMs);
+            shown_ms_ = NowMs();
+        }
         if (idle) {
-            // Other messages and the end of a conversation take the banner away, and it
-            // lasts a minute at most: until someone logs in, and for the first minute
-            // regardless, keep putting it back.
-            const bool wanted = !logged_in || NowMs() - opened_ms_ < kBannerMinMs;
-            if (wanted && p_.display != nullptr && NowMs() - shown_ms_ >= kReshowMs) {
-                p_.display->ShowNotification(banner_, kIdleMs);
-                shown_ms_ = NowMs();
+            if (pending_start_) {
+                pending_start_ = false;
+                if (!StartServer()) {
+                    close = true;
+                }
             }
             idle_seen_ = true;
         } else if (idle_seen_) {
