@@ -18,8 +18,12 @@ altera o status das entregas abaixo.
 árbitro (`NB_SOURCE_SAFETY`), então um lembrete não apaga mais a cara de tonto
 da parada. O aviso segue durando 3 s; o aviso persistente fica para a etapa 5.
 Validado em host-tests e build, e o firmware com o patch roda na placa em
-conversa real. Falta validar na placa: provocar um FAULT com um lembrete
-tocando durante o aviso.
+conversa real. A validação na placa mudou de alvo: na etapa 5 o FAULT deixou de
+mostrar a cara de tonto e passou a mostrar o ícone fixo de parada (canal T), que
+não depende da expressão. Em 04/11, cortando a energia dos servos com um
+lembrete marcado, o log mostrou `FAULT feedback_lost on pan` com os servos
+soltos, e o dono viu o ícone aparecer e o lembrete ser exibido normalmente por
+cima. Etapa 0 fechada. O slot `NB_SOURCE_SAFETY` ficou sem produtor.
 
 **Etapa 1 da revisão da face (02/11):** linha de base e prova de STT/TTS na
 placa, AEC desligado, 21 mensagens em 8 sessões sem estado preso. O STT chega
