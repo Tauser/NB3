@@ -200,6 +200,24 @@ static void test_confirmed_wait_replaces_the_bars_with_the_hand_at_once(void) {
     NB_CHECK_EQ_INT(NB_ACTIVITY_NONE, step(&r, 600).activity);
 }
 
+static void test_cheeks_stay_with_the_hand_and_the_hearts(void) {
+    rig_t r;
+    rig_init(&r);
+    // The cheeks belong to the pose, not to the gesture channel: a confirmed wait
+    // puts the hand in G and leaves them on the embarrassed face.
+    r.in.winner = NB_EXPR_EMBARRASSED;
+    r.in.wait_confirmed = true;
+    step(&r, 0);
+    nb_overlay_frame_t f = step(&r, 400);
+    NB_CHECK_EQ_INT(NB_GESTURE_HAND, f.gesture);
+    NB_CHECK(f.cheeks);
+    r.in.wait_confirmed = false;
+    r.in.winner = NB_EXPR_LOVING;
+    f = step(&r, 500);
+    NB_CHECK_EQ_INT(NB_GESTURE_HEARTS, f.gesture);
+    NB_CHECK(f.cheeks);
+}
+
 static void test_a_thinking_expression_never_invents_a_wait(void) {
     rig_t r;
     rig_init(&r);
@@ -348,6 +366,7 @@ int main(void) {
     NB_RUN(test_thinking_hand_waits_then_slides_in);
     NB_RUN(test_thinking_during_listening_keeps_the_bars_and_no_hand);
     NB_RUN(test_confirmed_wait_replaces_the_bars_with_the_hand_at_once);
+    NB_RUN(test_cheeks_stay_with_the_hand_and_the_hearts);
     NB_RUN(test_a_thinking_expression_never_invents_a_wait);
     NB_RUN(test_bars_follow_the_level_irregularly);
     NB_RUN(test_level_falls_slower_than_it_rises);

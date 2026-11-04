@@ -337,7 +337,36 @@ A etapa 4 reescreve o avatar e 78 referências em test_avatar.c e test_face_link
 - Saída de olhar para HeadBehavior mantém seu contrato e limites.
 - Desempenho com a mão atual e os canais compostos; ausência de regressão relevante de áudio.
 
-Executar host-tests e build ESP-IDF nas etapas de código, sob os warnings existentes. Só documentação nesta revisão: nenhum desses testes foi executado agora.
+Executar host-tests e build ESP-IDF nas etapas de código, sob os warnings existentes.
+
+### Situação da matriz (04/11)
+
+Os 40 host-tests passam (`ctest`, gcc do MSYS2) e o build do ESP-IDF fecha sem warnings. Item a item, na ordem da lista:
+
+| # | Item | Onde está coberto |
+|---|---|---|
+| 1 | Lembrete durante o aviso de safety | `test_arbiter` (reflexo não troca a safety e a safety cobre o reflexo); na placa, FAULT com lembrete: o ícone ficou e o lembrete apareceu |
+| 2 | Nomes aceitos e desconhecido rejeitado | `test_expression` (4 testes) |
+| 3 | Bravo por 30 s, toque no meio | duração e retorno em `test_arbiter`; a cor vermelha vem do desenho (`face_display.cc`), sem host-test, vista na placa |
+| 4 | Expressão comandada na escuta preserva A | `test_overlay` |
+| 5 | Thinking sem STT não inventa espera | `test_overlay` |
+| 6 | STT duplicado, tardio, ausente, com erro, com Speaking | `test_turn` (8 testes) |
+| 7 | Interrupção durante a fala | adiada junto com o corte de fala |
+| 8 | Voz que termina sem balão nem espera presos | `test_turn` e `test_overlay` (balão persiste e sai) |
+| 9 | Sono → toque/wake publica a abertura sem esperar o timer | a saída do sono em `test_behavior`; a publicação (`SetSleeping`) fica na casca, sem host-test |
+| 10 | 15 intenções com receita | `test_avatar`, `test_face_link` |
+| 11 | A, G e T nos extremos e com o banner | `test_face_gallery.py`, `test_overlay_anchor` |
+| 12 | Espera troca barras por mão; aos 20 s a mão sai | `test_overlay` e `test_turn`; o aviso "Demorando para responder" fica na casca, sem host-test |
+| 13 | Thinking na escuta mantém as barras | `test_overlay` |
+| 14 | Bochechas com mão ou corações | `test_overlay` (`test_cheeks_stay_with_the_hand_and_the_hearts`, novo em 04/11) |
+| 15 | Antecipação, balanço, quem não pisca | `test_avatar` |
+| 16 | Rede cai e volta sem som ou banner duplicados | `test_link` e `test_overlay`; som e banner estão em `link_monitor`, sem host-test (visto na placa com o roteador desligado) |
+| 17 | Safety recupera com a rede caída | `test_overlay` (o ícone de rede volta) |
+| 18 | Renovação não reinicia; expiradas não voltam | `test_arbiter`, `test_avatar` |
+| 19 | Olhar para o HeadBehavior | `test_gaze`, `test_head_follow` |
+| 20 | Desempenho e áudio | desempenho medido na placa; áudio parado até a troca do mic |
+
+Fora de host-test ficam os itens que moram na casca (cor do bravo, anúncio de espera longa, publicação do sono, som e banner da rede). Foram vistos na placa, sem teste automático que os proteja de regressão.
 
 ## 13. Checklist e encerramento
 
